@@ -65,13 +65,13 @@ So, what *is* planed for now? A most probably very incomplete list but a good st
 
 ##The Name?
 
-This program is named after [Joyce Currie Little}(http://www.women.cs.cmu.edu/ada/Resources/Women/#Joyce%20CurrieLittle).
+This program is named after [Joyce Currie Little](http://www.women.cs.cmu.edu/ada/Resources/Women/#Joyce%20CurrieLittle).
 
 ##Why?
 
 The main author wanted to write a more elaborated example of Flex/Bison than the example program `mcalc`. Although quite useful for students to start, it is nothing complete and useful on its own. He (it is quite awkward to write in the third person if you are the one you are talking about ;-) ) tried to make use of Libtommath which also has a basic library for floating point arithmetic.
 
-Then he found out that JISON is able to parse Flex/Bison scripts, too and already in possession of [a large library of numerical functions written in JavaScript}(http://pragmath.sourceforge.net/), it was an easy decision to use JISON instead of Flex/Bison.
+Then he found out that JISON is able to parse Flex/Bison scripts, too and already in possession of [a large library of numerical functions written in JavaScript](http://pragmath.sourceforge.net/), it was an easy decision to use JISON instead of Flex/Bison.
 
 A lot of things have been implemented already, you might take a look at his fork of libtommath.
 
