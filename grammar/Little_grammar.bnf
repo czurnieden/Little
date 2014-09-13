@@ -1,0 +1,332 @@
+; the syntax is correct, but if the whole thing makes sense is a still open 
+; question. Commented in
+; http://deamentiaemundi.wordpress.com/2014/09/13/adventures-of-a-programmer-parser-writing-peril-xxv/
+; But some parts are elsewhere in that series
+primary-expression = identifier         /
+                     literal            /
+                     matrix-literal     / ; Matrices, vectors, etc.
+                     cf-literal         / ; continued fractions
+                     "(" expression ")"
+
+member-expression = primary-expression                   /
+                    member-expression "[" expression "]" /
+                    member-expression "." identifier
+
+call-expression = member-expression arguments        /
+                  call-expression   arguments        /
+                  call-expression "[" expression "]" /
+                  call-expression  "."  identifier
+
+arguments       = "()"               /
+                  "(" argument-list ")"
+argument-list   = assignment-expression *( "," assignment-expression)
+
+left-hand-expression = member-expression /
+                       call-expression
+
+postfix-expression = left-hand-expression      /
+                     left-hand-expression "++" /
+                     left-hand-expression "--"
+
+unary-expression = postfix-expression    /
+                   "++" unary-expression /
+                   "--" unary-expression /
+                   "+"  unary-expression /
+                   "-"  unary-expression / ; minus
+                   "~"  unary-expression / ; tilde
+                   "#"  unary-expression   ; cardinality (higher?)
+
+power-expression = unary-expression                      / 
+                   power-expression "^" unary-expression
+
+multiplicative-expression = power-expression                                /
+                            multiplicative-expression "*" power-expression  /
+                            multiplicative-expression "/" power-expression  /
+                            multiplicative-expression "//" power-expression /
+                            multiplicative-expression "%" power-expression 
+
+
+additive-expression = multiplicative-expression                         /
+                      additive-expression "+" multiplicative-expression /
+                      additive-expression "-" multiplicative-expression
+
+shift-expression = additive-expression                                /
+                   shift-expression "<<" additive-expression  /
+                   shift-expression ">>>" additive-expression /
+                   shift-expression ">>" additive-expression
+
+
+relational-expression = shift-expression                            /
+                        relational-expression "<"  shift-expression /
+                        relational-expression ">"  shift-expression /
+                        relational-expression "<=" shift-expression /
+                        relational-expression ">=" shift-expression
+
+equality-expression = relational-expression                           /
+                      equality-expression "=="  relational-expression /
+                      equality-expression "!="  relational-expression /
+                      equality-expression "===" relational-expression /
+                      equality-expression "!==" relational-expression
+
+
+bitwise-and-expression = equality-expression                            /
+                         bitwise-and-expression "&" equality-expression
+
+bitwise-xor-expression = bitwise-and-expression                         /
+                         bitwise-and-expression "^" bitwise-and-expression
+ 
+bitwise-or-expression = bitwise-xor-expression                         /
+                        bitwise-or-expression "|" bitwise-xor-expression
+
+logical-and-expression = bitwise-or-expression                            /
+                         logical-and-expression "|" bitwise-or-expression
+logical-or-expression =  logical-and-expression                           /
+                         logical-or-expression "|" logical-and-expression
+
+
+conditional-expression = logical-or-expression          /
+                         ( logical-or-expression "?"
+                               assignment-expression ":"
+                               assignment-expression )
+
+assignment-expression = conditional-expression /
+                        ( left-hand-expression
+                            assignment-operator assignment-expression )
+
+
+assignment-operator = "=" /
+                       "+=" / "-=" /
+                       "*=" / "/=" / "%=" /
+                       "<<=" / ">>=" / ">>>=" /
+                       "&=" / "^=" / "|="
+
+expression = assignment-expression *("," assignment-expression)
+
+statement =  block /  variable-statement / empty-statement /
+             expression-statement /  if-statement / iteration-statement /
+             continue-statement / break-statement / return-statement /
+             switch-statement / labelled-statement
+
+block = "{}"                    / ; empty block does not hurt but is useful
+        "{" source-elements "}"
+
+statement-list = statement *statement
+
+
+variable-statement        = variable-declaration-list ";"
+variable-declaration-list = variable-declaration
+                                *( "," variable-declaration)
+variable-declaration      = *1( *1modifier / *1type-specifier) identifier 1*initializer
+initializer               = "=" assignment-expression
+
+empty-statement = ";"
+
+expression-statement = expression ";"
+
+if-statement   = IF "(" expression ")" statement 1*else-statement
+else-statement = ELSE statement
+
+
+iteration-statement = DO statement WHILE
+                         "(" expression ");"                    /
+ 
+                      WHILE "(" expression ")"
+                          statement                             /
+ 
+                      FOR
+                         "("
+                          ( *1expression / variable-declaration-list )
+                            ";"
+                          ( *1expression )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+ 
+                      FOR
+                         "("
+                          identifier IN expression
+                         ")"
+                         statement
+
+continue-statement = CONTINUE ";"            /
+                     CONTINUE identifier ";"
+ 
+break-statement = BREAK ";"           /
+                  BREAK identifier ";"
+
+
+return-statement = RETURN ";" /
+                   RETURN expression ";"
+
+
+switch-statement = SWITCH "(" expression ")" case-block
+case-block   = "{" *1case-clauses "}"                              /
+               "{" *1case-clauses default-clause *1case-clauses "}"
+case-clauses = case-clause *case-clause
+case-clause  = CASE expression ":" / ; fall through
+               CASE expression ":" statement-list
+default-clause = DEFAULT ":" / ; fall through
+                 DEFAULT ":" statement-list
+
+labelled-statement = identifier ":" statement
+
+function-declaration = *1( *1modifier / *1type-specifier)
+                            (
+                             identifier "()" function-body                   /
+                             identifier "(" parameter-list ")" function-body
+                            )
+parameter-list = identifier *( "," identifier ) ; no defaults for now
+function-body  = "{}"                 /
+                 "{" source-elements "}"
+; parser <START>
+program = *1source-elements ; program can be empty
+
+
+source-elements = 1*source-element
+source-element  = statement / function-declaration
+
+matrix-literal = "[" 1*matrix-row "]"
+matrix-row     = matrix-col *( ";" matrix-col)
+matrix-col     = matrix-element *("," matrix-element)
+matrix-element = number-literal / imaginary-literal
+
+cf-literal     = "[" cf-element ";" 1*cf-row "]"
+cf-row         = cf-element *("," cf-element)
+cf-element     = number-literal / imaginary-literal
+
+
+literal  = string-literal     /
+           number-literal    /
+           imaginary-literal  /
+           bool-true-literal  /
+           bool-false-literal /
+           null-literal
+; reserved words (should get handled by lexer)
+WHILE    = %x77.68.69.6c.65   ; whil
+DO       = %x64.6f   ; do
+CASE     = %x63.61.73.65   ; case
+DEFAULT  = %x64.65.66.61.75.6c.74   ; default
+FOR      = %x66.6f.72   ; for
+SWITCH   = %x73.77.69.74.63.68   ; switch
+RETURN   = %x72.65.74.75.72.6e   ; return
+BREAK    = %x62.72.65.61.6b   ; break
+CONTINUE = %x63.6f.6e.74.69.6e.75.65   ; continu
+IN       = %x69.6e   ; in
+IF       = %x69.66   ; if
+ELSE     = %x65.6c.73.65 ; else
+
+; Types. May be implemented or not
+type-specifier =  %x42.6f.6f.6c / ; Bool
+                  %x52.65.61.6c / ; Real
+                  %x43.6f.6d.70.6c.65.78 / ; Complex
+                  %x4d.61.74.72.69.78 / ; Matrix
+                  %x50.6f.6c.79 / ; Poly
+                  %x56.65.63.74.6f.72 ; Vector
+ 
+; Modifiers
+modifier              = modifier-static / modifier-global / 
+                        modifier-thread-safe / modifier-synchronized
+
+modifier-static       =  %x73.74.61.74.69.63   ; static
+modifier-global       =  %x67.6c.6f.62.61.6c  ; global
+; for web-workers.
+modifier-thread-safe  =  %x74.68.72.65.61.64.73.61.66.65  ; threadsafe
+modifier-synchronized =  %x73.79.6e.63.68.72.6f.6e.69.7a.65.64  ; synchronized
+
+
+; feed the the stuff below to the lexer and most of the stuff above to the
+; parser (keywords and reserved words belong to the lexer, of course)
+
+bool-true-literal  = %x74.72.75.65    ; true
+bool-false-literal = %x66.61.6c.73.65 ; false
+null-literal       = %x6e.75.6c.6c    ; null
+
+
+;identifier       = identifier-base *("." identifier-base)
+identifier       = identifier-start *identifier-part 
+identifier-part  = identifier-start / (%x30-39) ; [_a-zA-Z][_a-zA-Z0-9]*
+identifier-start = "_" *(%x41-5a / %x61-7a) ; [_a-zA-Z]
+
+
+string-literal            = ( DQUOTE *double-string-character ) /
+                            ( "'" *single-string-character)
+double-string-character   =  1*not-single-quote     /
+                            ( "\" escape-sequence ) /
+                             line-continuation
+single-string-character   =  1*not-double-quote     /
+                            ( "\" escape-sequence ) /
+                             line-continuation
+; printable characters sans double quote " " "
+not-double-quote          = %x20-21 / %x23-5b / %x5d-7e /
+                            %xa0-ff
+; printable characters sans single quote " ' "
+not-single-quote          = %x20-2b / %x2d-5b / %x5d-7e /
+                            %xa0-ff
+escape-sequence           = character-escape-sequence /
+                            octal-escape-sequence     /
+                            hex-escape-sequence       /
+                            uni-escape-sequence
+character-escape-sequence = single-escape-character /
+                            non-escape-character
+single-escape-character = "'" / DQUOTE / SLASH / "b" / "f" /
+                          "n" /   "r"  /  "t"  / "v"
+SLASH  = %x5c
+
+non-escape-character  = %x20-21 / %x23-26 / %x28-2f / %x3a-5b /
+                        %x5d-60 /   "a"   / %x62-65 / %x67-6d /
+                        %x6f-73 /  %x75   / %x77-78 / %x7b-7e /
+                        %xa0-ff
+
+uni-escape-sequence   = ("u" 4hex-digit) / ("U" 6hex-digit)
+hex-escape-sequence   = "x" 2hex-digit
+octal-escape-sequence = "0" %x30-33 2oct-digit ; \0000-\0377
+
+line-continuation     = "\" (CRLF / CR / LF) ; escape EOL
+
+
+
+
+
+; Imaginary number
+imaginary-literal = number-literal "i"
+; General number
+number-literal    = hex-sequence / dec-sequence / oct-sequence / bin-sequence
+ 
+; Hexadecimal number
+hex-sequence     = *1sign hex-indicator hex-significand
+                    hex-exponent
+hex-exponent     = hex-exponent-indicator *1sign 1*DIGIT
+hex-significand  = (*hex-digit "." 1*hex-digit) /
+                   (1*hex-digit ".") /
+                   (1*hex-digit)
+hex-indicator          = "0" ("x" /%x58 ) ; 0[xX]
+hex-exponent-indicator = "p" / %x50 ; [Pp]
+hex-digit     = DIGIT / %x41-46 / %x61-66 ; [0-9a-fA-F]
+
+ 
+; Decimal number
+dec-sequence     = *1sign dec-significand decimal-exponent
+dec-significand  = (*DIGIT "." 1*DIGIT) /
+                   (1*DIGIT ".") /
+                   (1*DIGIT)
+
+; Octal number
+oct-sequence     = *1sign oct-indicator oct-significand  decimal-exponent
+oct-significand  = (1*DIGIT "." 1*DIGIT) /
+                   (1*DIGIT ".") /
+                   (1*DIGIT)
+oct-indicator          = "0" ; leading zero
+oct-digit     = "0" / "1" / "2" / "3" / "4" /
+                "5" / "6" / "7"
+
+; Binary number
+bin-sequence     = *1sign bin-indicator bin-significand
+                    decimal-exponent
+decimal-exponent = bin-exponent-indicator *1sign 1*digit
+bin-significand  = (*BIT "." 1*BIT) /
+                   (1*BIT ".") /
+                   (1*BIT)
+bin-indicator          = "0" ("b" /%x42 ) ; 0[bB]
+bin-exponent-indicator = "e" / %x45 ; [Ee]
+sign          = "+" / "-"
