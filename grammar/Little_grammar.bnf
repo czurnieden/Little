@@ -5,7 +5,7 @@
 primary-expression = identifier         /
                      literal            /
                      matrix-literal     / ; Matrices, vectors, etc.
-                     cf-literal         / ; continued fractions
+                     ; cf-literal         / ; continued fractions
                      "(" expression ")"
 
 member-expression = primary-expression                   /
@@ -34,6 +34,7 @@ unary-expression = postfix-expression    /
                    "+"  unary-expression /
                    "-"  unary-expression / ; minus
                    "~"  unary-expression / ; tilde
+                   "!"  unary-expression /
                    "#"  unary-expression   ; cardinality (higher?)
 
 power-expression = unary-expression                      / 
@@ -96,7 +97,7 @@ assignment-expression = conditional-expression /
 
 assignment-operator = "=" /
                        "+=" / "-=" /
-                       "*=" / "/=" / "%=" /
+                       "*=" / "/=" / "//=" / "%=" /
                        "<<=" / ">>=" / ">>>=" /
                        "&=" / "^=" / "|="
 
@@ -105,15 +106,15 @@ expression = assignment-expression *("," assignment-expression)
 statement =  block /  variable-statement / empty-statement /
              expression-statement /  if-statement / iteration-statement /
              continue-statement / break-statement / return-statement /
-             switch-statement / labelled-statement
-
+             switch-statement / labelled-statement / object-declaration /
+             function-declaration
 block = "{}"                    / ; empty block does not hurt but is useful
         "{" source-elements "}"
 
 statement-list = statement *statement
 
 
-variable-statement        = variable-declaration-list ";"
+variable-statement        = "let" variable-declaration-list ";"
 variable-declaration-list = variable-declaration
                                 *( "," variable-declaration)
 variable-declaration      = *1( *1modifier / *1type-specifier) identifier 1*initializer
@@ -147,7 +148,52 @@ iteration-statement = DO statement WHILE
                          "("
                           identifier IN expression
                          ")"
-                         statement
+                         statement                              /
+
+             ; The following iteration statements have all the same
+             ; syntax and should get treated by one parser production
+             ; only. Sort it out later 
+
+                      FORPRIME
+                         "("
+                          ( variable-declaration )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+
+                      FORDIV
+                         "("
+                          ( variable-declaration )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+
+                      SUMDIV
+                         "("
+                          ( variable-declaration )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+
+                      SUM
+                         "("
+                          ( variable-declaration )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+
+                      PROD
+                         "("
+                          ( variable-declaration )
+                            ";"
+                          ( *1expression )
+                         ")"
+                         statement                              /
+
 
 continue-statement = CONTINUE ";"            /
                      CONTINUE identifier ";"
@@ -171,7 +217,7 @@ default-clause = DEFAULT ":" / ; fall through
 
 labelled-statement = identifier ":" statement
 
-function-declaration = *1( *1modifier / *1type-specifier)
+function-declaration =  "define"  *1( *1modifier / *1type-specifier)
                             (
                              identifier "()" function-body                   /
                              identifier "(" parameter-list ")" function-body
@@ -179,21 +225,26 @@ function-declaration = *1( *1modifier / *1type-specifier)
 parameter-list = identifier *( "," identifier ) ; no defaults for now
 function-body  = "{}"                 /
                  "{" source-elements "}"
+
+object-declaration =   OBJECT "{}"                    /
+                       OBJECT "{" identifier-list "}"
+identifier-list    =   identifier                               /
+                       identifier-list "," identifier
+
 ; parser <START>
 program = *1source-elements ; program can be empty
 
-
-source-elements = 1*source-element
-source-element  = statement / function-declaration
+source-elements = 1*statement 
 
 matrix-literal = "[" 1*matrix-row "]"
 matrix-row     = matrix-col *( ";" matrix-col)
 matrix-col     = matrix-element *("," matrix-element)
 matrix-element = number-literal / imaginary-literal
 
-cf-literal     = "[" cf-element ";" 1*cf-row "]"
-cf-row         = cf-element *("," cf-element)
-cf-element     = number-literal / imaginary-literal
+; Too much work to make the parser detect it
+; cf-literal     = "[" cf-element ";" 1*cf-row "]"
+; cf-row         = cf-element *("," cf-element)
+; cf-element     = number-literal / imaginary-literal
 
 
 literal  = string-literal     /
@@ -203,18 +254,24 @@ literal  = string-literal     /
            bool-false-literal /
            null-literal
 ; reserved words (should get handled by lexer)
-WHILE    = %x77.68.69.6c.65   ; whil
-DO       = %x64.6f   ; do
-CASE     = %x63.61.73.65   ; case
-DEFAULT  = %x64.65.66.61.75.6c.74   ; default
-FOR      = %x66.6f.72   ; for
-SWITCH   = %x73.77.69.74.63.68   ; switch
-RETURN   = %x72.65.74.75.72.6e   ; return
-BREAK    = %x62.72.65.61.6b   ; break
+BREAK    = %x62.72.65.61.6b            ; break
+CASE     = %x63.61.73.65               ; case
 CONTINUE = %x63.6f.6e.74.69.6e.75.65   ; continu
-IN       = %x69.6e   ; in
-IF       = %x69.66   ; if
-ELSE     = %x65.6c.73.65 ; else
+DEFAULT  = %x64.65.66.61.75.6c.74      ; default
+DO       = %x64.6f                     ; do
+ELSE     = %x65.6c.73.65               ; else
+FORDIV   = %x66.6f.72.64.69.76         ; fordiv
+FORPRIME = %x66.6f.72.70.72.69.6d.65   ; forprime
+FOR      = %x66.6f.72                  ; for
+IF       = %x69.66                     ; if
+IN       = %x69.6e                     ; in
+OBJECT   = %x4f.62.6a.65.63.74         ; Object
+PROD     = %x70.72.6f.64               ; prod
+RETURN   = %x72.65.74.75.72.6e         ; return
+SUMDIV   = %x73.75.6d.64.69.76         ; sumdiv
+SUM      = %x73.75.6d                  ; sum
+SWITCH   = %x73.77.69.74.63.68         ; switch
+WHILE    = %x77.68.69.6c.65            ; while
 
 ; Types. May be implemented or not
 type-specifier =  %x42.6f.6f.6c / ; Bool
@@ -323,7 +380,7 @@ oct-digit     = "0" / "1" / "2" / "3" / "4" /
 ; Binary number
 bin-sequence     = *1sign bin-indicator bin-significand
                     decimal-exponent
-decimal-exponent = bin-exponent-indicator *1sign 1*digit
+decimal-exponent = bin-exponent-indicator *1sign 1*DIGIT
 bin-significand  = (*BIT "." 1*BIT) /
                    (1*BIT ".") /
                    (1*BIT)
