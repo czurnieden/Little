@@ -1,1 +1,6 @@
-2014-09-13  Definition of the language (ABNF grammar added)
+2014-09-15  - Addition of the Object because I forgot it
+            - Changed the function-definition and put it into the statement
+              list and order
+            - added some syntactic sugar (shamelessly stolen from GP/PARI)
+            - Addition of a keyword for variable and function declaration
+2014-09-13  - Definition of the language (ABNF grammar added)
