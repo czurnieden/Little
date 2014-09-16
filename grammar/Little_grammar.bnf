@@ -124,8 +124,8 @@ empty-statement = ";"
 
 expression-statement = expression ";"
 
-if-statement   = IF "(" expression ")" statement 1*else-statement
-else-statement = ELSE statement
+if-statement   = IF "(" expression ")" "{" statement "}" 1*else-statement
+else-statement = ELSE "{" statement "}"
 
 
 iteration-statement = DO statement WHILE
