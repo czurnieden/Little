@@ -18,6 +18,13 @@ if(typeof Math.factorial === 'undefined'){
     return temp;
   };
 }
+
+if(typeof Math.log1p === 'undefined'){
+  Math.log1p = function (x) {
+    return Math.log(1 + x);
+  }
+}
+
 if(typeof Little === 'undefined'){
    Little = {};
 }
