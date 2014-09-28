@@ -5,10 +5,12 @@
 
 // Might be defined too far away
 if(typeof Little === 'undefined'){
-    Little = {};
-}
-if(typeof Little.double_int === 'undefined'){
-    Little.double_int = new DataView(new ArrayBuffer(8));
+  Little = (function(){
+      return {
+          double_int : new DataView(new ArrayBuffer(8)),
+          lgamma_sign : 1
+      }
+  })();
 }
 
 Number.prototype.getSignBit = function(){

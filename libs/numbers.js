@@ -50,7 +50,7 @@ Number.prototype.add = function(i){
     return this + i;
   else if( i instanceof Complex)
     return this.toComplex().add(i);
-  else return this;
+  else return this + i;
 };
 
 
@@ -59,7 +59,7 @@ Number.prototype.sub = function(i){
     return this - i;
   else if( i instanceof Complex)
     return this.toComplex().sub(i);
-  else return this;
+  else return this - i;
 };
 
 Number.prototype.mul = function(i){
@@ -67,7 +67,7 @@ Number.prototype.mul = function(i){
     return this * i;
   else if( i instanceof Complex)
     return this.toComplex().mul(i);
-  else return this;
+  else return this * i;
 };
 
 Number.prototype.div = function(i){
@@ -75,7 +75,7 @@ Number.prototype.div = function(i){
     return this / i;
   else if( i instanceof Complex)
     return this.toComplex().div(i);
-  else return this;
+  else return this / i;
 };
 
 Number.prototype.mod = function(i){
@@ -83,7 +83,7 @@ Number.prototype.mod = function(i){
     return this % i;
   else if( i instanceof Complex)
     return this.toComplex().mod(i);
-  else return this;
+  else return this % i;
 };
 
 Number.prototype.fmod = function(i){
@@ -91,7 +91,7 @@ Number.prototype.fmod = function(i){
     return this % i;
   else if( i instanceof Complex)
     return this.toComplex().fmod(i);
-  else return this;
+  else return this % i;
 };
 
 Number.prototype.abs = function(){
@@ -133,7 +133,7 @@ Number.prototype.pow = function(i){
     return Math.pow(this,i);
   else if( i instanceof Complex)
     return this.toComplex().pow(i);
-  else return this;
+  else return Math.pow(this,i) ;
 };
 
 
@@ -264,7 +264,7 @@ Number.prototype.gcd = function(i){
     return this.GCD(i);
   else if( i instanceof Complex)
     return this.toComplex().gcd(i);
-  else return this;
+  else return this.GCD(i);
 };
 
 Number.prototype.lcm = function(i){
@@ -272,7 +272,7 @@ Number.prototype.lcm = function(i){
     return this.LCM(i);
   else if( i instanceof Complex)
     return this.toComplex().lcm(i);
-  else return this;
+  else return this.LCM(i);
 };
 
 Number.prototype.max = function(i){
@@ -280,7 +280,7 @@ Number.prototype.max = function(i){
     return Math.max(this,i);
   else if( i instanceof Complex)
     return this.toComplex().max(i);
-  else return this;
+  else return Math.max(this,i);
 };
 
 Number.prototype.min = function(i){
@@ -288,7 +288,7 @@ Number.prototype.min = function(i){
     return Math.min(this,i);
   else if( i instanceof Complex)
     return this.toComplex().min(i);
-  else return this;
+  else return Math.min(this,i);
 };
 
 
@@ -297,7 +297,7 @@ Number.prototype.gt = function(i){
     return (this > i);
   else if( i instanceof Complex)
     return this.toComplex().gt(i);
-  else return this;
+  else return (this > i);
 };
 
 Number.prototype.ge = function(i){
@@ -305,7 +305,7 @@ Number.prototype.ge = function(i){
     return (this >= i);
   else if( i instanceof Complex)
     return this.toComplex().ge(i);
-  else return this;
+  else return (this >= i);
 };
 
 Number.prototype.lt = function(i){
@@ -313,7 +313,7 @@ Number.prototype.lt = function(i){
     return (this < i);
   else if( i instanceof Complex)
     return this.toComplex().lt(i);
-  else return this;
+  else return (this < i);
 };
 
 Number.prototype.le = function(i){
@@ -321,7 +321,7 @@ Number.prototype.le = function(i){
     return (this <= i);
   else if( i instanceof Complex)
     return this.toComplex().le(i);
-  else return this;
+  else return (this <= i);
 };
 
 
@@ -330,7 +330,7 @@ Number.prototype.equal = function(i){
     return (this == i);
   else if( i instanceof Complex)
     return this.toComplex().equal(i);
-  else return this;
+  else return (this == i);
 };
 
 Number.prototype.strequal = function(i){
@@ -338,7 +338,7 @@ Number.prototype.strequal = function(i){
     return (this === i);
   else if( i instanceof Complex)
     return this.toComplex().strequal(i);
-  else return this;
+  else return (this === i);
 };
 
 /* Some legacy code. More to come but not _that_ much*/
@@ -356,7 +356,7 @@ Number.prototype.isInfinity = function(){
 };
 
 Number.prototype.isOk = function(){
-  return ((!isNaN(this) && isFinite(this)))?MP_YES:MP_NO;
+  return ((!isNaN(this) && isFinite(this)))?true:false;
 };
 /* Should exist as a native function now, please check */
 Number.prototype.isInteger = function(){
@@ -660,6 +660,15 @@ Number.prototype.toBin16 = function(){
   return ret;
 };
 
+Number.prototype.incr = function(){
+  //this++; return new Error("It is not possible to change 'this'" )
+  return this+1;
+}
+Number.prototype.decr = function(){
+  //this++; return new Error("It is not possible to change 'this'" )
+  return this-1;
+}
+
 /***************************** Complex ***************************************/
 
 /***************************** Complex numbers ********************************/
@@ -668,6 +677,13 @@ function Complex(a,b){
   this.Re = (arguments.length > 0) ? a : 0 ;
   this.Im = (arguments.length > 1) ? b : 0 ;
 }
+
+Complex.prototype.Imag = function(){
+  return this.Im ;
+};
+Complex.prototype.Real = function(){
+  return this.Re ;
+};
 
 Complex.prototype.dup = function(){
   return new Complex( this.Re, this.Im );
@@ -759,6 +775,12 @@ Complex.prototype.isImag = function(){
   return this.isIm();
 };
 
+
+Complex.prototype.isZero = function(eps){
+  return (this.Re.isZero(eps) && this.Im.isZero(eps))?true:false;
+};
+
+
 Complex.prototype.equal = function(i,tol){
   var a = this.Re;
   var b = this.Im;
@@ -775,21 +797,29 @@ Complex.prototype.equal = function(i,tol){
   }
   return false;
 };
+Complex.prototype.incr = function(){
+  this.Re++;
+  return this;
+}
+Complex.prototype.decr = function(){
+  this.Re--;
+  return this;
+}
 
 Complex.prototype.add = function(i){
   var a = this.Re;
   var b = this.Im;
-  var c;
-  var d;
+  var c = 0;
+  var d = 0;
 
   var ret = new Complex();
 
   if(typeof i == "number"){
-    i = i.toComplex();
+    c = i;
+  } else {
+    c = i.Re;
+    d = i.Im;
   }
-
-  c = i.Re;
-  d = i.Im;
 
   ret.Re = a.add(c);
   ret.Im = b.add(d);
@@ -1167,7 +1197,7 @@ Complex.prototype.sin = function(){
   var ret = new Complex();
   
   ret.Re = (a.sin()).mul(b.cosh());
-  ret.Im = (a,cos()).mul(b.sinh());
+  ret.Im = (a.cos()).mul(b.sinh());
 
   return ret;
 };
