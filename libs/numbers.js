@@ -1693,7 +1693,197 @@ Complex.prototype.Log = function(k){
 
 
 
+/*
+Bigint.prototype.DB 
+	size of ono digit (dbits) (28 bit fixed for now)
+Bigint.prototype.DM
+	((1<<digit_size)-1 (   0x0fffffff)
+Bigint.prototype.DV
+	(1<<digit_size)        (0x10000000)
+Bigint.prototype.FV
+	2^52                   (4503599627370496)
+Bigint.prototype.F1
+	52 - digit_length      (24)
+Bigint.prototype.F2 
+	2*digit_length - 52    (4)
+Bigint.prototype.copyTo bigint
+	copy this to bigint
+Bigint.prototype.fromInt integer
+	set bigint from integer value with -DV <= x < DV
+Bigint.prototype.fromString string radix
+	set bigint from string with given radix
+Bigint.prototype.clamp
+	clamp of excess high words
+  explained below but should be obvious
+Bigint.prototype.dlShiftTo 
+Bigint.prototype.drShiftTo 
+Bigint.prototype.lShiftTo 
+Bigint.prototype.rShiftTo 
+Bigint.prototype.subTo 
+Bigint.prototype.multiplyTo 
+Bigint.prototype.squareTo 
+Bigint.prototype.divRemTo 
 
+Bigint.prototype.invDigit 
+	returns "-1/this % 2^DB"
+
+Bigint.prototype.isEven 
+	true if this is even
+Bigint.prototype.exp exponent
+	this^exponent, exponent < 2^32,
+Bigint.prototype.toStrfing radix
+	return string in given radix
+Bigint.prototype.negate
+	change sign on copy
+Bigint.prototype.abs 
+Bigint.prototype.compareTo
+	general function, see shortcuts listed below
+Bigint.prototype.bitLength
+	returns the length of the bigint in bits (ilog2)
+Bigint.prototype.mod	bigint
+	returns remainder of divison
+Bigint.prototype.modPowInt exponent modulus
+	this^exponent % modulus, 0 <= exponent < 2^32
+Bigint.prototype.chunkSize mantissa
+	return x such that. r^x < DV
+Bigint.prototype.toRadix radix
+	convert to radix string. General function see below for shortcuts
+Bigint.prototype.fromRadix string radix
+	convert from string with base radix. General function see below for shortcuts
+Bigint.prototype.fromNumber 
+	alternate constructor used for converting from PRNG output
+Bigint.prototype.bitwiseTo bigint function bigint
+	general function for bitwise operations, see below for shortcuts
+Bigint.prototype.changeBit place function
+	changes bit at place by function 
+Bigint.prototype.addTo bigint
+	this + bigint
+Bigint.prototype.dMultiply integer
+	this * integer this >= 0, 1 < integer < DV
+Bigint.prototype.dAddOffset integer words
+	this += integer <<  words, this >= 0
+Bigint.prototype.multiplyLowerTo bigint integer
+	return lower integer words of this*bigint
+Bigint.prototype.multiplyUpperTo To bigint integer
+	return higher integer words of this*bigint
+Bigint.prototype.modInt integer
+	this% integer, integer < 2^26
+Bigint.prototype.millerRabin bigint
+	Miller-Rabin pseudoprime test, see isProbablePrime
+Bigint.prototype.clone
+	deep copy
+Bigint.prototype.intValue 
+	return bigint as integer (takes lower two digits if available)
+Bigint.prototype.byteValue
+	return bigint as byte (lsb of first digit)
+Bigint.prototype.shortValue
+	return bigint as short (lsb of first digit)
+Bigint.prototype.signum 
+	returns 0 if this == 0, 1 if this > 0, NOT the sign!
+Bigint.prototype.toByteArray
+	bigint array to bigendian byte array
+Bigint.prototype.equals bigint
+	returns true for equality
+Bigint.prototype.min bigint
+	returns smaller bigint
+Bigint.prototype.max bigint
+	returns bigger bigint
+Bigint.prototype.and bigint
+	this & bigint
+Bigint.prototype.or 
+	this | bigint
+Bigint.prototype.xor 
+	this ^ bigint
+Bigint.prototype.andNot 
+	this | ~bigint
+Bigint.prototype.not 
+	~this
+Bigint.prototype.shiftLeft integer
+	shift left integer bits
+Bigint.prototype.shiftRight integer
+	shift right integer bits
+Bigint.prototype.getLowestSetBit
+	get the lowest set bit of this 
+Bigint.prototype.bitCount
+	number of bits set
+Bigint.prototype.testBit place
+	returns true if bit at place is set
+Bigint.prototype.setBit place
+	set bit at place
+Bigint.prototype.clearBit place
+	clear bit at place 
+Bigint.prototype.flipBit plcae
+	flip bit at place
+Bigint.prototype.add bigint
+	this + bigint
+Bigint.prototype.subtract bigint
+	this - bigint
+Bigint.prototype.multiply bigint
+	this * bigint
+Bigint.prototype.divide bigint
+	this / bigint
+Bigint.prototype.remainder bigint
+	this % bigint
+Bigint.prototype.divideAndRemainder bigint
+	returns [ this/a , this%a ]
+Bigint.prototype.modPow exponent modulus
+	this^exponent % modulus, 0 <= eexponent < 2^32
+Bigint.prototype.modInverse modulus
+	1/this % m
+Bigint.prototype.pow exponent
+	this ^ exponent, exponent < 2^26
+Bigint.prototype.gcd bigint
+	gcd(this,bigint)
+Bigint.prototype.isProbablePrime
+	runs Miller-Rabin probability test for this
+Bigint.prototype.dlShift integer
+	shift this integer words to the left
+Bigint.prototype.drShift integer
+	shift this integer words to the right
+Bigint.prototype.mul bigint
+	this * bigint
+Bigint.prototype.karatsuba bigint
+	this * bigint, internal function
+Bigint.prototype.dup 
+	deep copy
+Bigint.prototype.mul bigint
+	this * bigint (uses fast multiplication if available)
+Bigint.prototype.divrem bigint
+	returns [ this/bigint , this%bigint ]
+Bigint.prototype.div bigint
+	this / bigint
+Bigint.prototype.rem bigint
+	this % bigint
+Bigint.prototype.equal bigint
+	this == bigint 
+Bigint.prototype.le bigint
+	this <= bigint
+Bigint.prototype.lt bigint
+	this < bigint
+Bigint.prototype.gt bigint
+	this > bigint
+Bigint.prototype.ge bigint
+	this >= bigint
+Bigint.prototype.sub bigint
+	this - bigint
+Bigint.prototype.isOdd 
+	returns true if this is odd
+Bigint.prototype.isZero 
+	returns true if this is zero
+Bigint.prototype.isInteger 
+	returns true if this is an integer (needed elsewhere)
+Bigint.prototype.sign
+	returns sign of this
+Bigint.prototype.digits 
+	returns number of decimal digits
+Bigint.prototype.LCM 
+	returns lowest common multiplier
+Bigint.prototype.lcm 
+
+String.prototype.toBigint radix
+	converts string to bigint see also: Bigint.prototype.toString 
+
+*/
 
 
 
