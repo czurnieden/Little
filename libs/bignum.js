@@ -165,7 +165,7 @@ var MP_FLOAT_2_DIGIT_DIFF = 2 * MP_DIGIT_BIT - MP_FLOAT_BIT;
 Number.INT_MAX   =  9007199254740992; // 2^53
 
 // Memory for some of the bit-juggling below
-var double_int = new DataView(new ArrayBuffer(8))
+var double_int = new DataView(new ArrayBuffer(8));
 
 /*
   checking for endianess (little endian only for now). Put in an anonymous
@@ -196,7 +196,7 @@ var double_int = new DataView(new ArrayBuffer(8))
   it? Always?), so I've chosen the long and tedious but correct way.
 
 */
-(function () {
+var __check_endianess = (function () {
   try {
     var buffer = new ArrayBuffer(8);
     var strerror = 'Bigint was written for a little-endian system only, sorry.';
@@ -387,8 +387,8 @@ Number.prototype.ieee_754_isNaN = function(){
   high |= (low|(-low))>>>31;
   high = 0x7ff00000 - high;
   nan = (high>>>31)|0;
-  return (nan)?true;false;
-}
+  return (nan)?true:false;
+};
 
 // subnormals are ok?
 Number.prototype.isOk = function(){
@@ -692,7 +692,7 @@ String.prototype.toBigint = function(radix){
 
   // case insensitive in that range
   if(radix < 36){
-    str = str.toUpper().
+    str = str.toUpper();
   }
 
   // left (high) to right (low)
@@ -750,7 +750,7 @@ Number.prototype.toBigint = function(){
 Bigint.prototype.issmallenough = function(){
   // TODO: we can use two bigdigits if MP_DIGIT_BIT <= 26
   //       than change Bigint.prototype.toNumber accordingly
-  if(this.used > 1)){
+  if(this.used > 1){
     return false
   }
   return true;
@@ -809,7 +809,8 @@ Bigint.prototype.toNumber = function(){
 Bigint.prototype.copy = function(target){
   var tt;
   if(arguments.length == 1 && target instanceof Bigint){
-    for(var i = this.used-1; i >= 0; i--) target.dp[i] = this.dp[i];
+    var i = this.used-1;
+    while(i--) { target.dp[i] = this.dp[i]; }
     target.used = this.used;
     target.alloc = this.used;
     target.sign = this.sign;
@@ -819,7 +820,8 @@ Bigint.prototype.copy = function(target){
     tt.used = this.used;
     tt.alloc = this.used;
     tt.sign = this.sign; 
-    for(var i = this.used-1; i >= 0; i--) tt.dp[i] = this.dp[i];   
+    var i = this.used-1;
+    while(i--) { tt.dp[i] = this.dp[i];}
   }
   if(arguments.length == 0){
     return tt;
@@ -828,21 +830,28 @@ Bigint.prototype.copy = function(target){
 
 Bigint.prototype.dup = function(){
   return this.copy();
-}
+};
 
 // swap with deep copy (probably)
 Bigint.prototype.swap = function(target){
   var tmp = target.copy();
   target = this.copy();
-  this = temp.copy();
-  // tmp.clear();
-  // delete tmp;
+  var i = tmp.used-1;
+  while(i--) { this.dp[i] = tmp.dp[i]; }
+  this.sign = tmp.sign;
+  this.used = tmp.used;
+  this.alloc = tmp.alloc;
+  tmp.dp = null;
 };
-// swap with shallow copy (probably)
+// swap with shallow copy (probably) unsure, don't use!
 Bigint.prototype.exch = function(target){
   var tmp = target;
   target = this;
-  this = tmp;
+  var i = tmp.used-1;
+  this.dp = tmp.dp
+  this.sign = tmp.sign;
+  this.used = tmp.used;
+  this.alloc = tmp.alloc;
 };
 
 // change sign, returns full copy, "this" stays unchanged
@@ -889,11 +898,11 @@ Bigint.prototype.isUnity = function(){
 };
 // this < 0
 Bigint.prototype.isNeg = function(){
-  return ( (this.sign == MP_ZPOS)?MP_NO:MP_YES; )
+  return (this.sign == MP_ZPOS)?MP_NO:MP_YES; 
 };
 // this > 0
 Bigint.prototype.isPos = function(){
-  return ( (this.sign == MP_NEG)?MP_NO:MP_YES; )
+  return (this.sign == MP_NEG)?MP_NO:MP_YES; 
 };
 
 
@@ -908,14 +917,14 @@ Bigint.prototype.setNegInf = function(){
   this.dp[0] = Number.NEGATIVE_INFINITY;
 };
 Bigint.prototype.isNegInf = function(){
-  return ( (this.dp[0] == Number.NEGATIVE_INFINITY)?MP_YES:MP_NO; )
+  return  (this.dp[0] == Number.NEGATIVE_INFINITY)?MP_YES:MP_NO; 
 };
 
 Bigint.prototype.setPosInf = function(){
   this.dp[0] = Number.POSITIVE_INFINITY;
 };
 Bigint.prototype.isNegInf = function(){
-  return ( (this.dp[0] == Number.POSITIVE_INFINITY)?MP_YES:MP_NO; )
+  return  (this.dp[0] == Number.POSITIVE_INFINITY)?MP_YES:MP_NO; 
 };
 
 
@@ -923,11 +932,11 @@ Bigint.prototype.setInf = function(){
   this.dp[0] = Number.POSITIVE_INFINITY;
 };
 Bigint.prototype.isInf = function(){
-  return ( (this.isPosInf() || this.isNegInf())?MP_YES:MP_NO; )
+  return  (this.isPosInf() || this.isNegInf())?MP_YES:MP_NO; 
 };
 
 Bigint.prototype.isFinite = function(){
-  return ( (this.dp[0]).isFinite )?MP_YES:MP_NO; )
+  return  ( this.dp[0].isFinite() )?MP_YES:MP_NO; 
 };
 
 
@@ -1042,7 +1051,7 @@ Bigint.prototype.lShift = function(i){
   var shift = MP_DIGIT_BIT - lshift;
 
   r = 0;
-  for(k = 0;k<ret.used.k++){
+  for(k = 0;k<ret.used;k++){
     rr = (ret.dp[k] >>> shift) & mask;
     ret.dp[k] = ( ( ret.dp[k] << lshift ) | r ) & MP_MASK;
     r = rr;
@@ -1071,7 +1080,7 @@ Bigint.prototype.lShiftInplace = function(i){
   var shift = MP_DIGIT_BIT - lshift;
 
   r = 0;
-  for(k = 0;k<.this.used.k++){
+  for(k = 0;k<this.used;k++){
     rr = (this.dp[k] >>> shift) & mask;
     this.dp[k] = ( ( this.dp[k] << lshift ) | r ) & MP_MASK;
     r = rr;
@@ -1385,7 +1394,7 @@ Bigint.prototype.mulInt = function(si){
   return ret;
 };
 // compares absolute values (magnitudes)
-Bigint.prototype.cmp_mag(bi){
+Bigint.prototype.cmp_mag = function(bi){
   if(this.used < bi.used) return MT_LT;
   if(this.used > bi.used) return MT_GT;
   // same size, get into details msb->lsb
@@ -1397,17 +1406,17 @@ Bigint.prototype.cmp_mag(bi){
 };
 
 // compares signed values
-Bigint.prototype.cmp(bi){
+Bigint.prototype.cmp = function(bi){
   /* compare based on sign */
-  if (this->sign != bi->sign) {
-     if (this->sign == MP_NEG) {
+  if (this.sign != bi.sign) {
+     if (this.sign == MP_NEG) {
         return MP_LT;
      } else {
         return MP_GT;
      }
   }
   /* compare digits */
-  if (this->sign == MP_NEG) {
+  if (this.sign == MP_NEG) {
      /* if negative compare opposite direction */
      return bi.cmp_mag(this);
   } else {
@@ -1984,7 +1993,7 @@ Bigint.prototype.ilogb = function(base){
   }
   while( high.sub(low).cmp(Bigint.ONE) == MP_GT ){
     mid = ( low.add(high) ).rShiftInplace(1);
-    bracket_mid = bracket_low.mul(b.kpow(mid.sub(low) );
+    bracket_mid = bracket_low.mul(b.kpow(mid.sub(low) ));
     if ( this.cmp(bracket_mid) == MP_LT ) {
       high = mid;
       bracket_high = bracket_mid;
@@ -2093,7 +2102,3 @@ function Bignumber(){
   var type   = "number";
 }
 
-
-
-
- a
