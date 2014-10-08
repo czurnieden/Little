@@ -277,12 +277,7 @@ Number.prototype.isNaN = function(){
 // Does not use the new Number.isFinite for reasons layed down
 // in blog post TODO: look-up URL
 Number.prototype.isFinite = function(){
-  // using typeof would return false for e.g. "this"
-  if (xtypeof(value) !== 'number' ){
-    return false;
-  }
-  // We can use global function isNaN() because of the check above
-  if ( isNaN(value) || value === Infinity || value === -Infinity) {
+  if ( isNaN(this) || this === Infinity || this === -Infinity) {
     return false;
   }
   return true;
@@ -549,7 +544,7 @@ Bigint.prototype.toString = function(radix){
   var sign = this.sign;
 
   if(!radix)
-    base = 10;
+    radix = 10;
 
   if(this.isNaN()){
     return "NaN";
@@ -635,7 +630,8 @@ Bigint.prototype.toString = function(radix){
   // this is veeeeery slow
   while (t.isZero() == MP_NO) {
     // t = quo, d = rem
-    ret = t.divremInt(radix);
+console.log("radix = " + radix +"\nt.dp = " + t.dp.join(","))
+    ret = t.divremInt(radix);console.log()
     t = ret[0];
     d = ret[1].dp[0];
     s += mp_s_rmap[d];
@@ -679,7 +675,7 @@ String.prototype.toBigint = function(radix){
   // Strip leading flags (e.g.: 0x,0b,0) elsewhere?
 
   // compute max length of binary number and allocate memory
-  var bilen = Math.floor((s.length - 1) * Math.log(10)/Math.log(2) ) +1;
+  var bilen = Math.floor((str.length - 1) * Math.log(10)/Math.log(2) ) +1;
   // The above suffers from rounding errors for very large numbers
   // so add one large digit as a reserve, get's clamp()'ed away later if
   // superfluous. The array should grow automatically, but I don't trust
@@ -692,7 +688,7 @@ String.prototype.toBigint = function(radix){
 
   // case insensitive in that range
   if(radix < 36){
-    str = str.toUpper();
+    str = str.toUpperCase();
   }
 
   // left (high) to right (low)
@@ -701,7 +697,7 @@ String.prototype.toBigint = function(radix){
     charnum = mp_s_rmap.indexOf(ch);
     if(charnum < radix){
       ret.mulInt(radix);
-      ret.addInt(charnum);
+      if(charnum != 0)ret.addInt(charnum);
     }
     else {
       // Actually, this _is_ an error and not something one can let slip.
@@ -923,7 +919,7 @@ Bigint.prototype.isNegInf = function(){
 Bigint.prototype.setPosInf = function(){
   this.dp[0] = Number.POSITIVE_INFINITY;
 };
-Bigint.prototype.isNegInf = function(){
+Bigint.prototype.isPosInf = function(){
   return  (this.dp[0] == Number.POSITIVE_INFINITY)?MP_YES:MP_NO; 
 };
 
@@ -1366,7 +1362,7 @@ Bigint.prototype.mulInt = function(si){
     }
     return ret;
   }
-  if(b.isUnity()){
+  if(b == 1 || b == -1){
     var ret = a.copy();
     // b.sign() is a function because b is a Number
     if(a.sign != b.sign()){
@@ -1471,20 +1467,20 @@ Bigint.prototype.add = function(bi){
     /* both positive or both negative */
     /* add their magnitudes, copy the sign */
     ret.sign = sa;
-    ret.dp= this.kadd(b);
+    ret.dp= this.kadd(bi);
     ret.used = ret.dp.length;
   } else {
     /* one positive, the other negative */
     /* subtract the one with the greater magnitude from */
     /* the one of the lesser magnitude.  The result gets */
     /* the sign of the one with the greater magnitude. */
-    if (this.cmp_mag(b) == MP_LT) {
+    if (this.cmp_mag(bi) == MP_LT) {
       ret.sign = sb;
-      ret.dp = bi.ksub(a);
+      ret.dp = bi.ksub(this);
       ret.used = ret.dp.length;
     } else {
       ret.sign = sa;
-      ret.dp = this.ksub(b);
+      ret.dp = this.ksub(bi);
       ret.used = ret.dp.length;
     }
   }
@@ -1492,7 +1488,7 @@ Bigint.prototype.add = function(bi){
   return ret;
 };
 // TODO: to do
-Bigint.prototype.addint = function(si){
+Bigint.prototype.addInt = function(si){
   return this.add(si.toBigint());
 };
 
@@ -1551,13 +1547,13 @@ Bigint.prototype.sub = function(bi){
       /* Copy the sign from the first */
       ret.sign = sa;
       /* The first has a larger or equal magnitude */
-      ret.dp = this.ksub(b);
+      ret.dp = this.ksub(bi);
     } else {
       /* The result has the *opposite* sign from */
       /* the first number. */
       ret.sign = (sa == MP_ZPOS) ? MP_NEG : MP_ZPOS;
       /* The second has a larger magnitude */
-      ret.dp = bi.ksub (this);
+      ret.dp = bi.ksub(this);
     }
   }
   ret.clamp();
@@ -1737,8 +1733,8 @@ Bigint.prototype.divremInt = function(si){
   var Q = new Bigint(0);
   var R = new Bigint(0);
   // TODO: checks & balances
-  qsign = ( (a.sign * b.sign()) < 0)?MP_NEG:MP_ZPOS;
-  rsign = (a.sign = MP_NEG)?MP_NEG:MP_ZPOS;
+  var qsign = ( (a.sign * si.sign()) < 0)?MP_NEG:MP_ZPOS;
+  var rsign = (a.sign = MP_NEG)?MP_NEG:MP_ZPOS;
   divrem2in1(this.dp,this.used,si,Q.dp,R.dp,MP_DIGIT_MAX);
   Q.used = Q.dp.length;
   Q.sign = qsign;
