@@ -10,7 +10,7 @@
           ######  #######  ## ##  #     # #     # #######   ###
 
 This code is completely untested, might kill you cat, mother-in-law, landlord, 
-investment-banker (you once were in need on an investment-banker?) and worst of
+investment-banker (you once were in need of an investment-banker?) and worst of
 all: it may not even compile!
 
 */
@@ -35,7 +35,7 @@ all: it may not even compile!
      */
 /*
    The snippets with code from SunPro are annotated as such. Replace if
-   the license is a problem necessary.
+   the license is a problem.
 */
 
 /*
@@ -515,7 +515,7 @@ function MP_CLEAR(bi){
 
 // avoid mess
 Bigint.prototype.clamp = function(){
-  while(this.used > 0 && this.dp[this.used-1] == 0) this.used--;
+  while(this.used > 1 && (this.dp[this.used-1] == 0 || isNaN(this.dp[this.used-1])) ) this.used--;
   this.dp.length = this.used;
   this.alloc =  this.used;
 };
@@ -628,10 +628,8 @@ Bigint.prototype.toString = function(radix){
 
 
   // this is veeeeery slow
-  while (t.isZero() == MP_NO) {
-    // t = quo, d = rem
-console.log("radix = " + radix +"\nt.dp = " + t.dp.join(","))
-    ret = t.divremInt(radix);console.log()
+  while ( t.isZero() == MP_NO) {
+    ret = t.divremInt(radix);
     t = ret[0];
     d = ret[1].dp[0];
     s += mp_s_rmap[d];
@@ -675,16 +673,16 @@ String.prototype.toBigint = function(radix){
   // Strip leading flags (e.g.: 0x,0b,0) elsewhere?
 
   // compute max length of binary number and allocate memory
-  var bilen = Math.floor((str.length - 1) * Math.log(10)/Math.log(2) ) +1;
+  //var bilen = Math.floor((str.length - 1) * Math.log(10)/Math.log(2) ) +1;
   // The above suffers from rounding errors for very large numbers
   // so add one large digit as a reserve, get's clamp()'ed away later if
   // superfluous. The array should grow automatically, but I don't trust
   // every Javascript engine, if you understand what I mean.
   // If not: just pretend it is faster that way ;-)
-  bilen = Math.ceil(bilen/MP_DIGIT_BIT); // rounded to full large digits
-  var ret = new Bigint();
-  ret.dp  = new Array(bilen+1);   // plus reserve
-  ret.used = bilen;
+  //bilen = Math.ceil(bilen/MP_DIGIT_BIT); // rounded to full large digits
+  var ret = new Bigint(0);
+  //ret.dp  = new Array(bilen+1);   // plus reserve
+  //ret.used = bilen;
 
   // case insensitive in that range
   if(radix < 36){
@@ -696,8 +694,8 @@ String.prototype.toBigint = function(radix){
     ch = str.charAt(i);
     charnum = mp_s_rmap.indexOf(ch);
     if(charnum < radix){
-      ret.mulInt(radix);
-      if(charnum != 0)ret.addInt(charnum);
+      ret = ret.mulInt(radix);
+      if(charnum != 0)ret = ret.addInt(charnum);
     }
     else {
       // Actually, this _is_ an error and not something one can let slip.
@@ -801,27 +799,17 @@ Bigint.prototype.toNumber = function(){
   return bd_high;
 };
 
-// does deep copy of THIS and puts content EITHER in target OR returns the copy
-Bigint.prototype.copy = function(target){
+// does deep copy of THIS
+Bigint.prototype.copy = function(){
   var tt;
-  if(arguments.length == 1 && target instanceof Bigint){
-    var i = this.used-1;
-    while(i--) { target.dp[i] = this.dp[i]; }
-    target.used = this.used;
-    target.alloc = this.used;
-    target.sign = this.sign;
-  } else {
-    tt = new Bigint(0);
-    tt.dp = new Array(this.used);
-    tt.used = this.used;
-    tt.alloc = this.used;
-    tt.sign = this.sign; 
-    var i = this.used-1;
-    while(i--) { tt.dp[i] = this.dp[i];}
-  }
-  if(arguments.length == 0){
-    return tt;
-  }
+  tt = new Bigint(0);
+  tt.dp = new Array(this.used);
+  tt.used = this.used;
+  tt.alloc = this.used;
+  tt.sign = this.sign; 
+  var i = this.used;
+  while(i--) { tt.dp[i] = this.dp[i];}
+  return tt;
 };
 
 Bigint.prototype.dup = function(){
@@ -852,8 +840,7 @@ Bigint.prototype.exch = function(target){
 
 // change sign, returns full copy, "this" stays unchanged
 Bigint.prototype.neg = function(){
-  var ret = new Bigint();
-  this.copy(ret);
+  var ret = this.copy();
   if(this.sign == MP_ZPOS){
     ret.sign = MP_NEG;
   }
@@ -865,8 +852,7 @@ Bigint.prototype.neg = function(){
 
 // make positive, returns full copy, "this" stays unchanged
 Bigint.prototype.abs = function(){
-  var ret = new Bigint();
-  this.copy(ret);
+  var ret = this.copy();
   if(this.sign == MP_NEG){
     ret.sign = MP_ZPOS;
   }
@@ -1008,7 +994,7 @@ Bigint.prototype.drShift = function(i){
     // Alternative: return dlShift (like GP/PARI for example)
     return ret;
   }
-  ret.dp = this.dp.slice(i,this.used -1);
+  ret.dp = this.dp.slice(i,this.used );
   ret.used = ret.dp.length;
   ret.sign = this.sign;
   return ret;
@@ -1017,12 +1003,12 @@ Bigint.prototype.drShiftInplace = function(i){
   if(i <= 0){
     return;
   }
-  if(this.used >= i){
+  if(this.used <= i){
     this.dp[0] = 0;
     this.used  = 1;
     this.sign = MP_ZPOS;
   }
-  this.dp = this.dp.slice(i,this.used-1);
+  this.dp = this.dp.slice(i,this.used );
   this.used = this.dp.length;
 };
 // shift left bit-wise
@@ -1305,30 +1291,35 @@ Bigint.prototype.square = function(){
 
   t = new Bigint(0);
   t.dp = new Array(2 * this.used + 1);
-  for(var i=0; i<t.dp.length; i++)
-    t.dp[i] = 0;
+  r = 2 * this.used + 2;
+  while(r--) t.dp[r] = 0;
   t.used = 2 * this.used + 1;
+
+
 
   for(ix = 0;ix < this.used;ix++){
     r = t.dp[2*ix] + (this.dp[ix] * this.dp[ix]);
     t.dp[2*ix] = r & MP_MASK;
-    u = Math.floor(r/MP_DIGIT_MAX);
+    c = Math.floor(r/MP_DIGIT_MAX);
 
 
     for(iy = ix + 1;iy < this.used;iy++){
       r = this.dp[ix] * this.dp[iy] ;
-      r = t.dp[ix + iy] + r + r + u;
+      //  (2^26-1) * 2 + (2^26-1)^2 + (2^26-1)^2 < 2^53 (by 134217728 )
+      r = t.dp[ix + iy] + r + r + c;
       t.dp[ix + iy] =  r & MP_MASK;
-      u = Math.floor(r/MP_DIGIT_MAX);
+      c = Math.floor(r/MP_DIGIT_MAX);
     }
 
-    while(u > 0){
+    while(c > 0){
       iy++;
-      r = t.dp[ix + iy] + u; 
-      t.dp[ix + iy] = r & MP_MASK;
-      u = Math.floor(r/MP_DIGIT_MAX);
+      r = t.dp[ix + iy - 1] + c;
+      t.dp[ix + iy - 1] = r & MP_MASK;
+      c = Math.floor(r/MP_DIGIT_MAX);
     }
   }
+
+  
   t.clamp();
   return t;
 };
@@ -1336,7 +1327,7 @@ Bigint.prototype.square = function(){
 Bigint.prototype.sqr = function(){
   this.sign = MP_ZPOS;
 
-  if(this.used >= 2 * KARATSUBA_SQUARE_CUTOFF){
+  if(this.used >= 2 * KARATSUBA_SQR_CUTOFF){
     return this.karatsuba_square();
   }
   
@@ -1345,10 +1336,6 @@ Bigint.prototype.sqr = function(){
 
 
 Bigint.prototype.mulInt = function(si){
-
-  if(this.sign != si.sign()){
-    ret.sign = MP_NEG;
-  }
   var a = this, b = si;
 
   // check numbers for 1(one) or 0(zero) respectively
@@ -1357,7 +1344,7 @@ Bigint.prototype.mulInt = function(si){
   }
   if(a.isUnity()){
     var ret = b.toBigint();
-    if(a.sign != b.sign){
+    if(a.sign != b.sign()){
       ret.sign = MP_NEG;
     }
     return ret;
@@ -1385,14 +1372,17 @@ Bigint.prototype.mulInt = function(si){
   if(carry){
     ret.dp[k] = carry;
   }
-
+ 
   ret.clamp();
+  if(this.sign != si.sign()){
+    ret.sign = MP_NEG;
+  }
   return ret;
 };
 // compares absolute values (magnitudes)
 Bigint.prototype.cmp_mag = function(bi){
-  if(this.used < bi.used) return MT_LT;
-  if(this.used > bi.used) return MT_GT;
+  if(this.used < bi.used) return MP_LT;
+  if(this.used > bi.used) return MP_GT;
   // same size, get into details msb->lsb
   for(var i = this.used;i>=0;i--){
     if(this.dp[i] > bi.dp[i]) return MP_GT;
@@ -1461,7 +1451,6 @@ Bigint.prototype.add = function(bi){
   var sb = bi.sign;
 
   var ret = new Bigint();
-
   /* handle two cases, not four */
   if (sa == sb) {
     /* both positive or both negative */
@@ -1489,7 +1478,8 @@ Bigint.prototype.add = function(bi){
 };
 // TODO: to do
 Bigint.prototype.addInt = function(si){
-  return this.add(si.toBigint());
+  var bi = si.toBigint();
+  return this.add(bi);
 };
 
 // internal unsigned subtractor
@@ -1722,23 +1712,29 @@ Bigint.prototype.divrem = function(bint){
 
 
 Bigint.prototype.divremInt = function(si){
-  var divrem2in1 = function(u,m,v,q,r,B){
-    var k = 0; 
+  var divrem2in1 = function(u,m,v,q,B){
+    var k = 0,t; 
     for (var j = m - 1; j >= 0; j--) {
-      q[j] = Math.floor( (k*B + u[j]) / v );
-      k   = (k*B + u[j]) - q[j]*v;
+      k = (k << MP_DIGIT_BIT) | u[j];  
+      if (k >= v) {
+        t = Math.floor(k / v);
+        k -= t * v;
+      } else {
+        t = 0;
+      }
+      q[j] = t;
     }
-    r[0] = k;
+    return k;
   };
   var Q = new Bigint(0);
   var R = new Bigint(0);
   // TODO: checks & balances
   var qsign = ( (a.sign * si.sign()) < 0)?MP_NEG:MP_ZPOS;
   var rsign = (a.sign = MP_NEG)?MP_NEG:MP_ZPOS;
-  divrem2in1(this.dp,this.used,si,Q.dp,R.dp,MP_DIGIT_MAX);
+  R.dp[0] = divrem2in1(this.dp,this.used,si,Q.dp,MP_DIGIT_MAX);
   Q.used = Q.dp.length;
   Q.sign = qsign;
-  R.used = R.dp.length;
+  R.used = 1;
   R.sign = rsign;
   Q.clamp();
   R.clamp()
@@ -1758,7 +1754,7 @@ Bigint.prototype.divInt = function(si){
 Bigint.prototype.rem = function(bi){
   return this.divrem(bi)[1];
 };
-Bigint.prototype.remint = function(si){
+Bigint.prototype.remInt = function(si){
     return this.divremInt(si)[1];
 };
 
@@ -1846,7 +1842,7 @@ Bigint.prototype.karatsuba_square = function(bi){
   var blen = bint.used;
 
   var m = Math.min(tlen, blen)>>>1;
-  if(m <= KARATSUBA_SQUARE_CUTOFF)return this.square();
+  if(m <= KARATSUBA_SQR_CUTOFF)return this.square();
   x1 = this.slice(m,tlen);
   x0 = this.slice(0,m);
   x0y0 = x0.karatsuba_square();
@@ -2066,7 +2062,7 @@ function Bigfloat(){
   var mantissa = new Bigint();
   var exponent = 0;
   // in bigdigits(?)
-  // var precision = 5;
+  var precision = MP_DIGIT_BIT*2;
 }
 // per default two bigdigits == JS Number (8-byte double) for MP_DIGIT_BIT = 26
 Bigfloat.precision = MP_DIGIT_BIT*2;
@@ -2098,3 +2094,7 @@ function Bignumber(){
   var type   = "number";
 }
 
+var a = "123456789000123456789000123456789000"
+var b = a.toBigint();
+var c = b.sqr();
+c.toString();
