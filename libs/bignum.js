@@ -1694,8 +1694,8 @@ Bigint.prototype.divrem = function(bint){
     return [new Bigint(0),a];
   }
 
-  qsign = ( (a.sign * b.sign) < 0)?MP_NEG:MP_ZPOS;
-  rsign = (a.sign = MP_NEG)?MP_NEG:MP_ZPOS;
+  qsign = ( (this.sign * bint.sign) < 0)?MP_NEG:MP_ZPOS;
+  rsign = (this.sign == MP_NEG)?MP_NEG:MP_ZPOS;
 
   ret = a.kdivrem(b);
   // long version
@@ -2093,8 +2093,15 @@ function Bignumber(){
    */
   var type   = "number";
 }
-
+/*
 var a = "123456789000123456789000123456789000"
 var b = a.toBigint();
 var c = b.sqr();
+c.toString();
+*/
+var a1 = "123456789000123456789000123456789000"
+var a2 = "1234567890001234567890001"
+var a = a1.toBigint();
+var b = a2.toBigint();
+var c = a.div(b);
 c.toString();
