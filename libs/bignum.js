@@ -41,7 +41,7 @@ all: it may not even compile!
 /*
   TODO: Quite a lot.
 
-  - should be modernized but also kept legible and easy to follow.
+  - should be modern but also kept legible and easy to follow.
   - some things are superfluous
   - in urgent need of correct error-checking with try/catch and error throw-ing
   - some of the inner loops can make use of multiple cores/processors
@@ -49,8 +49,8 @@ all: it may not even compile!
     any use here
   - Make use of a general namespace for all of the global variables
     (Bignum or something which will make sense after adding of a Bigfloat )
-  - ECMA 5 offers typed arrays, check if Uint32Array does the job better
-    (needs a byteorder check); see also Float64Array for the FFT
+  - ECMA 5 offers typed arrays, check if Uint32Array do the job better
+    (needs a byteorder check); see also Float64Array for the FFT.
     http://jsperf.com/array-vs-uint32array says it is faster but not much
     http://jsperf.com/array-vs-uint32array/7 says it is slower
     http://jsperf.com/float64array/2         much slower
@@ -152,7 +152,7 @@ var MP_MASK = ((1<<MP_DIGIT_BIT)-1);
 // Too large a digit by one.
 var MP_DIGIT_MAX = (1<<MP_DIGIT_BIT);
 
-// Some limits regarding floating point size
+// Some limits regarding floating point size (unused, came for Tom Wu's stuff)
 // maximum usable bits in mantissa
 var MP_FLOAT_BIT = 52;
 // maximum number (4,503,599,627,370,496 with the 52 bits from above)
@@ -168,9 +168,7 @@ Number.INT_MAX   =  9007199254740992; // 2^53
 var double_int = new DataView(new ArrayBuffer(8));
 
 /*
-  checking for endianess (little endian only for now). Put in an anonymous
-  function for scope reasons: declare no more global variables than absolutely
-  necessary. 
+  checking for endianess (little endian only for now)
 
   The method (shamelessly stolen from emscripten) is a bit more complicated than
   I want it but things like
@@ -195,8 +193,9 @@ var double_int = new DataView(new ArrayBuffer(8));
   are a bit dubious ("test" needs to act like an unsigned 32 bit integer. Does
   it? Always?), so I've chosen the long and tedious but correct way.
 
+  Throws a FatalError which you may or may not catch.
 */
-var __check_endianess = (function () {
+var __bigint_check_endianess = (function () {
   try {
     var buffer = new ArrayBuffer(8);
     var strerror = 'Bigint was written for a little-endian system only, sorry.';
@@ -224,17 +223,20 @@ var __check_endianess = (function () {
   }
 })();
 
-/*
-   Some helpers to make it stand-alone
-*/
+/******************************************************************************
+ *
+ *  Some helpers to make it stand-alone
+ *
+ ******************************************************************************/
 
 Array.prototype.memset = function(x){
   for(var i = 0;i<this.length;i++){
     this[i] = x;
   }
 };
-
-// generalized, extendable "typeof" function
+/*
+ * generalized, extendable "typeof" function
+ */
 function xtypeof(obj){
   // try it the traditional way
   var tmp = typeof obj;
@@ -267,8 +269,11 @@ function xtypeof(obj){
 }
 
 /*
-  Done with prototyping to avoid name-clashes
-*/
+ * All functions implemented by prototyping to avoid name-clashes
+ * E.g.: ther is a Number.isNaN but no Number.prototype.isNaN
+ * but mainly to support a common codebase, such that it will not matter if the
+ * variable A in A.isNaN() is a Bigint, a Number, a Bigfloat, or anything else.
+ */
 
 // uses the global object which auto-converts numbers!
 Number.prototype.isNaN = function(){
@@ -296,7 +301,7 @@ Number.prototype.sign = function(){
 };
 
 /*
- *  Most of the following prototypes assume 32-bit integers.
+ *  Most of the following functions assume 32-bit little-endina integers.
  */
 
 Number.prototype.lowBit = function(){
@@ -326,6 +331,7 @@ Number.prototype.highBit = function(){
   return ret;
 };
 
+// this is a function with a limit of MP_DIGIT_BIT instead of 32!
 Math.isPow2 = function(b){
    var x = 0>>>0;
    /* fast return if no power of two */
@@ -339,7 +345,20 @@ Math.isPow2 = function(b){
    }
    return false;
 };
-
+// this is a function with a limit of 32
+Number.prototype.isPow2 = function(b){
+   var x = 0>>>0;
+   /* fast return if no power of two */
+   if ((b==0) || (b & (b-1))) {
+      return 0;
+   }
+   for (; x < 32; x++) {
+      if (b == (1<<x)) {
+         return true;
+      }
+   }
+   return false;
+};
 // Despite common opinion, this function is not generally applicable, the
 // name should give a hint!
 // Danger: does not check if input is really all ASCII
@@ -394,16 +413,16 @@ Number.prototype.isInt = function(){
   if(!this.isOk()){
     return MP_NO;
   }
-  /* ECMA 6 (Draft). Impl. by Firefox ( >= 32 ) only */
+  /* ECMA 6 (Draft). Impl. by Firefox ( >= 32 ) only toBi
   if(Number.isSafeInteger){
     return ( Number.isSafeInteger(this) )?MP_YES:MP_NO;
   }
-  else{
+  else{*/
     if(   this > -9007199254740992 
        && this <  9007199254740992 
        && Math.floor(this) == this )
       return MP_YES;
-  }
+  /* } */
   return MP_NO;
 };
 
@@ -717,14 +736,14 @@ String.prototype.toBigint = function(radix){
 // returns Bigint. Bigint might be set to Nan or Infinity if Number is
 // not a small enough integer. Range: -9007199254740992..9007199254740992
 Number.prototype.toBigint = function(){
-  var ret = new Bigint();
+  var ret = new Bigint(0);
   // Check Number
   if(!this.isOk() || !this.isInt()){
     ret.setNaN();
     return ret;
   }
 
-  // Check if Number is integer and smaller than MP_MASK for direct use
+  // Check if Number is integer and smaller than MP_DIGIT_MAX for direct use
   if(this.issmallenough()){
     ret.dp[0] = Math.abs(this);
     ret.sign = (this < 0 )?MP_NEG:MP_ZPOS;
@@ -734,7 +753,7 @@ Number.prototype.toBigint = function(){
   var sign = (this < 0 )?MP_NEG:MP_ZPOS;
 
   ret.dp[0] =  this & MP_MASK;
-  ret.dp[1] = (this >>> MP_DIGIT_BIT) & MP_MASK;
+  ret.dp[1] = Math.floor(this/MP_DIGIT_MAX)&MP_MASK;
   ret.used = 2;
 
   ret.clamp();
@@ -886,7 +905,12 @@ Bigint.prototype.isNeg = function(){
 Bigint.prototype.isPos = function(){
   return (this.sign == MP_NEG)?MP_NO:MP_YES; 
 };
-
+Bigint.prototype.isEven = function(){
+  return (this.dp[0].isOdd())?MP_NO:MP_YES; 
+};
+Bigint.prototype.isOdd = function(){
+  return (this.dp[0].isEven())?MP_NO:MP_YES; 
+};
 
 Bigint.prototype.setNaN = function(){
   this.dp[0] = Number.NaN;
@@ -964,25 +988,24 @@ Bigint.prototype.dlShift = function(i){
   }
   var tmp = new Array(i);
   for (var k = 0; k < i; ++k) temp[k] = 0>>>0;
-  tmp.concat(ret.dp);
-  ret.dp = tmp;
+
+  ret.dp = tmp.concat(ret.dp);
   ret.used = this.used + i;
   return ret;
 };
-Bigint.prototype.dlShiftInplace = function(bi){
+Bigint.prototype.dlShiftInplace = function(i){
   if(i <= 0){
     return;
   }
   var tmp = new Array(i);
-  for (var k = 0; k < i; ++k) temp[k] = 0;
-  tmp.concat(this.dp);
-  this.dp = tmp;
+  for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
+  this.dp = tmp.concat(this.dp);
   this.used += i;
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
 Bigint.prototype.drShift = function(i){
   var ret;
-  if(this.used >= i){
+  if(this.used < i){
     ret = new Bigint();
     ret.dp[0] = 0;
     ret.used  = 1;
@@ -999,15 +1022,17 @@ Bigint.prototype.drShift = function(i){
   ret.sign = this.sign;
   return ret;
 };
+// shift right big-digit-wise, returns 0 if shift is bigger or equal length
 Bigint.prototype.drShiftInplace = function(i){
   if(i <= 0){
     return;
   }
-  if(this.used <= i){
+  if(this.used < i){
     this.dp[0] = 0;
     this.used  = 1;
     this.sign = MP_ZPOS;
   }
+
   this.dp = this.dp.slice(i,this.used );
   this.used = this.dp.length;
 };
@@ -1024,7 +1049,6 @@ Bigint.prototype.lShift = function(i){
 
   ret = this.copy()
   ret.dlShiftInplace(dlshift);
-
   if(lshift == 0){
     return ret;
   }
@@ -1053,7 +1077,6 @@ Bigint.prototype.lShiftInplace = function(i){
   }
 
   this.dlShiftInplace(dlshift);
-
   if(lshift == 0){
     return ;
   }
@@ -1080,7 +1103,7 @@ Bigint.prototype.rShift = function(i){
     return ret;
   }
 
-  if(this.used*MP_DIGIT_BIT >= i){
+  if(this.highBit() < i){
     ret.dp[0] = 0;
     ret.used  = 1;
     ret.sign = MP_ZPOS;
@@ -1115,7 +1138,7 @@ Bigint.prototype.rShiftInplace = function(i){
   if (i <= 0){
     return;
   }
-  if(this.used*MP_DIGIT_BIT >= i){
+  if(this.highBit() < i){
     this.dp[0] = 0;
     this.used  = 1;
     this.sign = MP_ZPOS;
@@ -1312,14 +1335,13 @@ Bigint.prototype.square = function(){
     }
 
     while(c > 0){
-      iy++;
+      iy++;// if you ask yourself: WTF? you're right
       r = t.dp[ix + iy - 1] + c;
       t.dp[ix + iy - 1] = r & MP_MASK;
       c = Math.floor(r/MP_DIGIT_MAX);
     }
   }
-
-  
+ 
   t.clamp();
   return t;
 };
@@ -1406,7 +1428,7 @@ Bigint.prototype.cmp = function(bi){
      /* if negative compare opposite direction */
      return bi.cmp_mag(this);
   } else {
-     return this_cmp_mag(bi);
+     return this.cmp_mag(bi);
   }
 }
 // internal, unsigned adder, returns an Array, not a Bigint!
@@ -1947,12 +1969,13 @@ Bigint.prototype.pow = function(ui){
   return t;
 };
 
+
 // should be done with left-to-right instead?
 Number.prototype.kpow = function(bi){
   var ret = new Bigint(1);
   var t   = this.toBigint();
-  while(!bi.isZero()){
-    if(bi.isOdd()){
+  while(bi.isZero() == MP_NO){
+    if(bi.isOdd() == MP_YES){
       ret = ret.mul(t);
     }
     t = t.sqr();
@@ -1971,21 +1994,22 @@ Bigint.prototype.ilogb = function(base){
   if(base < 1 || !base.isInt()) return this.copy().setNaN();
 
   if(base == 1) return this.copy();
-  if(base == 2 ) return this.highbit().toBigint();
+  if(base == 2 ) return this.highBit().toBigint();
   low = new Bigint(0);
   bracket_low = new Bigint(1);
   high = new Bigint(1);
   bracket_high = new Bigint(base);
  
   while ( bracket_high.cmp(this) == MP_LT ){
-    low = high;
+    low = high.copy();
     bracket_low = bracket_high;
     high.lShiftInplace(1);
     bracket_high = bracket_high.sqr();
   }
   while( high.sub(low).cmp(Bigint.ONE) == MP_GT ){
-    mid = ( low.add(high) ).rShiftInplace(1);
-    bracket_mid = bracket_low.mul(b.kpow(mid.sub(low) ));
+
+    mid = ( low.add(high) ).rShift(1);
+    bracket_mid = bracket_low.mul(base.kpow(mid.sub(low) ));
     if ( this.cmp(bracket_mid) == MP_LT ) {
       high = mid;
       bracket_high = bracket_mid;
@@ -1998,6 +2022,7 @@ Bigint.prototype.ilogb = function(base){
        return mid;
     }
   }
+      
   if(bracket_high.cmp(this) == MP_EQ) return high;
   else return low;
 };
@@ -2005,15 +2030,15 @@ Bigint.prototype.ilogb = function(base){
 Bigint.prototype.nthroot = function(n){
   var low, high, mid;
 
-  if(!this.isZero && n == 0) return new Bigint(1);
-  if(this.isZero && n != 0) return new Bigint(1);
-  if(this.isZero && n == 0) return this.copy().setInf();
+  if(!this.isZero() && n == 0) return new Bigint(1);
+  if(this.isZero() && n != 0) return new Bigint(1);
+  if(this.isZero() && n == 0) return this.copy().setInf();
   if(this.isNeg()) return this.copy().setNaN();
   // actually: x^(1/(-y)) = 1/(x^(1/y)) and x^(1/1/y) = x^y
   if(n < 0 || !n.isInt()) return this.copy().setNaN();
 
   high = new Bigint(1);
-  high.lShiftInplace(Math.floor(this.highbit()/n)+1);
+  high.lShiftInplace(Math.floor(this.highBit()/n)+1);
   low = high.rShift(1);
   while (low.cmp(high) == MP_LT){
     mid = low.add(high).rShift(1);
@@ -2103,5 +2128,7 @@ var a1 = "123456789000123456789000123456789000"
 var a2 = "1234567890001234567890001"
 var a = a1.toBigint();
 var b = a2.toBigint();
-var c = a.div(b);
-c.toString();
+var c = a.pow(2);
+c.ilogb(3).toString();
+
+
