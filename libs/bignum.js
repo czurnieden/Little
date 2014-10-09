@@ -1200,7 +1200,7 @@ Bigint.prototype.mul_digs = function(bi,digs){
 };
 // standard unsigned multiply
 Bigint.prototype.multiply = function(bi){
-  var ret,i,j,a,b;
+  var ret,i,j,a,b,carry,temp;
   a = this;
   b = bi;
   ret = new Bigint(0);
@@ -1267,7 +1267,7 @@ Bigint.prototype.mul = function(bi){
      }
   */
   // check for cutoffs to do T-C or FFT respectively here
-  if(Math.min(a.used,b.used) >= 2 * KARATSUBA_CUTOFF){
+  if(Math.min(a.used,b.used) >= 2 * KARATSUBA_MUL_CUTOFF){
     return a.karatsuba(b);
   }
 
@@ -1815,7 +1815,7 @@ Bigint.prototype.karatsuba = function(bi){
   var blen = bint.used;
 
   var m = Math.min(tlen, blen)>>>1;
-  if(m <= KARATSUBA_CUTOFF)return this.multiply(bint)
+  if(m <= KARATSUBA_MUL_CUTOFF)return this.multiply(bint)
   x1 = this.slice(m,tlen);
   x0 = this.slice(0,m);
   y1 = bint.slice(m,blen);
