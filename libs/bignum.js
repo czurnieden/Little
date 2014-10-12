@@ -654,7 +654,7 @@ Bigint.prototype.toString = function(radix){
     s += mp_s_rmap[d];
   }
 
-  s += (this.sign == MP_NEG)?"-":"";
+  s += (sign == MP_NEG)?"-":"";
 
   // reverse the digits of the string.
   s = s.asciireverse();
@@ -723,9 +723,7 @@ String.prototype.toBigint = function(radix){
     }
   }
 
-  if(ret.isZero() == MP_NO){
-    ret.sign = neg;
-  }
+  ret.sign = neg;
 
   ret.clamp();
   return ret;
@@ -1568,6 +1566,7 @@ Bigint.prototype.sub = function(bi){
       ret.dp = bi.ksub(this);
     }
   }
+  ret.used = ret.dp.length;
   ret.clamp();
   return ret;
 };
@@ -2111,7 +2110,7 @@ function Bignumber(){
     "number"   = Number;
     "bigint"   = Bigint;
     "bigfloat" = Bigfloat;
-    "complex"  = Complex; can be nested, e.g: Complex(Bignumber,Bignumber)
+    "tcomplex"  = Complex; can be nested, e.g: Complex(Bignumber,Bignumber)
                             if Bignumber is not a Complex , so nothing like
                             Complex(Complex,Complex)
     "quaternion" = Quaternion; can be nested but see Complex for restrictions
@@ -2124,11 +2123,10 @@ var b = a.toBigint();
 var c = b.sqr();
 c.toString();
 */
-var a1 = "123456789000123456789000123456789000"
-var a2 = "1234567890001234567890001"
+var a1 = "912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000"
+var a2 = "91234567890001234567890001912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000"
 var a = a1.toBigint();
 var b = a2.toBigint();
-var c = a.pow(2);
-c.ilogb(3).toString();
 
+a.toString()
 
