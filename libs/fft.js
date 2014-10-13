@@ -113,10 +113,10 @@ function fft_to_bi(fft_array, len){
     for(i=0;i<len;i++){
       temp = carry;
       carry = 0;
-      temp  += Math.round(fft_array[i]) >>> 0;
+      temp  += Math.round(fft_array[i]);
       if(temp >= MP_DIGIT_HALF){
         carry = Math.floor(temp / MP_DIGIT_HALF);
-        temp  = temp & MP_DIGIT_MASK;
+        temp  = temp % MP_DIGIT_HALF;
       }
       /* memory is still expensive, not a thing to waste easily */
       fft_array[i] = temp;
@@ -124,9 +124,9 @@ function fft_to_bi(fft_array, len){
 
     /* re-marry the digits */
     for(i=0,j=0;j<new_length;i++,j+=2){
-      a.dp[i]   = (Math.round(fft_array[j+1]))& MP_DIGIT_MASK;
+      a.dp[i]   = ((fft_array[j+1]))& MP_DIGIT_MASK;
       a.dp[i] <<= MP_DIGIT_BIT_HALF;
-      a.dp[i]  |= (Math.round(fft_array[j]))  & MP_DIGIT_MASK;
+      a.dp[i]  |= ((fft_array[j]))  & MP_DIGIT_MASK;
       /* and count them all */
       a.used++;
     }
