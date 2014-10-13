@@ -87,7 +87,7 @@ var MP_ZPOS = 1;
 var MP_NEG = -1;
 
 // Comparing
-// less than
+b// less than
 var MP_LT = -1;
 // equal
 var MP_EQ =  0;
@@ -984,9 +984,9 @@ Bigint.prototype.dlShift = function(i){
   if(i <= 0){
     return ret;
   }
-  var tmp = new Array(i);
-  for (var k = 0; k < i; ++k) temp[k] = 0>>>0;
-
+  var tmp = [];
+  //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
+  while(i--) tmp[i] = 0>>>0;
   ret.dp = tmp.concat(ret.dp);
   ret.used = this.used + i;
   return ret;
@@ -995,8 +995,9 @@ Bigint.prototype.dlShiftInplace = function(i){
   if(i <= 0){
     return;
   }
-  var tmp = new Array(i);
-  for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
+  var tmp = [];
+  //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
+  while(i--) tmp[i] = 0>>>0;
   this.dp = tmp.concat(this.dp);
   this.used += i;
 };
@@ -1208,7 +1209,7 @@ Bigint.prototype.mul_digs = function(bi,digs){
       /* the new column is the lower part of the result */
       t.dp[iy + ix] = r & MP_MASK;
       /* get the carry word from the result */
-      u = Math.floor(r/0x4000000);
+      u = Math.floor(r/MP_DIGIT_MAX);
     }
     /* set carry if it is placed below digs */
     if (ix + iy < digs) {
@@ -1386,7 +1387,7 @@ Bigint.prototype.mulInt = function(si){
   for(k = 0; k < a.used; k++){
     tmp = this.dp[k] * si + carry;
     ret.dp[k] = tmp & MP_MASK;
-    carry = Math.floor(tmp/0x4000000);
+    carry = Math.floor(tmp/MP_DIGIT_MAX);
   }
 
   if(carry){
@@ -1604,7 +1605,7 @@ Bigint.prototype.kdivrem = function(bint){
     // same amount.  We may have to append a high-order
     // digit on the dividend; we do that unconditionally.
 
-    s = 26 - ( ( (v[n-1]).highBit() + 1 ) ) ; // 0 <= s <= 25 .
+    s = MP_DIGIT_BIT - ( ( (v[n-1]).highBit() + 1 ) ) ; // 0 <= s <= 25 .
     // TODO: V ans U are already deep copies we can work on them directly
     vn = new Array(n);
     for (i = n - 1; i > 0; i--){
@@ -1824,12 +1825,12 @@ Bigint.prototype.decr = function(){
 
 Bigint.prototype.slice = function(start,end){
   var ret = new Bigint(0);
-  ret = this.dp.slice(end - start);
+  ret.dp = this.dp.slice(start,end);
   ret.used = end - start;
   ret.sign = this.sign;
   return ret;
 };
-Bigint.prototype.karatsuba = function(bi){
+Bigint.prototype.karatsuba = function(bint){
   var x0,x1,y0,y1,x0y0,x1y1,t1,xy;
 
   var tlen = this.used;
@@ -1856,7 +1857,7 @@ Bigint.prototype.karatsuba = function(bi){
   
   return xy;
 };
-Bigint.prototype.karatsuba_square = function(bi){
+Bigint.prototype.karatsuba_square = function(bint){
   var x0,x1,y0,y1,x0y0,x1y1,t1,xy;
 
   var tlen = this.used;
