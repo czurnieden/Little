@@ -1340,7 +1340,7 @@ Bigint.prototype.mul = function(bi){
 // basic unsigned square
 Bigint.prototype.square = function(){
   var t;
-  var r,u,ix,iy;
+  var r,u,ix,iy,c;
 
   t = new Bigint(0);
   t.dp = new Array(2 * this.used + 1);
@@ -1892,17 +1892,15 @@ Bigint.prototype.karatsuba = function(bint){
   
   return xy;
 };
-Bigint.prototype.karatsuba_square = function(bint){
+Bigint.prototype.karatsuba_square = function(){
   var x0,x1,y0,y1,x0y0,x1y1,t1,xy;
 
   var tlen = this.used;
-  var blen = bint.used;
 
-  var m = Math.min(tlen, blen)>>>1;
+  var m = tlen>>>1;
   if(m <= KARATSUBA_SQR_CUTOFF)return this.square();
   x1 = this.slice(m,tlen);
   x0 = this.slice(0,m);
-  x0y0 = x0.karatsuba_square();
   x1y1 = x1.karatsuba_square();
 
   t1 = x1.add(x0);
@@ -1982,8 +1980,8 @@ Bigint.prototype.fft_mul = function(bint) {
 
     for (i = 0, j = 0; i < length_needed / 2; i++, j += 2) {
       if (i < length_a) {
-        fa[j] = 1.0(a.dp[i] & MP_DIGIT_MASK);
-        fa[j + 1] = 1.0((a.dp[i] >>> MP_DIGIT_BIT_HALF) & MP_DIGIT_MASK);
+        fa[j] = 1.0 * (a.dp[i] & MP_DIGIT_MASK);
+        fa[j + 1] = 1.0 * ((a.dp[i] >>> MP_DIGIT_BIT_HALF) & MP_DIGIT_MASK);
       }
       if (i >= length_a) {
         fa[j] = 0.0;
@@ -1998,7 +1996,7 @@ Bigint.prototype.fft_mul = function(bint) {
     var a = new Bigint(0);
 
     /* Result cannot exceed length/2, hence add two */
-    new_length = len;
+    new_length = len[0];
 
     /* The FFT multiplication does no carry (it's one of the tricks of it) */
     carry = 0;
@@ -2265,7 +2263,7 @@ Bigint.prototype.fft_mul = function(bint) {
   };
   var MP_fft_sqr = function(x, len) {
     var n;
-    n = len;
+    n = len[0];
     if (n < 2) return MP_VAL;
     fht_dif_rec(x, n, 0);
     fht_autoconv_core(x, n, 0.0);
