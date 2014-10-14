@@ -1482,7 +1482,7 @@ Bigint.prototype.kadd = function(bi){
     x = bi;
   }
 
-  retdp = new Array(max + 1);
+  retdp = [];
 
   carry = 0;
   for (i = 0; i < min; i++) {
@@ -1513,7 +1513,6 @@ Bigint.prototype.add = function(bi){
     /* add their magnitudes, copy the sign */
     ret.sign = sa;
     ret.dp= this.kadd(bi);
-    ret.used = ret.dp.length;
   } else {
     /* one positive, the other negative */
     /* subtract the one with the greater magnitude from */
@@ -1522,13 +1521,12 @@ Bigint.prototype.add = function(bi){
     if (this.cmp_mag(bi) == MP_LT) {
       ret.sign = sb;
       ret.dp = bi.ksub(this);
-      ret.used = ret.dp.length;
     } else {
       ret.sign = sa;
       ret.dp = this.ksub(bi);
-      ret.used = ret.dp.length;
     }
   }
+  ret.used = ret.dp.length;
   ret.clamp();
   return ret;
 };
@@ -1546,7 +1544,7 @@ Bigint.prototype.ksub = function(bi){
   min = this.used;
   max = bi.used;
 
-  retdp = new Array(max );
+  retdp = [];
   carry = 0;
   for (i = 0; i < min; i++) {
     retdp[i] = this.dp[i] - bi.dp[i] - carry;
@@ -1583,7 +1581,6 @@ Bigint.prototype.sub = function(bi){
     /* and use the sign of the first number. */
     ret.sign = sa;
     ret.dp = this.kadd(bi);
-    ret.used = ret.dp.length;
   } else {
     /* subtract a positive from a positive, OR */
     /* subtract a negative from a negative. */
@@ -1787,7 +1784,7 @@ Bigint.prototype.divremInt = function(si){
   var R = new Bigint(0);
   // TODO: checks & balances
   var qsign = ( (a.sign * si.sign()) < 0)?MP_NEG:MP_ZPOS;
-  var rsign = (a.sign = MP_NEG)?MP_NEG:MP_ZPOS;
+  var rsign = (a.sign == MP_NEG)?MP_NEG:MP_ZPOS;
   R.dp[0] = divrem2in1(this.dp,this.used,si,Q.dp,MP_DIGIT_MAX);
   Q.used = Q.dp.length;
   Q.sign = qsign;
