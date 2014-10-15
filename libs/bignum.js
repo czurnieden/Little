@@ -122,23 +122,22 @@ var MP_SING = -9;
 var MP_YES = true;
 var MP_NO = false;
 
-// Cut-offs for fast multiplication
+// Cut-offs for fast multiplication (YMMV, so please send a not, if it varies)
 
 var KARATSUBA_MUL_CUTOFF = 125;
 var KARATSUBA_SQR_CUTOFF = 200;
 
+var TOOM_MUL_CUTOFF = 475;
+var TOOM_SQR_CUTOFF = 600;
+
 // although not tested yet, but seem reasonable
 var FFT_MUL_CUTOFF  = 2048;
 // do one karatsuba mul. if limit is reached
-// 2^23 is below limit and strill  8,388,608 limbs that is > 10^(10^14) 
+// 2^23 is below limit and still 8,388,608 limbs large which is > 10^(10^14) 
 var FFT_UPPER_LIMIT = 1<<23; // only if NTT is not implemented
 var FFT_SQR_CUTOFF  = 2048;
 
-
 /*
-var TOOM_MUL_CUTOFF;
-var TOOM_SQR_CUTOFF;
-
 var NTT_MUL_CUTOFF;
 var NTT_SQR_CUTOFF;
 
@@ -1091,6 +1090,7 @@ Bigint.prototype.lShift = function(i){
   }
   if (r != 0){
      ret.dp[k] = r;
+     ret.used++;
   }
   ret.clamp();
   return ret;
@@ -1099,6 +1099,7 @@ Bigint.prototype.lShiftInplace = function(i){
   var dlshift = Math.floor(i/MP_DIGIT_BIT);
   var  lshift = i%MP_DIGIT_BIT;
   var r,rr,k;
+
   if(i<=0){
    return ;
   }
@@ -1119,6 +1120,7 @@ Bigint.prototype.lShiftInplace = function(i){
   }
   if (r != 0){
      this[k] = r;
+     ret.used++;
   }
   this.clamp();
 };
@@ -1487,6 +1489,7 @@ Bigint.prototype.kadd = function(bi){
   carry = 0;
   for (i = 0; i < min; i++) {
     retdp[i] = this.dp[i] + bi.dp[i] + carry;
+    // works if MP_DIGIT_BIT < 32 bit (YMMV on a 64 bit machine)
     carry = retdp[i] >>> MP_DIGIT_BIT;
     retdp[i] &= MP_MASK;
   }
@@ -1541,28 +1544,21 @@ Bigint.prototype.ksub = function(bi){
   var x,retdp, min, max,carry,i;
 
   /* find sizes */
-  min = this.used;
-  max = bi.used;
+  min = bi.used;
+  max = this.used;
 
   retdp = [];
   carry = 0;
   for (i = 0; i < min; i++) {
+    // the unsigned shift is not an error here, but prob. only here
     retdp[i] = this.dp[i] - bi.dp[i] - carry;
-    if(retdp[i] < 0){
-      retdp[i] += MP_DIGIT_MAX;
-      carry = 1;
-    } else {
-      carry = 0;
-    }
+    carry = (retdp[i] >> (MP_DIGIT_BIT + 1))&0x1;
+    retdp[i] &= MP_MASK;
   }
   for(;i< max;i++){
     retdp[i] = this.dp[i] - carry;
-    if(retdp[i] < 0){
-      retdp[i] += MP_DIGIT_MAX;
-      carry = 1;
-    } else {
-      carry = 0;
-    }
+    carry = (retdp[i] >> (MP_DIGIT_BIT + 1))&0x1;
+    retdp[i] &= MP_MASK;
   }
   return retdp;
 };
@@ -1594,7 +1590,7 @@ Bigint.prototype.sub = function(bi){
     } else {
       /* The result has the *opposite* sign from */
       /* the first number. */
-      ret.sign = (sa == MP_ZPOS) ? MP_NEG : MP_ZPOS;
+      ret.sign = (sa == MP_NEG) ? MP_ZPOS : MP_NEG;
       /* The second has a larger magnitude */
       ret.dp = bi.ksub(this);
     }
