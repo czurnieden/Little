@@ -1322,8 +1322,8 @@ Bigint.prototype.mul = function(bi){
   if(Math.min(a.used,b.used) >=  FFT_MUL_CUTOFF){
     return a.fft_mul(b);
   }
-  if(Math.min(a.used,b.used) >= 2 * KARATSUBA_MUL_CUTOFF){
-    return a.karatsuba(b);
+  if(Math.min(a.used,b.used) >= 3 * TOOM_COOK_MUL_CUTOFF){
+    return a.toom-cook_mul(b);
   }
 
   ret = a.multiply(b);
@@ -1385,8 +1385,8 @@ Bigint.prototype.sqr = function(){
     // FFT does both in one function
     return this.fft_mul();
   }
-  if(this.used >= 2 * KARATSUBA_SQR_CUTOFF){
-    return this.karatsuba_square();
+  if(this.used >= 3 * TOOM_COOK_SQR_CUTOFF){
+    return this.toom_cook_square();
   }
   
   return this.square();
@@ -1909,6 +1909,109 @@ Bigint.prototype.karatsuba_square = function(){
 };
 
 
+/*
+Jaewook Chung, M. Anwar Hasan: Asymmetric Squaring Formulae, Centre for Applied
+Cryptographic Research, University of Waterloo, Ontario, Canada, (3-August-2006). URL:
+http://www.cacr.math.uwaterloo.ca/tech_reports.html. 551, 553, 557
+*/
+Bigint.prototype.toom_cook_mul = function(bint){
+  var a0,a1,a2,b0,b1,b2,b3,t1,t2,w0,w1,w2,w3,w4,c;
+
+  var tlen = this.used;
+  var blen = bint.used;
+
+  var m = Math.floor(Math.min(tlen,blen)/3);
+  if(m <= TOOM_MUL_CUTOFF )return this.karatsuba(bint);
+
+  a0 = new Bigint(0);
+  a1 = new Bigint(0);
+  a2 = new Bigint(0);
+ 
+  b0 = new Bigint(0);
+  b1 = new Bigint(0);
+  b2 = new Bigint(0);
+
+  a0 = this.slice(0,m);
+  a1 = this.slice(m,2*m);
+  a2 = this.slice(2*m,tlen);
+
+  b0 = bint.slice(0,m);
+  b1 = bint.slice(m,2*m);
+  b2 = bint.slice(2*m,blen);
+
+  w0 = a0.toom_cook_mul(b0);
+  w4 = a2.toom_cook_mul(b2);
+
+  w1 = (a2.add(a1).add(a0))   .toom_cook_mul
+       (b2.add(b1).add(b0))
+
+  w2 = (a2.lShift(2).add(a1.lShift(1)).add(a0) ) .toom_cook_mul
+       (b2.lShift(2).add(b1.lShift(1)).add(b0))
+ 
+  w3 = (a2.sub(a1).add(a0)) . toom_cook_mul(b2.sub(b1).add(b0))
+
+  t1 = w3.lShift(1).add(w2);
+  t1 = t1.divInt(3);
+  t1 = t1.add(w0);
+  t1 = t1.rShift(1);
+  t1 = t1.sub(w4.lShift(1));
+  t2 = w1.add(w3).rShift(1);
+  w1 = w1.sub(t1);
+  w2 = t2.sub(w0).sub(w4);
+  w3 = t1.sub(t2);
+
+  w1 = w1.dlShift(1*m);     // c
+  w2 = w2.dlShift(2*m);     // c
+  w3 = w3.dlShift(3*m);     // c
+  w4 = w4.dlShift(4*m);     // c
+  
+  c = w0.add(w1).add(w2).add(w3).add(w4);
+  
+  c.sign = (sign<0)?-1:1;
+  return c;
+};
+
+Bigint.prototype.toom_cook_sqr = function(){
+  var a0,a1,a2,t1,t2,w0,w1,w2,w3,w4,c;
+
+  var tlen = this.used;
+
+  var m = Math.floor(tlen/3);
+  if(m <= 40/* TOOM_MUL_CUTOFF */)return this.karatsuba_square();
+
+  a0 = new Bigint(0);
+  a1 = new Bigint(0);
+  a2 = new Bigint(0);
+
+
+  a0 = this.slice(0,m);
+  a1 = this.slice(m,2*m);
+  a2 = this.slice(2*m,tlen);
+
+  w0 = a0.toom_cook_sqr();
+  w4 = a2.toom_cook_sqr();
+
+  w1 = (a2.add(a1).add(a0)).toom_cook_sqr();
+  w2 = (a2.sub(a1).add(a0)).toom_cook_sqr();
+
+  w3 = a1.lShift(1).mul(a2);
+
+  t1 = w1.add(w2).rShift(1);
+  w1 = w1.sub(t1).sub(w3);
+  w2 = t1.sub(w4).sub(w0);
+
+  // w0 = w0.dlShift(0*m)
+  w1 = w1.dlShift(1*m);
+  w2 = w2.dlShift(2*m);
+  w3 = w3.dlShift(3*m);
+  w4 = w4.dlShift(4*m);
+  
+  c = w0.add(w1).add(w2).add(w3).add(w4);
+
+  return c;
+};
+
+// detects automatically if a square is wanted, just leave out the argument
 Bigint.prototype.fft_mul = function(bint) {
   /* base two integer logarithm */
   var highbit = function(n) {
