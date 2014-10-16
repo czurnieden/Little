@@ -41,7 +41,8 @@ all: it may not even compile!
 /*
   TODO: Quite a lot.
 
-  - should be modern but also kept legible and easy to follow.
+  - should be modern but also kept legible and easy to follow, e.g. putting the
+    whole thing in a module for easier use might be a nice idea.
   - some things are superfluous
   - in urgent need of correct error-checking with try/catch and error throw-ing
   - some of the inner loops can make use of multiple cores/processors
@@ -581,6 +582,214 @@ Number.prototype.toHex32 = function(uppercase){
   }
   return ret;
 };
+/*
+// rudimentary bigdecimal for speeding up a_bigint.toString()
+var BIGDECIMAL_BASE = 10000000;
+var BIGDECIMAL_LOG10_BASE = 7;
+function Bigdecimal() {
+    this.digits = [];
+    this.sign = 1;
+    this.used = 0;
+    if (arguments.length != 0) {
+        var n = arguments[0];
+        if (n.isInt()){
+            if (n < BIGDECIMAL_BASE) {
+                this.digits[0] = n;
+                this.sign = n.sign();
+                this.used = 1;
+            } else if(n < BIGDECIMAL_BASE * BIGDECIMAL_BASE) {
+                this.digits[0] = n % BIGDECIMAL_BASE;
+                this.digits[1] = Math.floor(n/BIGDECIMAL_BASE);
+                this.used = 2;
+            } else {
+                this.digits[0] = n % BIGDECIMAL_BASE;
+                this.digits[1] = Math.floor(n/BIGDECIMAL_BASE);
+                this.digits[2] = Math.floor(this.digits[1]/BIGDECIMAL_BASE)>>>0;
+                this.digits[1] = (this.digits[1] % BIGDECIMAL_BASE)>>>0 ;
+                this.used = 3;
+            }
+        }
+    } else {
+        this.digits[0] = 0;
+    }
+}
+Bigdecimal.prototype.clamp = function() {
+    while(this.used > 1 && (this.digits[this.used-1] == 0 || isNaN(this.digits[this.used-1])) )
+        this.used--;
+    this.digits.length = this.used;
+};
+Bigdecimal.prototype.dup = function() {
+    var copy = new Bigdecimal(0);
+    if (this.used == 0) return copy;
+    copy.digits = new Array(this.used);
+    copy.sign = this.sign;
+    copy.used = this.used;
+    for (var i = 0; i < this.used; i++)
+        copy.digits[i] = this.digits[i];
+    return copy;
+};
+
+Bigdecimal.prototype.isZero = function() {
+    if (this.used == 0 && this.sign == 1) return true;
+    return false;
+};
+Bigdecimal.prototype.isOne = function() {
+    if (this.used == 1 && this.sign == 1 && this.digits[0] == 1) return true;
+    return false;
+};
+Bigdecimal.ZERO = new Bigdecimal(0);
+Bigdecimal.ONE = new Bigdecimal(1);
+
+Bigdecimal.prototype.abs = function() {
+    var r = this.dup();
+    r.sign = 1;
+    return r;
+};
+
+Bigdecimal.prototype.neg = function() {
+    var r = this.dup();
+    if (this.used == 0) return r;
+    if (this.used == 1 && this.digits[0] == 0) return r;
+    r.sign = this.sign * -1;
+    return r;
+};
+
+Bigdecimal.prototype.cmp_mag = function(bdec) {
+    if (this.used > bdec.used) return MP_GT;
+    if (this.used < bdec.used) return MP_LT;
+
+    for (var i = this.used - 1; i >= 0; i--) {
+        if (this.digits[i] > bdec.digits[i]) return MP_GT;
+        if (this.digits[i] < bdec.digits[i]) return MP_LT;
+    }
+    return MP_EQ;
+};
+
+Bigdecimal.prototype.cmp = function(bdec) {
+    if (this.sign > bdec.sign) return MP_GT;
+    if (this.sign < bdec.sign) return MP_LT;
+    if (this.sign < 0)
+        return bdec.cmp_mag(this);
+    return this.cmp_mag(bdec);
+};
+
+Bigdecimal.prototype.toString = function() {
+    var len = this.used - 1;
+    var str = "";
+    if (this.isZero()) return "0";
+    for (var i = len; i >= 0; i--) {
+        var temp = this.digits[i].toString();
+
+        var tlen = temp.length;
+        while (tlen++ < BIGDECIMAL_LOG10_BASE && i != len) {
+            temp = "0" + temp;
+        }
+        str += temp;
+    }
+    str = (this.sign < 1) ? "-" + str : str;
+    return str;
+};
+
+Bigdecimal.prototype.lowlevel_add = function(bdec) {
+    var t = this.digits;
+    var tlen = this.used;
+
+    var b = bdec.digits;
+    var blen = bdec.used;
+    var tblen = tlen + blen;
+
+    var temp, carry = 0, i;
+    var ret;
+    if (tlen < blen) return bdec.add(this);
+    ret = new Bigdecimal(0);
+    ret.digits = [];
+    while(tblen--)ret.digits[tblen] = 0;
+    for (i = 0; i < blen; i++) {
+        temp = carry;
+        temp += t[i] + b[i];
+        carry = Math.floor(temp / BIGDECIMAL_BASE);
+        ret.digits[i] = temp % BIGDECIMAL_BASE;
+    }
+    if (tlen - blen != 0) {
+        for (i = blen; i < tlen; i++) {
+            temp = carry;
+            temp += t[i];
+            carry = Math.floor(temp / BIGDECIMAL_BASE);
+            ret.digits[i] = temp % BIGDECIMAL_BASE;
+        }
+    }
+
+    if (carry) ret.digits[i] = carry;
+    ret.used = ret.digits.length;
+    ret.clamp();
+    return ret;
+};
+
+Bigdecimal.prototype.add = function(bdec) {
+    var tsign = this.sign;
+    var bsign = bdec.sign;
+
+    var ret;
+
+    if (tsign == bsign) {
+        ret = this.lowlevel_add(bdec);
+        ret.sign = tsign;
+    } else {
+        // |a| < |b|
+        if (this.cmp_mag(bdec) == MP_LT) {
+            ret = bdec.lowlevel_sub(this);
+            ret.sign = bsign;
+        } else {
+            ret = this.lowlevel_sub(bdec);
+            ret.sign = tsign;
+        }
+    }
+    return ret;
+};
+Bigdecimal.prototype.lowlevel_mul = function(bdec) {
+    var tsign = this.sign;
+    var t = this.digits;
+    var tlen = this.used;
+    var bsign = bdec.sign;
+    var b = bdec.digits;
+    var blen = bdec.used;
+    var ret = new Bigdecimal(0),
+        retv,temp;
+    var tblen = tlen + blen;
+    var carry,i,j;
+
+    //if(typeof bdec == 'number') return this.lowlevel_mulD(bdec);
+
+    if (bdec.isZero()) return ret;
+    if (bdec.isOne()) return this.dup();
+
+    retv = [];
+    while(tblen--)retv[tblen] = 0;
+
+    for (i = 0; i < tlen; i++) {
+        carry = 0;
+        for (j = 0; j < blen; j++) {
+            temp = retv[i + j] + (t[i] * b[j]) + carry;
+            carry = Math.floor(temp / BIGDECIMAL_BASE);
+            retv[i + j] = temp % BIGDECIMAL_BASE;
+        }
+        retv[i + blen] = carry;
+    }
+
+    ret.digits = retv;
+    ret.used = retv.length;
+    ret.clamp();
+    return ret;
+};
+
+Bigdecimal.prototype.mul = function(bdec) {
+    var r;
+    if(this.cmp(bdec) == MP_LT) r = bdec.lowlevel_mul(this)
+    else  r = this.lowlevel_mul(bdec);
+    r.sign = this.sign * bdec.sign;
+    return r;
+};
+*/
 Bigint.prototype.toString = function(radix){
   var mp_s_rmap = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
   var  ret;
@@ -671,8 +880,41 @@ Bigint.prototype.toString = function(radix){
     return (sign < 0)?"-" + s: s;
   }
   */
-
-
+/*
+  // use the full available space a double offers
+  if(radix == 10 && t.used > 20){
+    var out = new Bigdecimal(0);
+    var base = new Bigdecimal(MP_DIGIT_MAX*MP_DIGIT_MAX);
+    var digit;
+    var limit = (t.used %2 == 0)?0:1;
+    for(var i = t.used-1;i>0;i-=2){
+      digit = new Bigdecimal(t.dp[i-1] + (t.dp[i]*MP_DIGIT_MAX) );
+      out = out.mul(base);
+      out = out.add(digit);
+    }
+    if(limit == 1){
+      digit = new Bigdecimal(t.dp[0] );
+      out = out.mul(new Bigdecimal(MP_DIGIT_MAX));
+      out = out.add(digit);
+    }
+    out.sign = this.sign;
+    return out.toString();
+  }
+*/
+/*
+   // a more conservative version
+   if(radix == 10 && t.used > 20){
+    var out = new Bigdecimal(0);
+    var base = new Bigdecimal(MP_DIGIT_MAX);
+    for(var i = t.used-1;i>=0;i--){
+      var digit = new Bigdecimal(t.dp[i]);
+      out = out.mul(base);
+      out = out.add(digit);
+    }
+    out.sign = this.sign;
+    return out.toString();
+  } 
+*/
   // this is veeeeery slow
   while ( t.isZero() == MP_NO) {
     ret = t.divremInt(radix);
@@ -734,7 +976,30 @@ String.prototype.toBigint = function(radix){
   if(radix < 36){
     str = str.toUpperCase();
   }
-
+/*
+  // much faster version, needs Bigdecimal and some testing
+  if(radix == 10 && strlen > 70){
+    var i,j,k,tmp,astr;
+    var rem = strlen % BIGDECIMAL_LOG10_BASE;
+    for( i = 0;i < str.length-(rem+1);i += BIGDECIMAL_LOG10_BASE){
+      tmp = 0;
+      j = BIGDECIMAL_LOG10_BASE;
+      while(j--){tmp *=10;tmp += str.charCodeAt(i+((BIGDECIMAL_LOG10_BASE-1)-j))&0xff - 48;}
+      ret = ret.mulInt(BIGDECIMAL_BASE);
+      if(tmp != 0)ret = ret.addInt(tmp);
+    }
+    if(rem){
+      tmp = 0;
+      j = rem+1;
+      while(--j){tmp *=10;tmp += str.charCodeAt(i+(rem-j))&0xff - 48;}
+      ret = ret.mulInt(Math.pow(10,rem-1));
+      if(tmp != 0)ret = ret.addInt(tmp);
+    }
+    ret.sign = neg;
+    ret.clamp();
+    return ret;
+  }
+*/
   // left (high) to right (low)
   for(var i = 0 ; i < strlen ; i++){
     ch = str.charAt(i);
@@ -2570,6 +2835,98 @@ Bigint.prototype.nthroot = function(n){
 };
 
 
+Bigint.prototype.gcd = function(bint) {
+    var g = new Bigint(1);
+    // checks and balances
+    var x = this.copy();
+    var y = bint.copy();
+    var t;
+    while (x.isEven() && y.isEven()) {
+        x.rShiftInplace(1);
+        y.rShiftInplace(1);
+        g.lShiftInplace(1);
+    }
+    while (!x.isZero()) {
+        while (x.isEven()) x.rShiftInplace(1);
+        while (y.isEven()) y.rShiftInplace(1);
+        t = x.sub(y);
+        t.sign = MP_ZPOS;
+        t.rShiftInplace(1);
+        // TODO: full copy prob. not necessary, check
+        if (x.cmp(y) != MP_LT) x = t.copy();
+        else y = t.copy();
+    }
+    return g.mul(y);
+};
+Bigint.prototype.egcd = function(bint) {
+    var g = new Bigint(1);
+    // checks and balances
+    var x = this.copy();
+    var y = bint.copy();
+    var u, v, A, B, C, D;
+    while (x.isEven() && y.isEven()) {
+        x.rShiftInplace(1);
+        y.rShiftInplace(1);
+        g.lShiftInplace(1);
+    }
+    u = x.copy();
+    v = y.copy();
+    A = new Bigint(1);
+    B = new Bigint(0);
+    C = new Bigint(0);
+    D = new Bigint(1);
+    do {
+        while (u.isEven()) {
+            u.rShiftInplace(1);
+            if (A.isEven() && B.isEven()) {
+                A.rShiftInplace(1);
+                B.rShiftInplace(1);
+            } else {
+                A = A.add(y);
+                A.rShiftInplace(1);
+                B = B.sub(x);
+                B.rShiftInplace(1);
+            }
+        }
+        while (v.isEven()) {
+            v.rShiftInplace(1);
+            if (C.isEven() && D.isEven()) {
+                C.rShiftInplace(1);
+                D.rShiftInplace(1);
+            } else {
+                C = C.add(y);
+                C.rShiftInplace(1);
+                D = D.sub(x);
+                D.rShiftInplace(1);
+            }
+        }
+        if (u.cmp(v) != MP_LT) {
+            u = u.sub(v);
+            A = A.sub(C);
+            B = B.sub(D);
+        } else {
+            v = v.sub(u);
+            C = C.sub(A);
+            D = D.sub(B);
+        }
+    } while (!u.isZero());
+
+    return [C, D, g.mul(v)];
+};
+
+Bigint.prototype.lcm = function(bint) {
+    var t1 = this.gcd(bint),
+        t2, ret;
+    if (this.cmp_mag(bint) == MP_LT) {
+        ret = bint.mul(a.div(t1));
+    } else {
+        ret = this.mul(b.div(t1));
+    }
+    ret.sign = MP_ZPOS;
+    return ret;
+};
+
+
 
 
 
@@ -2587,7 +2944,7 @@ Bigint.prototype.nthroot = function(n){
 
 
 
-
+//Bigint.prototype.rand = function(bits){};
 
 
 
