@@ -1108,6 +1108,72 @@ Bigint.prototype.toNumber = function(){
   return bd_high;
 };
 
+// see http://burtleburtle.net/bob/rand/smallprng.html
+var __burtlerand_ax = {
+    a: 0xf1ea5eed,
+    b: 2>>>0,
+    c: 3>>>0,
+    d: 4>>>0
+};
+function burtle_rand(seed) {
+    var rot = function(s, k) {
+        return (((s>>> 0) << (k>>> 0)) | ((s>>> 0) >>> (32 - (k>>> 0))));
+    }
+    var raninit = function(seed) {
+        __burtlerand_ax.a = 0xf1ea5eed, __burtlerand_ax.b =
+            __burtlerand_ax.c = __burtlerand_ax.d = seed;
+        for (var i = 0; i < 20; ++i) {
+            ranval();
+        }
+    };
+    var ranval = function() {
+        var e = __burtlerand_ax.a - rot(__burtlerand_ax.b, 23 >>> 0)>>> 0;
+        __burtlerand_ax.a = __burtlerand_ax.b ^ rot(__burtlerand_ax.c, 16 >>>
+            0)>>> 0;
+        __burtlerand_ax.b = __burtlerand_ax.c + rot(__burtlerand_ax.d, 11 >>>
+            0)>>> 0;
+        __burtlerand_ax.c = __burtlerand_ax.d + e>>> 0;
+        __burtlerand_ax.d = e + __burtlerand_ax.a>>> 0;
+        return __burtlerand_ax.d>>> 0;
+    };
+    if (arguments.length == 1) {
+        if (!isNaN(parseInt(seed))) {
+            raninit(parseInt(seed >>> 0) >>> 0);
+        }
+    }
+
+    return ranval() >>> 0;
+}
+
+// uses Bob Jenkins' small PRNG with the extra round listed above
+// used instead of Math.random to get have a known function with a good mix
+// (avalaunche)
+Bigint.prototype.random = function(bits,seed) {
+  var digbits = Math.floor(bits/MP_DIGIT_BIT);
+  var modbits = bits % MP_DIGIT_BIT;
+  var ret,mod_mask;
+
+  if(bits && bits <= 0){
+    return new Bigint(0);
+  }
+
+  if(arguments.length == 2){
+    burtle_rand(seed&0xffffffff);
+  }
+  else {
+    burtle_rand(Date.now()&0xffffffff);
+  }
+
+  mod_mask = (1<<modbits)-1;
+  
+  this.dp[digbits] = burtle_rand()&mod_mask;
+  while(digbits--){
+    this.dp[digbits] = burtle_rand() & MP_MASK;
+  }
+  this.used = this.dp.length;
+  return this.copy();
+};
+
 // does deep copy of THIS
 Bigint.prototype.copy = function(){
   var tt;
