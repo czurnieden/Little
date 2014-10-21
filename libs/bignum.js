@@ -1494,7 +1494,7 @@ Bigint.prototype.highBit = function()
     }
     else
     {
-        return MP_DIGIT_BIT * (this.used - 1) + (this.dp[this.used - 1].highBit());
+        return MP_DIGIT_BIT * (this.used - 2) + (this.dp[this.used - 1].highBit());
     }
 };
 // lowest bit set (e.g.: 22 = 0b10110, returns 2)
