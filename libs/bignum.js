@@ -1,4 +1,4 @@
-"use strict";
+int"use strict";
 
 /*
     Errors found by
@@ -1494,7 +1494,7 @@ Bigint.prototype.highBit = function()
     }
     else
     {
-        return MP_DIGIT_BIT * (this.used - 2) + (this.dp[this.used - 1].highBit());
+        return MP_DIGIT_BIT * (this.used - 1) + (this.dp[this.used - 1].highBit());
     }
 };
 // lowest bit set (e.g.: 22 = 0b10110, returns 2)
@@ -1551,7 +1551,7 @@ Bigint.prototype.dlShift = function(i)
         tmp[i] = 0 >>> 0;
     }
     ret.dp = tmp.concat(ret.dp);
-    ret.used = this.used + i;
+    ret.used = this.dp.length;
     return ret;
 };
 Bigint.prototype.dlShiftInplace = function(i)
@@ -1567,7 +1567,7 @@ Bigint.prototype.dlShiftInplace = function(i)
         tmp[i] = 0 >>> 0;
     }
     this.dp = tmp.concat(this.dp);
-    this.used += i;
+    this.used = this.dp.length;
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
 Bigint.prototype.drShift = function(i)
