@@ -1,4 +1,4 @@
-int"use strict";
+"use strict";
 
 /*
     Errors found by
@@ -3305,6 +3305,23 @@ Bigint.prototype.pow = function(ui)
 Number.prototype.kpow = function(bi)
 {
     var ret = new Bigint(1);
+    var t = this.toBigint();
+    while (bi.isZero() == MP_NO)
+    {
+        if (bi.isOdd() == MP_YES)
+        {
+            ret = ret.mul(t);
+        }
+        t = t.sqr();
+        bi.rShiftInplace(1);
+    }
+    return ret;
+};
+
+Number.prototype.bigpow = function(si)
+{
+    var ret = new Bigint(1);
+    var bi = si.toBigint();
     var t = this.toBigint();
     while (bi.isZero() == MP_NO)
     {
