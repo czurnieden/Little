@@ -6,6 +6,7 @@
   eslint --rule "no-unused-vars:0,no-console:0,quotes:0,no-eval:0,new-cap:0,no-empty:0,no-spaced-func:0,no-cond-assign:0,no-constant-condition:0,no-underscore-dangle:0,eqeqeq:0,camelcase:0,,no-extend-native:0,yoda:0"  bignum.js 
 
   are mostly intentionally (e.g.: "==" instead if "===") but feel free to check
+
 */
 
 /*
@@ -2509,11 +2510,11 @@ Bigint.prototype.remInt = function(si)
 // Beware: works in-place!
 Bigint.prototype.incr = function()
 {
-    var carry, i;
-    carry = 0;
+    var carry, i, t;
+    carry = 1;
     for (i = 0; i < this.used; i++)
     {
-        this.dp[i] = this.dp[i] + 1 + carry;
+        this.dp[i] = this.dp[i] + carry;
         carry = this.dp[i] >>> MP_DIGIT_BIT;
         this.dp[i] &= MP_MASK;
     }
@@ -3574,81 +3575,3 @@ Bigint.prototype.lcm = function(bint)
     return ret;
 };
 
-
-
-
-
-//Bigint.prototype. = function(){};
-//Bigint.prototype. = function(){};
-
-
-
-
-
-
-
-
-
-//Bigint.prototype.rand = function(bits){};
-
-
-
-
-
-
-
-
-
-function Bigfloat()
-    {
-        var sign = MP_ZPOS;
-        // new Bigint() is automatically zero
-        var mantissa = new Bigint();
-        var exponent = 0;
-        // in bigdigits(?)
-        var precision = MP_DIGIT_BIT * 2;
-    }
-    // per default two bigdigits == JS Number (8-byte double) for MP_DIGIT_BIT = 26
-Bigfloat.precision = MP_DIGIT_BIT * 2;
-
-
-
-
-
-
-/*******************************************************************************
-  Bignumber
-
-  Includes everything. Bad idea?
-
-*******************************************************************************/
-
-function Bignumber()
-    {
-        var number = 0;
-        /*
-          One of
-          "number"   = Number;
-          "bigint"   = Bigint;
-          "bigfloat" = Bigfloat;
-          "tcomplex"  = Complex; can be nested, e.g: Complex(Bignumber,Bignumber)
-                                  if Bignumber is not a Complex , so nothing like
-                                  Complex(Complex,Complex)
-          "quaternion" = Quaternion; can be nested but see Complex for restrictions
-         */
-        var type = "number";
-    }
-    /*
-    var a = "123456789000123456789000123456789000"
-    var b = a.toBigint();
-    var c = b.sqr();
-    c.toString();
-    */
-var a1 =
-    "912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000"
-var a2 =
-    "91234567890001234567890001912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000912345678900012345678900012345678900091234567890001234567890001234567890009123456789000123456789000123456789000"
-var a = a1.toBigint();
-var b = a2.toBigint();
-
-a.toString()
