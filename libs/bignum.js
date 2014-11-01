@@ -32,10 +32,10 @@ all: it may not even compile!
 
 // Needs  ECMAScript 5.1 compliant engine to work
 // Please be aware that I didn't wrote "Needs  ECMAScript >5.1 compliant engine
-// to work"
+// to work" although it should be upwards comnpatible to "Harmony" at least
 
 /*
-  This code contains parts of Libtommath (public domain) and some ports of
+  This code contains some ports of Libtommath (public domain) and some ports of
   older SunPro code (License below)
 */
 /*
@@ -50,7 +50,7 @@ all: it may not even compile!
  */
 /*
    The snippets with code from SunPro are annotated as such. Replace if
-   the license is a problem.
+   the above license is a problem.
 */
 
 /*
@@ -65,7 +65,7 @@ all: it may not even compile!
     any use here
   - Make use of a general namespace for all of the global variables
     (Bignum or something which will make sense after adding of a Bigfloat )
-  - ECMA 5 offers typed arrays, check if Uint32Array do the job better
+  - ECMA 5 offers typed arrays, check if Uint32Arrays do the job better
     (needs a byteorder check); see also Float64Array for the FFT.
     http://jsperf.com/array-vs-uint32array says it is faster but not much
     http://jsperf.com/array-vs-uint32array/7 says it is slower
@@ -138,7 +138,7 @@ var MP_SING = -9;
 var MP_YES = true;
 var MP_NO = false;
 
-// Cut-offs for fast multiplication (YMMV, so please send a not, if it varies)
+// Cut-offs for fast multiplication (YMMV. Please send a note if it varies)
 
 var KARATSUBA_MUL_CUTOFF = 125;
 var KARATSUBA_SQR_CUTOFF = 200;
@@ -146,7 +146,7 @@ var KARATSUBA_SQR_CUTOFF = 200;
 var TOOM_COOK_MUL_CUTOFF = 475;
 var TOOM_COOK_SQR_CUTOFF = 600;
 
-// although not tested yet, but seem reasonable
+// although not tested yet, but seemed reasonable
 var FFT_MUL_CUTOFF = 2048;
 // do one karatsuba mul. if limit is reached
 // 2^23 is below limit and still 8,388,608 limbs large which is > 10^(10^14)
@@ -179,7 +179,7 @@ var MP_HALF_DIGIT = (1 << MP_HALF_DIGIT_BIT);
 var MP_HALF_DIGIT_MASK = (MP_HALF_DIGIT - 1);
 
 
-// Some limits regarding floating point size (unused, came for Tom Wu's stuff)
+// Some limits regarding floating point size (unused, came from Tom Wu's stuff)
 // maximum usable bits in mantissa
 var MP_FLOAT_BIT = 52;
 // maximum number (4,503,599,627,370,496 with the 52 bits from above)
@@ -195,8 +195,8 @@ Number.INT_MAX = 9007199254740992; // 2^53
 /*
   The size of the L1-cache in bytes. The number here is that of the data cache
   part of an AMD Duron. The Linux kernel gives a lot of information e.g.:
-    grep . /sys/devices/system/cpu/cpu0/cache/index*/
-/*
+    grep . /sys/devices/system/cpu/cpu0/cache/index
+
   There is also lscpu(1) wich is easier to use.
   On Windows:
     http://msdn.microsoft.com/en-us/library/ms683194.aspx
@@ -238,7 +238,7 @@ var double_int = new DataView(new ArrayBuffer(8));
   are a bit dubious ("test" needs to act like an unsigned 32 bit integer. Does
   it? Always?), so I've chosen the long and tedious but correct way.
 
-  Throws a FatalError which you may or may not catch.
+  Throws a FatalError which you may or may not want to catch.
 */
 var __bigint_check_endianess = (function()
 {
@@ -329,7 +329,7 @@ function xtypeof(obj)
 
 /*
  * All functions implemented by prototyping to avoid name-clashes
- * E.g.: ther is a Number.isNaN but no Number.prototype.isNaN
+ * E.g.: there is a Number.isNaN but no Number.prototype.isNaN
  * but mainly to support a common codebase, such that it will not matter if the
  * variable A in A.isNaN() is a Bigint, a Number, a Bigfloat, or anything else.
  */
@@ -366,7 +366,7 @@ Number.prototype.sign = function()
 };
 
 /*
- *  Most of the following functions assume 32-bit little-endina integers.
+ *  Most of the following functions assume 32-bit little-endian integers.
  */
 
 Number.prototype.lowBit = function()
@@ -509,7 +509,7 @@ Number.prototype.isInt = function()
     {
         return MP_NO;
     }
-    /* ECMA 6 (Draft). Impl. by Firefox ( >= 32 ) only toBi
+    /* ECMA 6 (Draft). Impl. by Firefox ( >= 32 ) only
     if(Number.isSafeInteger){
       return ( Number.isSafeInteger(this) )?MP_YES:MP_NO;
     }
@@ -626,16 +626,19 @@ Bigint.ONE = new Bigint(1);
 
 Bigint.prototype.clear = function()
 {
+    delete this.dp;
+    delete this.used;
+    delete this.alloc;
+    delete this.sign;
+};
+/*
+Bigint.prototype.clear = function()
+{
     this.dp = null;
     this.used = null;
     this.alloc = null;
     this.sign = null;
-    //void MP_CLEAR(this);
 };
-/*
-function MP_CLEAR(bi){
-  delete bi;
-}
 */
 
 // avoid mess
@@ -649,6 +652,7 @@ Bigint.prototype.clamp = function()
     this.dp.length = this.used;
     this.alloc = this.used;
 };
+
 // print all four bytes even if zero (little endian)
 Number.prototype.toHex32 = function(uppercase)
 {
@@ -2512,7 +2516,16 @@ Bigint.prototype.incr = function()
 {
     var carry, i, t;
     carry = 1;
-    for (i = 0; i < this.used; i++)
+    i = 0;
+    this.dp[i] = this.dp[i] + carry;
+    carry = this.dp[i] >>> MP_DIGIT_BIT;
+    this.dp[i] &= MP_MASK;
+    // the chance of this early-out to happen has not yet been calculated but
+    // conjectured to be quite high
+    if(carry === 0){
+        return;
+    }
+    for (i = 1; i < this.used; i++)
     {
         this.dp[i] = this.dp[i] + carry;
         carry = this.dp[i] >>> MP_DIGIT_BIT;
