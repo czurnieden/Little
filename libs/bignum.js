@@ -117,7 +117,7 @@ var MP_DOMAIN = -2;
 var MP_VAL = -3;
 // Output out of range (mostly too large)
 var MP_RANGE = MP_VAL;
-// Function not supported (come back later)
+// Function not supported (you may come back later)
 var MP_NOTSUP = -4;
 var MP_NOSYS = MP_NOTSUP;
 // Value too large for something to be specified elsewhere
@@ -178,19 +178,6 @@ var MP_HALF_DIGIT_BIT = (MP_DIGIT_BIT >> 1);
 var MP_HALF_DIGIT = (1 << MP_HALF_DIGIT_BIT);
 var MP_HALF_DIGIT_MASK = (MP_HALF_DIGIT - 1);
 
-
-// Some limits regarding floating point size (unused, came from Tom Wu's stuff)
-// maximum usable bits in mantissa
-var MP_FLOAT_BIT = 52;
-// maximum number (4,503,599,627,370,496 with the 52 bits from above)
-var MP_FLOAT_MAX = Math.pow(2, 52);
-// difference to MP_DIGIT_BIT (22)
-var MP_FLOAT_DIGIT_DIFF = MP_FLOAT_BIT - MP_DIGIT_BIT;
-// excess bits to be taken care of when multiplying (8 with the above cases)
-var MP_FLOAT_2_DIGIT_DIFF = 2 * MP_DIGIT_BIT - MP_FLOAT_BIT;
-
-Number.INT_MAX = 9007199254740992; // 2^53
-
 /* Used in FFT code */
 /*
   The size of the L1-cache in bytes. The number here is that of the data cache
@@ -250,8 +237,8 @@ var __bigint_check_endianess = (function()
         var MP_ENDIANESS_TEST_32 = new Int32Array(buffer);
         var MP_ENDIANESS_TEST_8 = new Uint8Array(buffer);
         MP_ENDIANESS_TEST_32[0] = 0xff;
-        if (MP_ENDIANESS_TEST_8[3] === 0xff && MP_ENDIANESS_TEST_8[0] ===
-            0)
+        if (MP_ENDIANESS_TEST_8[3] === 0xff && 
+            MP_ENDIANESS_TEST_8[0] ===   0)
         {
             throw {
                 name: 'FatalError',
@@ -340,7 +327,7 @@ Number.prototype.isNaN = function()
     return isNaN(this);
 };
 // Does not use the new Number.isFinite for reasons layed down
-// in blog post TODO: look-up URL
+// in blog post TODO: look-up URL of afoprementioned blog post
 Number.prototype.isFinite = function()
 {
     if (isNaN(this) || this === Infinity || this === -Infinity)
@@ -352,11 +339,17 @@ Number.prototype.isFinite = function()
 // Danger: will return inexact results for numbers > 2^53!
 Number.prototype.isEven = function()
 {
+    if (Math.abs(this) > 0x1fffffffffffff) {
+        return MP_RANGE;
+    }
     return (this % 2 == 0);
 };
 // Danger: will return inexact results for numbers > 2^53!
 Number.prototype.isOdd = function()
 {
+    if (Math.abs(this) > 0x1fffffffffffff) {
+        return MP_RANGE;
+    }
     return (this % 2 == 1);
 };
 //TODO: check for exceptions (NaN, Inf)
@@ -407,24 +400,6 @@ Number.prototype.highBit = function()
     return ret;
 };
 
-// this is a function with a limit of MP_DIGIT_BIT instead of 32!
-Math.isPow2 = function(b)
-{
-    var x = 0 >>> 0;
-    /* fast return if no power of two */
-    if ((b == 0) || (b & (b - 1)))
-    {
-        return 0;
-    }
-    for (; x < MP_DIGIT_BIT; x++)
-    {
-        if (b == (1 << x))
-        {
-            return true;
-        }
-    }
-    return false;
-};
 // this is a function with a limit of 32
 Number.prototype.isPow2 = function(b)
 {
@@ -449,25 +424,6 @@ Number.prototype.isPow2 = function(b)
 String.prototype.asciireverse = function()
 {
     return this.split('').reverse().join('');
-};
-
-// TODO: find out what the hell I tried to do with _that_ abomination!
-String.prototype.toXDigits = function()
-{
-    var s = this;
-    var ret = "";
-    var xdigit = "/[\u0030-\u0039\u0041-\u0046\u0061-\u0066]/";
-    // Rest of Unicode xdigits
-    // "\uff10-\uff19\uff21-\uff26\uff41-\uff46]/";
-    var rgx = new RegExp(eval(xdigit));
-    for (var i = 0; i < s.length; i++)
-    {
-        if (rgx.test(s.charAt(i)))
-        {
-            ret += s.charAt(i);
-        }
-    }
-    return ret;
 };
 
 // written for isOk() but not (yet?) used
@@ -594,44 +550,10 @@ Bigint.ONE = new Bigint(1);
 
   We cannot free the memory directly, we are only able to give the GC a change
   to do it for us.
-  There are four methods available:
 
-    1) arr.length = 0;
-    2) arr = null;
-    3) delete arr;
-    4) arr = [];
-
-   A benchmark tool is available at http://jsperf.com/array-destroy which says
-   that for my test-browser (Firefox 31.0 on Debian squeeze, ia32 single-core)
-   the method number two is the best by a magnitude (15 times better than number
-   three which came second itself beeing two times faster than the last place
-   number one). YMMV, so test for yourself but that page includes a frame from
-   browserscope (click on "family" to see what I have seen) which seems to lead
-   to the conlusion that the method with null is fast on every common browser.
-
-   The page above has several versions of  it which I saw too late, so with the
-   latest version ( http://jsperf.com/array-destroy/105 ) and a lot more methods
-   to clean up an Array (but not the one setting it to null, why?). The fastest
-   methods within that set are loops of the kind
-
-     while (arr.length > 0) {
-       arr.pop();
-     }
-
-   with both shift() and pop(). The method with null would be still faster but
-   only for a fraction.
-
-   TODO: test if splice/slice to tmp-var and setting tmp-var to null makes sense
+  This functions empties the Bigint only, to sacrifice it completely the
+  variable must be set to 'null', too.
 */
-
-Bigint.prototype.clear = function()
-{
-    delete this.dp;
-    delete this.used;
-    delete this.alloc;
-    delete this.sign;
-};
-/*
 Bigint.prototype.clear = function()
 {
     this.dp = null;
@@ -639,7 +561,6 @@ Bigint.prototype.clear = function()
     this.alloc = null;
     this.sign = null;
 };
-*/
 
 // avoid mess
 Bigint.prototype.clamp = function()
@@ -649,11 +570,13 @@ Bigint.prototype.clamp = function()
     {
         this.used--;
     }
+    // this may keep the whole array allocated, at least for some time.
     this.dp.length = this.used;
     this.alloc = this.used;
 };
 
-// print all four bytes even if zero (little endian)
+// print all four bytes even if zero (little endian). toString(16) sdoes not
+// do that
 Number.prototype.toHex32 = function(uppercase)
 {
     var t = this;
@@ -929,27 +852,26 @@ Bigint.prototype.toString = function(radix)
             radix;
     }
 
-    /*
-
     if(radix == 2){
       for(var i = 0;i<this.used -1;i++){
         var tmp = this.dp[i];
-        for(var j=0;j<MP_DIGIT;j++){
-          s += (t&0x1 == 1)?"1":"0";
-          t >>>= 1;
+        for(var j=0;j<MP_DIGIT_BIT;j++){
+          s += (tmp&0x1 == 1)?"1":"0";
+          tmp >>>= 1;
         }
       }
+      s += this.dp[this.used -1].toString(2);
+      s = s.asciireverse();
       return  (sign < 0)?"-" + s: s;
     }
-     */
 
     // Work on copy.
     t = this.copy();
     t.sign = MP_ZPOS;
 
-    /*
+    
     // assumes 26 bit digits
-    if(radix == 16){
+    if(radix == 16 && MP_DIGIT_BIT == 26){
       //s += (t.sign == MP_NEG)?"-":"";
       var current_length = t.used;
       var tmp;
@@ -965,16 +887,16 @@ Bigint.prototype.toString = function(radix)
           tmp = t.dp[0];
         }
         // add it to the result string
-        s += tmp.toHex32();
+        s = tmp.toHex32() + s;
         // divide by 2^32
-        t.rShiftInPlace(32);
+        t.rShiftInplace(32);
         // adjust anchor
         current_length = t.used;
         // check if something is left
-        if(t.used == 0){
+        if(t.used  == 1){
           if(t.dp[0] != 0){
             // use toString() here to avoid leading zeros
-            s += t.dp[0].toString(16);
+            s = t.dp[0].toString(16) + s;
           }
           // it's the last one, let's get some coffee and make a break
           break;
@@ -982,7 +904,7 @@ Bigint.prototype.toString = function(radix)
       }
       return (sign < 0)?"-" + s: s;
     }
-    */
+    
     /*
       // use the full available space a double offers
       if(radix == 10 && t.used > 20){
