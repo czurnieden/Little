@@ -1,18 +1,33 @@
 "use strict";
 
 /*
-    Errors found by
+    Errors found by an unbridled eslint are mostly intentionally (e.g.: "=="
+    instead of "===") but shoulkd be checked carefully nevertheless.
 
-  eslint --rule "no-unused-vars:0,no-console:0,quotes:0,no-eval:0,new-cap:0,no-empty:0,no-spaced-func:0,no-cond-assign:0,no-constant-condition:0,no-underscore-dangle:0,eqeqeq:0,camelcase:0,,no-extend-native:0,yoda:0"  bignum.js 
+    The command
 
-  are mostly intentionally (e.g.: "==" instead if "===") but feel free to check
+  eslint --rule "no-unused-vars:0, no-console:0, quotes:0, new-cap:0, no-empty:0, no-spaced-func:0, no-cond-assign:0, no-constant-condition:0, no-underscore-dangle:0, eqeqeq:0, camelcase:0, no-extend-native:0, yoda:0, eol-last:0, global-strict:0"  bignum.js
+
+    will result in the following output (linenumbers may change)
+
+  205:21  error  'DataView' is not defined                  no-undef
+  251:19  error  'console' is not defined                   no-undef
+  252:12  error  'console' is not defined                   no-undef
+  254:19  error  'alert' is not defined                     no-undef
+  201:11  error  MP_L1_SIZE was used before it was defined  no-use-before-define
+
+  205:21 typed arrays are not in ECMAScript 5.1 but implemented everywhere
+  251:19 we check if something is defined, so it is possible it wasn't defined
+  252:12 in the first place
+  254:19    -"-
+  201:11 basically the same as above
 
 */
 
 /*
     Formatted with
- 
-    js-beautify -b "expand"  -w 80 -s 4 -k --end_with_newline bignum.js 
+
+    js-beautify -b "expand"  -w 80 -s 4 -k --end_with_newline bignum.js
 */
 
 /*
@@ -51,6 +66,7 @@ all: it may not even compile!
 /*
    The snippets with code from SunPro are annotated as such. Replace if
    the above license is a problem.
+   It seems as if no SunPro code gets used up until this comment has been written.
 */
 
 /*
@@ -95,7 +111,9 @@ all: it may not even compile!
 // Flagnames taken from libtommath
 
 // Preallocated length of bitarray. Probably unnecessary, may be removed in the
-// future.
+// future. Or not if and when typed arrays gets used instead of normal ones.
+// The latter is unlikely until no function like realloc or similar allow for
+// dynamic growth of the buffer
 var MP_PREC = 5;
 // Flag for positive value
 var MP_ZPOS = 1;
@@ -191,9 +209,12 @@ var MP_HALF_DIGIT_MASK = (MP_HALF_DIGIT - 1);
   Lack of access to a Mac leaves that part blank. The new MacOS is based on BSD,
   so 'dmesg' might work or
     cat /var/run/dmesg.boot | grep CPU
+
+  if in doubt leave the value as it is but give 32 kib (32768) at least a try.
+
  */
-if (typeof MP_L1_SIZE === 'undefined')
-{
+
+if (typeof MP_L1_SIZE === 'undefined') {
     var MP_L1_SIZE = 65536;
 }
 // Memory for some of the bit-juggling below
@@ -227,33 +248,26 @@ var double_int = new DataView(new ArrayBuffer(8));
 
   Throws a FatalError which you may or may not want to catch.
 */
-var __bigint_check_endianess = (function()
-{
-    try
-    {
+var __bigint_check_endianess = (function() {
+    try {
         var buffer = new ArrayBuffer(8);
         var strerror =
             'Bigint was written for a little-endian system only, sorry.';
         var MP_ENDIANESS_TEST_32 = new Int32Array(buffer);
         var MP_ENDIANESS_TEST_8 = new Uint8Array(buffer);
         MP_ENDIANESS_TEST_32[0] = 0xff;
-        if (MP_ENDIANESS_TEST_8[3] === 0xff && 
-            MP_ENDIANESS_TEST_8[0] ===   0)
-        {
+        if (MP_ENDIANESS_TEST_8[3] === 0xff &&
+            MP_ENDIANESS_TEST_8[0] === 0) {
             throw {
                 name: 'FatalError',
                 message: strerror
             };
         }
-    }
-    catch (e)
-    {
-        if (typeof console.log === 'function')
-        {
+    } catch (e) {
+        if (typeof console.log === 'function') {
             console.log(e.message);
         }
-        if (typeof alert === 'function')
-        {
+        if (typeof alert === 'function') {
             //alert(e.message);
         }
         throw {
@@ -269,48 +283,35 @@ var __bigint_check_endianess = (function()
  *
  ******************************************************************************/
 
-Array.prototype.memset = function(x)
-{
-    for (var i = 0; i < this.length; i++)
-    {
-        this[i] = x;
-    }
-};
 /*
  * generalized, extendable "typeof" function
  */
-function xtypeof(obj)
-{
+function xtypeof(obj) {
     // try it the traditional way
     var tmp = typeof obj;
-    if (tmp !== "object")
-    {
+    if (tmp !== "object") {
         return tmp;
-    }
-    else
-    {
+    } else {
         // try the toString prototype
         var toString = Object.prototype.toString;
         tmp = toString.call(obj);
         // it is one of the build-ins
-        if (tmp !== "[object Object]")
-        {
+        if (tmp !== "[object Object]") {
             return tmp.slice(8, -1).toLowerCase();
+        } else {
+            // Put your own objects here
+            // they must exist at this point
+            //var list = {
+            // "bigint": Bigint ,
+            // "complex": Complex
+            //};
+            //for (var p in list) {
+            //if (obj instanceof list[p]) {
+            //return p;
+            //}
+            //}
+            return "object";
         }
-        /* else{
-           // Put your own objects here
-           // they must exist at this point
-           var list = {
-                       "bigint":Bigint,
-                       "complex":Complex
-                      };
-           for(var p in list){
-             if(obj instanceof list[p]){
-               return p;
-             }
-         }
-         */
-        return "object";
     }
 }
 
@@ -322,39 +323,33 @@ function xtypeof(obj)
  */
 
 // uses the global object which auto-converts numbers!
-Number.prototype.isNaN = function()
-{
+Number.prototype.isNaN = function() {
     return isNaN(this);
 };
 // Does not use the new Number.isFinite for reasons layed down
-// in blog post TODO: look-up URL of afoprementioned blog post
-Number.prototype.isFinite = function()
-{
-    if (isNaN(this) || this === Infinity || this === -Infinity)
-    {
+// in blog post TODO: look-up URL of aforementioned blog post
+Number.prototype.isFinite = function() {
+    if (isNaN(this) || this === Infinity || this === -Infinity) {
         return false;
     }
     return true;
 };
 // Danger: will return inexact results for numbers > 2^53!
-Number.prototype.isEven = function()
-{
+Number.prototype.isEven = function() {
     if (Math.abs(this) > 0x1fffffffffffff) {
         return MP_RANGE;
     }
     return (this % 2 == 0);
 };
 // Danger: will return inexact results for numbers > 2^53!
-Number.prototype.isOdd = function()
-{
+Number.prototype.isOdd = function() {
     if (Math.abs(this) > 0x1fffffffffffff) {
         return MP_RANGE;
     }
     return (this % 2 == 1);
 };
 //TODO: check for exceptions (NaN, Inf)
-Number.prototype.sign = function()
-{
+Number.prototype.sign = function() {
     return (this < 0) ? MP_NEG : MP_ZPOS;
 };
 
@@ -362,16 +357,13 @@ Number.prototype.sign = function()
  *  Most of the following functions assume 32-bit little-endian integers.
  */
 
-Number.prototype.lowBit = function()
-{
-    if (this == 0)
-    {
+Number.prototype.lowBit = function() {
+    if (this == 0) {
         return 0;
     }
     var ret = 0 >>> 0,
         x = this >>> 0;
-    while ((x & 1) == 0)
-    {
+    while ((x & 1) == 0) {
         x >>>= 1;
         ret++;
     }
@@ -379,20 +371,16 @@ Number.prototype.lowBit = function()
 };
 
 // http://graphics.stanford.edu/~seander/bithacks.html
-Number.prototype.highBit = function()
-{
-    if (this == 0)
-    {
+Number.prototype.highBit = function() {
+    if (this == 0) {
         return 0;
     }
     var bits = [0x2, 0xC, 0xF0, 0xFF00, 0xFFFF0000];
     var Shift = [1, 2, 4, 8, 16];
     var ret = 0 >>> 0,
         x = this >>> 0;
-    for (var i = bits.length - 1; i >= 0; i--)
-    {
-        if (x & bits[i])
-        {
+    for (var i = bits.length - 1; i >= 0; i--) {
+        if (x & bits[i]) {
             x >>>= Shift[i];
             ret |= Shift[i];
         }
@@ -401,18 +389,14 @@ Number.prototype.highBit = function()
 };
 
 // this is a function with a limit of 32
-Number.prototype.isPow2 = function(b)
-{
+Number.prototype.isPow2 = function(b) {
     var x = 0 >>> 0;
     /* fast return if no power of two */
-    if ((b == 0) || (b & (b - 1)))
-    {
+    if ((b == 0) || (b & (b - 1))) {
         return 0;
     }
-    for (; x < 32; x++)
-    {
-        if (b == (1 << x))
-        {
+    for (; x < 32; x++) {
+        if (b == (1 << x)) {
             return true;
         }
     }
@@ -421,27 +405,23 @@ Number.prototype.isPow2 = function(b)
 // Despite common opinion, this function is not generally applicable, the
 // name should give a hint!
 // Danger: does not check if input is really all ASCII
-String.prototype.asciireverse = function()
-{
+String.prototype.asciireverse = function() {
     return this.split('').reverse().join('');
 };
 
 // written for isOk() but not (yet?) used
-Number.prototype.isSubnormal = function()
-{
+Number.prototype.isSubnormal = function() {
     var high = 0 >>> 0;
     double_int.setFloat64(0, this);
     high = double_int.getUint32(4);
-    if (high < 0x00100000)
-    {
+    if (high < 0x00100000) {
         return true;
     }
     return false;
 };
 
 // contains code from SunPro, see license at the start of this file
-Number.prototype.ieee_754_isNaN = function()
-{
+Number.prototype.ieee_754_isNaN = function() {
     var high, low, nan;
     double_int.setFloat64(0, this);
     high = double_int.getInt32(0);
@@ -454,15 +434,12 @@ Number.prototype.ieee_754_isNaN = function()
 };
 
 // subnormals are ok?
-Number.prototype.isOk = function()
-{
+Number.prototype.isOk = function() {
     return (!this.isNaN() && this.isFinite()) ? MP_YES : MP_NO;
 };
 
-Number.prototype.isInt = function()
-{
-    if (!this.isOk())
-    {
+Number.prototype.isInt = function() {
+    if (!this.isOk()) {
         return MP_NO;
     }
     /* ECMA 6 (Draft). Impl. by Firefox ( >= 32 ) only
@@ -471,8 +448,7 @@ Number.prototype.isInt = function()
     }
     else{*/
     if (this > -9007199254740992 && this < 9007199254740992 && Math.floor(
-            this) == this)
-    {
+            this) == this) {
         return MP_YES;
     }
     /* } */
@@ -481,10 +457,8 @@ Number.prototype.isInt = function()
 
 
 // Checks if the number fits into one big-digit
-Number.prototype.issmallenough = function()
-{
-    if (!this.isInt() || (Math.abs(this) >= MP_DIGIT_MAX))
-    {
+Number.prototype.issmallenough = function() {
+    if (!this.isInt() || (Math.abs(this) >= MP_DIGIT_MAX)) {
         return false;
     }
     return true;
@@ -492,10 +466,8 @@ Number.prototype.issmallenough = function()
 
 // number of bits set (Hamming weight)
 // http://graphics.stanford.edu/~seander/bithacks.html
-Number.prototype.setBits = function()
-{
-    if (this == 0)
-    {
+Number.prototype.setBits = function() {
+    if (this == 0) {
         return 0;
     }
     var x = this >>> 0;
@@ -511,13 +483,11 @@ Number.prototype.setBits = function()
   Parameters: a small integer (<  MP_DIGIT_MAX).
   Return: none.
 */
-function Bigint(n)
-    {
+function Bigint(n) {
         // memory for digits, preallocated to hold at least five digits
         this.dp = new Array(MP_PREC);
         // Set all to zero (keep it simpel)
-        for (var i = this.dp.length - 1; i >= 0; i--)
-        {
+        for (var i = this.dp.length - 1; i >= 0; i--) {
             this.dp[i] = 0 >>> 0;
         }
         // number of digits actually used
@@ -532,8 +502,7 @@ function Bigint(n)
         this.sign = MP_ZPOS;
 
         // Allow for a small number to be set directly
-        if (xtypeof(n) === 'number' && Math.abs(n) < MP_DIGIT_MAX)
-        {
+        if (xtypeof(n) === 'number' && Math.abs(n) < MP_DIGIT_MAX) {
             this.dp[0] = Math.abs(n);
             this.sign = (n < 0) ? MP_NEG : MP_ZPOS;
         }
@@ -553,21 +522,37 @@ Bigint.ONE = new Bigint(1);
 
   This functions empties the Bigint only, to sacrifice it completely the
   variable must be set to 'null', too.
+  Example:
+
+  tmp = new Bigint(0);
+  // do some stuff with tmp
+  // tmp got large but we'll do a lot of stuff after it in the same
+  // scope and need to get rid of tmp
+  tmp.clear();
+  tmp = null;
+
 */
-Bigint.prototype.clear = function()
-{
+Bigint.prototype.free = function() {
     this.dp = null;
     this.used = null;
     this.alloc = null;
     this.sign = null;
 };
+/*
+   Offer memory to GC but keep the rest for later use.
+*/
+Bigint.prototype.clear = function() {
+    this.dp = [0 >>> 0];
+    this.used = 1;
+    this.alloc = 1;
+    this.sign = MP_ZPOS;
+};
+
 
 // avoid mess
-Bigint.prototype.clamp = function()
-{
+Bigint.prototype.clamp = function() {
     while (this.used > 1 && (this.dp[this.used - 1] == 0 || isNaN(this.dp[
-            this.used - 1])))
-    {
+            this.used - 1]))) {
         this.used--;
     }
     // this may keep the whole array allocated, at least for some time.
@@ -575,10 +560,9 @@ Bigint.prototype.clamp = function()
     this.alloc = this.used;
 };
 
-// print all four bytes even if zero (little endian). toString(16) sdoes not
+// print all four bytes even if zero (little endian). toString(16) does not
 // do that
-Number.prototype.toHex32 = function(uppercase)
-{
+Number.prototype.toHex32 = function(uppercase) {
     var t = this;
     var lower = "0123456789abcdef";
     var upper = "0123456789ABCDEF";
@@ -586,12 +570,10 @@ Number.prototype.toHex32 = function(uppercase)
     var ret = "";
 
     rcase = (rcase) ? upper : lower;
-    if (t == 0)
-    {
+    if (t == 0) {
         return "0";
     }
-    for (var i = 0; i < 8; i++)
-    {
+    for (var i = 0; i < 8; i++) {
         ret = rcase.charAt((t & 0xF)) + ret;
         t >>>= 4;
     }
@@ -805,8 +787,7 @@ Bigdecimal.prototype.mul = function(bdec) {
     return r;
 };
 */
-Bigint.prototype.toString = function(radix)
-{
+Bigint.prototype.toString = function(radix) {
     var mp_s_rmap =
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     var ret;
@@ -815,30 +796,24 @@ Bigint.prototype.toString = function(radix)
     var s = "";
     var sign = this.sign;
 
-    if (!radix)
-    {
+    if (!radix) {
         radix = 10;
     }
 
-    if (this.isNaN())
-    {
+    if (this.isNaN()) {
         return "NaN";
     }
-    if (this.isInf())
-    {
+    if (this.isInf()) {
         return (this.isNegInf()) ? "-Infinity" : "Infinity";
     }
     // check for zero or single digit bigint
-    if (this.isZero() == MP_YES)
-    {
+    if (this.isZero() == MP_YES) {
         return (sign < 0) ? "-0" : "0";
     }
-    if (this.isUnity() == MP_YES)
-    {
+    if (this.isUnity() == MP_YES) {
         return (sign < 0) ? "-1" : "1";
     }
-    if (this.used == 1 && radix < 37)
-    {
+    if (this.used == 1 && radix < 37) {
         // this.sign is either one or minus one
         return (this.dp[0] * this.sign).toString(radix);
     }
@@ -846,65 +821,62 @@ Bigint.prototype.toString = function(radix)
     // compute decimal from bigint now
 
     // we _could_ implement radix 1, too! Bwaaaaaahahahaha...*hem*
-    if (radix < 2 || radix > 62)
-    {
+    if (radix < 2 || radix > 62) {
         return "Radix is out of range, should be 1<radix<63, and not: " +
             radix;
     }
 
-    if(radix == 2){
-      for(var i = 0;i<this.used -1;i++){
-        var tmp = this.dp[i];
-        for(var j=0;j<MP_DIGIT_BIT;j++){
-          s += (tmp&0x1 == 1)?"1":"0";
-          tmp >>>= 1;
+    if (radix == 2) {
+        for (var i = 0; i < this.used - 1; i++) {
+            var tmp = this.dp[i];
+            for (var j = 0; j < MP_DIGIT_BIT; j++) {
+                s += (tmp & 0x1 == 1) ? "1" : "0";
+                tmp >>>= 1;
+            }
         }
-      }
-      s += this.dp[this.used -1].toString(2);
-      s = s.asciireverse();
-      return  (sign < 0)?"-" + s: s;
+        s += this.dp[this.used - 1].toString(2);
+        s = s.asciireverse();
+        return (sign < 0) ? "-" + s : s;
     }
 
     // Work on copy.
     t = this.copy();
     t.sign = MP_ZPOS;
 
-    
+
     // assumes 26 bit digits
-    if(radix == 16 && MP_DIGIT_BIT == 26){
-      //s += (t.sign == MP_NEG)?"-":"";
-      var current_length = t.used;
-      var tmp;
-      // the case of a single digit has been catched above, the loop will run
-      // at least once
-      while(current_length-1 > 0){
-        // we need to fill 32 bit. 32-26 = 6, mask = 0x3f
-        // take it from the digit above if it exists
-        if(current_length-1 >= 2){
-          tmp = t.dp[0] | ( ( ( t.dp[1] & 0x3f ) << 26 ) & 0xffffffff );
+    if (radix == 16 && MP_DIGIT_BIT == 26) {
+        //s += (t.sign == MP_NEG)?"-":"";
+        var current_length = t.used;
+        // the case of a single digit has been catched above, the loop will run
+        // at least once
+        while (current_length - 1 > 0) {
+            // we need to fill 32 bit. 32-26 = 6, mask = 0x3f
+            // take it from the digit above if it exists
+            if (current_length - 1 >= 2) {
+                tmp = t.dp[0] | (((t.dp[1] & 0x3f) << 26) & 0xffffffff);
+            } else {
+                tmp = t.dp[0];
+            }
+            // add it to the result string
+            s = tmp.toHex32() + s;
+            // divide by 2^32
+            t.rShiftInplace(32);
+            // adjust anchor
+            current_length = t.used;
+            // check if something is left
+            if (t.used == 1) {
+                if (t.dp[0] != 0) {
+                    // use toString() here to avoid leading zeros
+                    s = t.dp[0].toString(16) + s;
+                }
+                // it's the last one, let's get some coffee and make a break
+                break;
+            }
         }
-        else {
-          tmp = t.dp[0];
-        }
-        // add it to the result string
-        s = tmp.toHex32() + s;
-        // divide by 2^32
-        t.rShiftInplace(32);
-        // adjust anchor
-        current_length = t.used;
-        // check if something is left
-        if(t.used  == 1){
-          if(t.dp[0] != 0){
-            // use toString() here to avoid leading zeros
-            s = t.dp[0].toString(16) + s;
-          }
-          // it's the last one, let's get some coffee and make a break
-          break;
-        }
-      }
-      return (sign < 0)?"-" + s: s;
+        return (sign < 0) ? "-" + s : s;
     }
-    
+
     /*
       // use the full available space a double offers
       if(radix == 10 && t.used > 20){
@@ -941,8 +913,7 @@ Bigint.prototype.toString = function(radix)
       }
     */
     // this is veeeeery slow
-    while (t.isZero() == MP_NO)
-    {
+    while (t.isZero() == MP_NO) {
         ret = t.divremInt(radix);
         t = ret[0];
         d = ret[1].dp[0];
@@ -955,11 +926,9 @@ Bigint.prototype.toString = function(radix)
     s = s.asciireverse();
     return s;
 };
-
 // more or less quite shamelessly stolen from libtommmath's mp_read_radix
 // does not make use of exponent given. No Prefixes (e.g. 0x, 0b, 0) allowed.
-String.prototype.toBigint = function(radix)
-{
+String.prototype.toBigint = function(radix) {
     var mp_s_rmap =
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     var neg;
@@ -967,27 +936,21 @@ String.prototype.toBigint = function(radix)
 
     var str = this;
 
-    if (!radix)
-    {
+    if (!radix) {
         radix = 10;
     }
 
-    if (radix < 2 || radix > 62)
-    {
+    if (radix < 2 || radix > 62) {
         return "Radix is out of range, should be 1<radix<63, not: " + radix;
     }
 
-    if (str.charAt(0) == '-')
-    {
+    if (str.charAt(0) == '-') {
         neg = MP_NEG;
-    }
-    else
-    {
+    } else {
         neg = MP_ZPOS;
     }
 
-    if (str.charAt(0) == '-' || str.charAt(0) == '+')
-    {
+    if (str.charAt(0) == '-' || str.charAt(0) == '+') {
         str = str.substr(1);
     }
     strlen = str.length;
@@ -1006,8 +969,7 @@ String.prototype.toBigint = function(radix)
     //ret.used = bilen;
 
     // case insensitive in that range
-    if (radix < 36)
-    {
+    if (radix < 36) {
         str = str.toUpperCase();
     }
     /*
@@ -1038,20 +1000,15 @@ String.prototype.toBigint = function(radix)
       }
     */
     // left (high) to right (low)
-    for (var i = 0; i < strlen; i++)
-    {
+    for (var i = 0; i < strlen; i++) {
         ch = str.charAt(i);
         charnum = mp_s_rmap.indexOf(ch);
-        if (charnum < radix)
-        {
+        if (charnum < radix) {
             ret = ret.mulInt(radix);
-            if (charnum != 0)
-            {
+            if (charnum != 0) {
                 ret = ret.addInt(charnum);
             }
-        }
-        else
-        {
+        } else {
             // Actually, this _is_ an error and not something one can let slip.
             // TODO: don't forget when implementing error-handling
             break;
@@ -1068,19 +1025,16 @@ String.prototype.toBigint = function(radix)
 
 // returns Bigint. Bigint might be set to Nan or Infinity if Number is
 // not a small enough integer. Range: -9007199254740992..9007199254740992
-Number.prototype.toBigint = function()
-{
+Number.prototype.toBigint = function() {
     var ret = new Bigint(0);
     // Check Number
-    if (!this.isOk() || !this.isInt())
-    {
+    if (!this.isOk() || !this.isInt()) {
         ret.setNaN();
         return ret;
     }
 
     // Check if Number is integer and smaller than MP_DIGIT_MAX for direct use
-    if (this.issmallenough())
-    {
+    if (this.issmallenough()) {
         ret.dp[0] = Math.abs(this);
         ret.sign = (this < 0) ? MP_NEG : MP_ZPOS;
         return ret;
@@ -1096,42 +1050,34 @@ Number.prototype.toBigint = function()
     return ret;
 };
 
-Bigint.prototype.issmallenough = function()
-{
+Bigint.prototype.issmallenough = function() {
     // TODO: we can use two bigdigits if MP_DIGIT_BIT <= 26
     //       than change Bigint.prototype.toNumber accordingly
-    if (this.used > 1)
-    {
+    if (this.used > 1) {
         return false;
     }
     return true;
 };
 
-Bigint.prototype.isOk = function()
-{
-    if (this.isNaN || !this.isFinite())
-    {
+Bigint.prototype.isOk = function() {
+    if (this.isNaN || !this.isFinite()) {
         return false;
     }
     return true;
 };
 
-Bigint.prototype.toNumber = function()
-{
+Bigint.prototype.toNumber = function() {
     // Check Bigint
-    if (!this.isOk())
-    {
+    if (!this.isOk()) {
         // the IEEE-754 conformant extras are in the first bigdigit
         return this.dp[0];
     }
     // Check if Bigint is already small enough to fit into a Number directly
-    if (this.issmallenough())
-    {
+    if (this.issmallenough()) {
         var ret = 0;
         // press an unsigned value
         ret = this.dp[0] >>> 0;
-        if (this.sign == MP_NEG)
-        {
+        if (this.sign == MP_NEG) {
             ret *= -1;
         }
         return ret;
@@ -1157,8 +1103,7 @@ Bigint.prototype.toNumber = function()
     // Which is less then 40 bigdigits!
     bd_high *= Math.pow(2, (this.used - 3) * MP_DIGIT_BIT);
 
-    if (this.sign == MP_NEG)
-    {
+    if (this.sign == MP_NEG) {
         bd_high *= -1;
     }
     return bd_high;
@@ -1172,25 +1117,12 @@ var __burtlerand_ax = {
     d: 4 >>> 0
 };
 
-function burtle_rand(seed)
-{
-    var rot = function(s, k)
-    {
+function burtle_rand(seed) {
+    var rot = function(s, k) {
         return (((s >>> 0) << (k >>> 0)) | ((s >>> 0) >>> (32 - (k >>>
             0))));
     };
-    var raninit = function(seed)
-    {
-        __burtlerand_ax.a = 0xf1ea5eed;
-        __burtlerand_ax.b = __burtlerand_ax.c = __burtlerand_ax.d =
-            seed;
-        for (var i = 0; i < 20; ++i)
-        {
-            ranval();
-        }
-    };
-    var ranval = function()
-    {
+    var ranval = function() {
         var e = __burtlerand_ax.a - rot(__burtlerand_ax.b, 23 >>> 0) >>>
             0;
         __burtlerand_ax.a = __burtlerand_ax.b ^ rot(__burtlerand_ax.c,
@@ -1203,10 +1135,17 @@ function burtle_rand(seed)
         __burtlerand_ax.d = e + __burtlerand_ax.a >>> 0;
         return __burtlerand_ax.d >>> 0;
     };
-    if (arguments.length == 1)
-    {
-        if (!isNaN(parseInt(seed)))
-        {
+    var raninit = function(seed) {
+        __burtlerand_ax.a = 0xf1ea5eed;
+        __burtlerand_ax.b = __burtlerand_ax.c = __burtlerand_ax.d =
+            seed;
+        for (var i = 0; i < 20; ++i) {
+            ranval();
+        }
+    };
+
+    if (arguments.length == 1) {
+        if (!isNaN(parseInt(seed))) {
             raninit(parseInt(seed >>> 0) >>> 0);
         }
     }
@@ -1217,31 +1156,25 @@ function burtle_rand(seed)
 // uses Bob Jenkins' small PRNG (with the extra round) listed above
 // used instead of Math.random to get a well-known function with a good mix
 // (good avalaunche values). This works in-place!
-Bigint.prototype.random = function(bits, seed)
-{
+Bigint.prototype.random = function(bits, seed) {
     var digbits = Math.floor(bits / MP_DIGIT_BIT);
     var modbits = bits % MP_DIGIT_BIT;
     var mod_mask;
 
-    if (bits && bits <= 0)
-    {
+    if (bits && bits <= 0) {
         return new Bigint(0);
     }
 
-    if (arguments.length == 2)
-    {
+    if (arguments.length == 2) {
         burtle_rand(seed & 0xffffffff);
-    }
-    else
-    {
+    } else {
         burtle_rand(Date.now() & 0xffffffff);
     }
 
     mod_mask = (1 << modbits) - 1;
 
     this.dp[digbits] = burtle_rand() & mod_mask;
-    while (digbits--)
-    {
+    while (digbits--) {
         this.dp[digbits] = burtle_rand() & MP_MASK;
     }
     this.used = this.dp.length;
@@ -1249,8 +1182,7 @@ Bigint.prototype.random = function(bits, seed)
 };
 
 // does deep copy of THIS
-Bigint.prototype.copy = function()
-{
+Bigint.prototype.copy = function() {
     var tt;
     tt = new Bigint(0);
     tt.dp = new Array(this.used);
@@ -1258,36 +1190,34 @@ Bigint.prototype.copy = function()
     tt.alloc = this.used;
     tt.sign = this.sign;
     var i = this.used;
-    while (i--)
-    {
+    while (i--) {
         tt.dp[i] = this.dp[i];
     }
     return tt;
 };
 
-Bigint.prototype.dup = function()
-{
+Bigint.prototype.dup = function() {
     return this.copy();
 };
 
 // swap with deep copy (probably)
-Bigint.prototype.swap = function(target)
-{
+Bigint.prototype.swap = function(target) {
     var tmp = target.copy();
     target = this.copy();
-    var i = tmp.used - 1;
-    while (i--)
-    {
+    var i = tmp.used;
+    while (i--) {
         this.dp[i] = tmp.dp[i];
     }
     this.sign = tmp.sign;
     this.used = tmp.used;
+    // "this" might have been larger, so set the bigdigit after the last one to
+    // zero
+    this.dp[this.used] = 0 >>> 0;
     this.alloc = tmp.alloc;
     tmp.dp = null;
 };
 // swap with shallow copy (probably) unsure, don't use!
-Bigint.prototype.exch = function(target)
-{
+Bigint.prototype.exch = function(target) {
     var tmp = target;
     target = this;
     this.dp = tmp.dp;
@@ -1297,26 +1227,20 @@ Bigint.prototype.exch = function(target)
 };
 
 // change sign, returns full copy, "this" stays unchanged
-Bigint.prototype.neg = function()
-{
+Bigint.prototype.neg = function() {
     var ret = this.copy();
-    if (this.sign == MP_ZPOS)
-    {
+    if (this.sign == MP_ZPOS) {
         ret.sign = MP_NEG;
-    }
-    else
-    {
+    } else {
         ret.sign = MP_ZPOS;
     }
     return ret;
 };
 
 // make positive, returns full copy, "this" stays unchanged
-Bigint.prototype.abs = function()
-{
+Bigint.prototype.abs = function() {
     var ret = this.copy();
-    if (this.sign == MP_NEG)
-    {
+    if (this.sign == MP_NEG) {
         ret.sign = MP_ZPOS;
     }
     return ret;
@@ -1324,139 +1248,119 @@ Bigint.prototype.abs = function()
 
 /* Some useful tools and a very small bit of IEEE compliance */
 // this == 0
-Bigint.prototype.isZero = function()
-{
-    if (this.used == 1 && this.dp[0] == 0)
-    {
+Bigint.prototype.isZero = function() {
+    if (this.used == 1 && this.dp[0] == 0) {
         return MP_YES;
     }
     return MP_NO;
 };
 // this == +1
-Bigint.prototype.isOne = function()
-{
-    if (this.used == 1 && this.sign == MP_ZPOS && this.dp[0] == 1)
-    {
+Bigint.prototype.isOne = function() {
+    if (this.used == 1 && this.sign == MP_ZPOS && this.dp[0] == 1) {
         return MP_YES;
     }
     return MP_NO;
 };
 // this == +1 || this == -1
-Bigint.prototype.isUnity = function()
-{
-    if (this.used == 1 && this.dp[0] == 1)
-    {
+Bigint.prototype.isUnity = function() {
+    if (this.used == 1 && this.dp[0] == 1) {
         return MP_YES;
     }
     return MP_NO;
 };
 // this < 0
-Bigint.prototype.isNeg = function()
-{
+Bigint.prototype.isNeg = function() {
     return (this.sign == MP_ZPOS) ? MP_NO : MP_YES;
 };
 // this > 0
-Bigint.prototype.isPos = function()
-{
+Bigint.prototype.isPos = function() {
     return (this.sign == MP_NEG) ? MP_NO : MP_YES;
 };
-Bigint.prototype.isEven = function()
-{
+Bigint.prototype.isEven = function() {
     return (this.dp[0].isOdd()) ? MP_NO : MP_YES;
 };
-Bigint.prototype.isOdd = function()
-{
+Bigint.prototype.isOdd = function() {
     return (this.dp[0].isEven()) ? MP_NO : MP_YES;
 };
 
-Bigint.prototype.setNaN = function()
-{
+Bigint.prototype.setNaN = function() {
     this.dp[0] = Number.NaN;
 };
-Bigint.prototype.isNaN = function()
-{
-    return Number.isNaN(this.dp[0]);
+Bigint.prototype.isNaN = function() {
+    return isNaN(this.dp[0]);
 };
 
-Bigint.prototype.setNegInf = function()
-{
+Bigint.prototype.setNegInf = function() {
     this.dp[0] = Number.NEGATIVE_INFINITY;
 };
-Bigint.prototype.isNegInf = function()
-{
+Bigint.prototype.isNegInf = function() {
     return (this.dp[0] == Number.NEGATIVE_INFINITY) ? MP_YES : MP_NO;
 };
 
-Bigint.prototype.setPosInf = function()
-{
+Bigint.prototype.setPosInf = function() {
     this.dp[0] = Number.POSITIVE_INFINITY;
 };
-Bigint.prototype.isPosInf = function()
-{
+Bigint.prototype.isPosInf = function() {
     return (this.dp[0] == Number.POSITIVE_INFINITY) ? MP_YES : MP_NO;
 };
 
 
-Bigint.prototype.setInf = function()
-{
+Bigint.prototype.setInf = function() {
     this.dp[0] = Number.POSITIVE_INFINITY;
 };
-Bigint.prototype.isInf = function()
-{
+Bigint.prototype.isInf = function() {
     return (this.isPosInf() || this.isNegInf()) ? MP_YES : MP_NO;
 };
 
-Bigint.prototype.isFinite = function()
-{
+Bigint.prototype.isFinite = function() {
     return (this.dp[0].isFinite()) ? MP_YES : MP_NO;
 };
 
 
-// highest bit set (e.g.: 22 = 0b10110, returns 5)
-Bigint.prototype.highBit = function()
-{
-    if (this.used == 1)
-    {
+// highest bit set (e.g.: 22 = 0b10110, returns 4)
+Bigint.prototype.highBit = function() {
+    if (this.used == 1) {
         return this.dp[0].highBit();
-    }
-    else
-    {
+    } else {
         return MP_DIGIT_BIT * (this.used - 1) + (this.dp[this.used - 1].highBit());
     }
 };
-// lowest bit set (e.g.: 22 = 0b10110, returns 2)
-Bigint.prototype.lowBit = function()
-{
-    if (this.used == 1)
-    {
+
+Bigint.prototype.ilog2 = function() {
+    return (this.highBit() + 1);
+};
+
+// lowest bit set (e.g.: 22 = 0b10110, returns 1)
+Bigint.prototype.lowBit = function() {
+    if (this.used == 1) {
         return this.dp[0].lowBit();
-    }
-    else
-    {
+    } else {
         var count = 0;
-        while (this.dp[count] == 0 && count < this.used)
-        {
+        while (this.dp[count] == 0 && count < this.used) {
             count++;
         }
         return this.dp[count].lowBit() + count * MP_DIGIT_BIT;
     }
 };
+
+Bigint.prototype.isPow2 = function() {
+    if (this.highBit() == this.lowBit()) {
+        return MP_YES;
+    }
+    return MP_NO;
+};
+
 // number of bits set (e.g.: 22 = 0b10110, returns 3)
 // Awkward function name caused by function setBit()--which actually sets bits--
 // the english grammar, and a clash of cultures (I just couldn't be persuaded to
 // call the function hammingWeight).
-Bigint.prototype.numSetBits = function()
-{
-    if (this.used == 1)
-    {
+Bigint.prototype.numSetBits = function() {
+    if (this.used == 1) {
         return this.dp[0].setBits();
-    }
-    else
-    {
+    } else {
         var count = 0;
         var n = this.used;
-        while (n)
-        {
+        while (n) {
             count += (this.dp[--n]).setBits();
         }
         return count;
@@ -1464,44 +1368,36 @@ Bigint.prototype.numSetBits = function()
 };
 // TODO: check input!
 // shift left big-digit-wise
-Bigint.prototype.dlShift = function(i)
-{
+Bigint.prototype.dlShift = function(i) {
     var ret = this.copy();
-    if (i <= 0)
-    {
+    if (i <= 0) {
         return ret;
     }
     var tmp = [];
     //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
-    while (i--)
-    {
+    while (i--) {
         tmp[i] = 0 >>> 0;
     }
     ret.dp = tmp.concat(ret.dp);
     ret.used = this.dp.length;
     return ret;
 };
-Bigint.prototype.dlShiftInplace = function(i)
-{
-    if (i <= 0)
-    {
+Bigint.prototype.dlShiftInplace = function(i) {
+    if (i <= 0) {
         return;
     }
     var tmp = [];
     //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
-    while (i--)
-    {
+    while (i--) {
         tmp[i] = 0 >>> 0;
     }
     this.dp = tmp.concat(this.dp);
     this.used = this.dp.length;
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
-Bigint.prototype.drShift = function(i)
-{
+Bigint.prototype.drShift = function(i) {
     var ret;
-    if (this.used < i)
-    {
+    if (this.used < i) {
         ret = new Bigint();
         ret.dp[0] = 0;
         ret.used = 1;
@@ -1509,8 +1405,7 @@ Bigint.prototype.drShift = function(i)
         return ret;
     }
     ret = new Bigint();
-    if (i <= 0)
-    {
+    if (i <= 0) {
         // Alternative: return dlShift (like GP/PARI for example)
         return ret;
     }
@@ -1520,14 +1415,11 @@ Bigint.prototype.drShift = function(i)
     return ret;
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
-Bigint.prototype.drShiftInplace = function(i)
-{
-    if (i <= 0)
-    {
+Bigint.prototype.drShiftInplace = function(i) {
+    if (i <= 0) {
         return;
     }
-    if (this.used < i)
-    {
+    if (this.used < i) {
         this.dp[0] = 0;
         this.used = 1;
         this.sign = MP_ZPOS;
@@ -1537,22 +1429,19 @@ Bigint.prototype.drShiftInplace = function(i)
     this.used = this.dp.length;
 };
 // shift left bit-wise
-Bigint.prototype.lShift = function(i)
-{
+Bigint.prototype.lShift = function(i) {
     var dlshift = Math.floor(i / MP_DIGIT_BIT);
     var lshift = i % MP_DIGIT_BIT;
     var r, rr, k;
     var ret;
 
-    if (i <= 0)
-    {
+    if (i <= 0) {
         return ret;
     }
 
     ret = this.copy();
     ret.dlShiftInplace(dlshift);
-    if (lshift == 0)
-    {
+    if (lshift == 0) {
         return ret;
     }
 
@@ -1560,34 +1449,29 @@ Bigint.prototype.lShift = function(i)
     var shift = MP_DIGIT_BIT - lshift;
 
     r = 0;
-    for (k = 0; k < ret.used; k++)
-    {
+    for (k = 0; k < ret.used; k++) {
         rr = (ret.dp[k] >>> shift) & mask;
         ret.dp[k] = ((ret.dp[k] << lshift) | r) & MP_MASK;
         r = rr;
     }
-    if (r != 0)
-    {
+    if (r != 0) {
         ret.dp[k] = r;
         ret.used++;
     }
     ret.clamp();
     return ret;
 };
-Bigint.prototype.lShiftInplace = function(i)
-{
+Bigint.prototype.lShiftInplace = function(i) {
     var dlshift = Math.floor(i / MP_DIGIT_BIT);
     var lshift = i % MP_DIGIT_BIT;
     var r, rr, k;
 
-    if (i <= 0)
-    {
+    if (i <= 0) {
         return;
     }
 
     this.dlShiftInplace(dlshift);
-    if (lshift == 0)
-    {
+    if (lshift == 0) {
         return;
     }
 
@@ -1595,14 +1479,12 @@ Bigint.prototype.lShiftInplace = function(i)
     var shift = MP_DIGIT_BIT - lshift;
 
     r = 0;
-    for (k = 0; k < this.used; k++)
-    {
+    for (k = 0; k < this.used; k++) {
         rr = (this.dp[k] >>> shift) & mask;
         this.dp[k] = ((this.dp[k] << lshift) | r) & MP_MASK;
         r = rr;
     }
-    if (r != 0)
-    {
+    if (r != 0) {
         this.dp[k] = r;
         this.used++;
     }
@@ -1610,16 +1492,13 @@ Bigint.prototype.lShiftInplace = function(i)
 };
 
 // shift right bit-wise
-Bigint.prototype.rShift = function(i)
-{
+Bigint.prototype.rShift = function(i) {
     var ret = this.copy();
-    if (i <= 0)
-    {
+    if (i <= 0) {
         return ret;
     }
 
-    if (this.highBit() < i)
-    {
+    if (this.highBit() < i) {
         ret.dp[0] = 0;
         ret.used = 1;
         ret.sign = MP_ZPOS;
@@ -1632,8 +1511,7 @@ Bigint.prototype.rShift = function(i)
 
     ret.drShiftInplace(drshift);
 
-    if (rshift == 0)
-    {
+    if (rshift == 0) {
         return ret;
     }
 
@@ -1642,8 +1520,7 @@ Bigint.prototype.rShift = function(i)
 
     r = 0;
 
-    for (var k = ret.used - 1; k >= 0; k--)
-    {
+    for (var k = ret.used - 1; k >= 0; k--) {
         rr = ret.dp[k] & mask;
         ret.dp[k] = (ret.dp[k] >>> rshift) | (r << shift);
         r = rr;
@@ -1652,14 +1529,11 @@ Bigint.prototype.rShift = function(i)
 
     return ret;
 };
-Bigint.prototype.rShiftInplace = function(i)
-{
-    if (i <= 0)
-    {
+Bigint.prototype.rShiftInplace = function(i) {
+    if (i <= 0) {
         return;
     }
-    if (this.highBit() < i)
-    {
+    if (this.highBit() < i) {
         this.dp[0] = 0;
         this.used = 1;
         this.sign = MP_ZPOS;
@@ -1672,8 +1546,7 @@ Bigint.prototype.rShiftInplace = function(i)
 
     this.drShiftInplace(drshift);
 
-    if (rshift == 0)
-    {
+    if (rshift == 0) {
         return;
     }
 
@@ -1682,8 +1555,7 @@ Bigint.prototype.rShiftInplace = function(i)
 
     r = 0;
 
-    for (var k = this.used - 1; k >= 0; k--)
-    {
+    for (var k = this.used - 1; k >= 0; k--) {
         rr = this.dp[k] & mask;
         this.dp[k] = (this.dp[k] >>> rshift) | (r << shift);
         r = rr;
@@ -1691,19 +1563,16 @@ Bigint.prototype.rShiftInplace = function(i)
     this.clamp();
 };
 
-Bigint.prototype.mul_digs = function(bi, digs)
-{
+Bigint.prototype.mul_digs = function(bi, digs) {
     var t;
     var pa, pb, ix, iy;
     var u;
     var r;
-    var tmpx, tmpt, tmpy;
+    var tmpx;
 
     /* can we use the fast multiplier? */
     /*
        Uhm ... no.
-       And because of that we don't need the restriction (digs) but
-       I'll leave it for later.
 
     if (((digs) < MP_WARRAY) &&
         MIN (a->used, b->used) <
@@ -1717,8 +1586,7 @@ Bigint.prototype.mul_digs = function(bi, digs)
 
     /* compute the digits of the product directly */
     pa = this.used;
-    for (ix = 0; ix < pa; ix++)
-    {
+    for (ix = 0; ix < pa; ix++) {
         /* set the carry to zero */
         u = 0;
 
@@ -1729,8 +1597,7 @@ Bigint.prototype.mul_digs = function(bi, digs)
         /* copy of the digit from a used within the nested loop */
         tmpx = this.dp[ix];
         /* compute the columns of the output and propagate the carry */
-        for (iy = 0; iy < pb; iy++)
-        {
+        for (iy = 0; iy < pb; iy++) {
             /* compute the column as a mp_word */
             r = t.dp[iy + ix] + tmpx * bi.dp[iy] + u;
             /* the new column is the lower part of the result */
@@ -1739,8 +1606,7 @@ Bigint.prototype.mul_digs = function(bi, digs)
             u = Math.floor(r / MP_DIGIT_MAX);
         }
         /* set carry if it is placed below digs */
-        if (ix + iy < digs)
-        {
+        if (ix + iy < digs) {
             t.dp[iy + ix] = u;
         }
     }
@@ -1749,23 +1615,19 @@ Bigint.prototype.mul_digs = function(bi, digs)
     return t;
 };
 // standard unsigned multiply
-Bigint.prototype.multiply = function(bi)
-{
+Bigint.prototype.multiply = function(bi) {
     var ret, i, j, a, b, carry, temp;
     a = this;
     b = bi;
     ret = new Bigint(0);
     ret.dp = new Array(a.used + b.used);
-    for (var k = 0; k < ret.dp.length; k++)
-    {
+    for (var k = 0; k < ret.dp.length; k++) {
         ret.dp[k] = 0 >>> 0;
     }
     ret.used = a.used + b.used;
-    for (i = 0; i < a.used; i++)
-    {
+    for (i = 0; i < a.used; i++) {
         carry = 0;
-        for (j = 0; j < b.used; j++)
-        {
+        for (j = 0; j < b.used; j++) {
             temp = ret.dp[i + j] + (a.dp[i] * b.dp[j]) + carry;
             carry = Math.floor(temp / MP_DIGIT_MAX);
             ret.dp[i + j] = temp & MP_MASK;
@@ -1775,46 +1637,36 @@ Bigint.prototype.multiply = function(bi)
     ret.clamp();
     return ret;
 };
-Bigint.prototype.mul = function(bi)
-{
+Bigint.prototype.mul = function(bi) {
     var ret, asign, bsign, a, b;
     // larger one first
-    if (this.used <= bi.used)
-    {
+    if (this.used <= bi.used) {
         a = this;
         b = bi;
-    }
-    else
-    {
+    } else {
         a = bi;
         b = this;
     }
     // check numbers for 1(one) or 0(zero) respectively
-    if (a.isZero() || b.isZero())
-    {
+    if (a.isZero() || b.isZero()) {
         return new Bigint(0);
     }
-    if (a.isUnity())
-    {
+    if (a.isUnity()) {
         ret = b.copy();
-        if (a.sign != b.sign)
-        {
+        if (a.sign != b.sign) {
             ret.sign = MP_NEG;
         }
         return ret;
     }
-    if (b.isUnity())
-    {
+    if (b.isUnity()) {
         ret = a.copy();
-        if (a.sign != b.sign)
-        {
+        if (a.sign != b.sign) {
             ret.sign = MP_NEG;
         }
         return ret;
     }
     // Check if smaller number is small enough for mulInt()
-    if (b.used == 1)
-    {
+    if (b.used == 1) {
         return a.mulInt(b.dp[0]);
     }
 
@@ -1833,19 +1685,16 @@ Bigint.prototype.mul = function(bi)
        }
     */
     // check for cutoffs to do T-C or FFT respectively here
-    if (Math.min(a.used, b.used) >= FFT_MUL_CUTOFF)
-    {
+    if (Math.min(a.used, b.used) >= FFT_MUL_CUTOFF) {
         return a.fft_mul(b);
     }
-    if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF)
-    {
+    if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF) {
         return a.toom_cook_mul(b);
     }
 
     ret = a.multiply(b);
 
-    if (asign != bsign)
-    {
+    if (asign != bsign) {
         ret.sign = MP_NEG;
     }
     // reset originals
@@ -1857,31 +1706,27 @@ Bigint.prototype.mul = function(bi)
 };
 
 // basic unsigned square
-Bigint.prototype.square = function()
-{
+Bigint.prototype.square = function() {
     var t;
     var r, ix, iy, c;
 
     t = new Bigint(0);
     t.dp = new Array(2 * this.used + 1);
     r = 2 * this.used + 2;
-    while (r--)
-    {
+    while (r--) {
         t.dp[r] = 0;
     }
     t.used = 2 * this.used + 1;
 
 
 
-    for (ix = 0; ix < this.used; ix++)
-    {
+    for (ix = 0; ix < this.used; ix++) {
         r = t.dp[2 * ix] + (this.dp[ix] * this.dp[ix]);
         t.dp[2 * ix] = r & MP_MASK;
         c = Math.floor(r / MP_DIGIT_MAX);
 
 
-        for (iy = ix + 1; iy < this.used; iy++)
-        {
+        for (iy = ix + 1; iy < this.used; iy++) {
             r = this.dp[ix] * this.dp[iy];
             //  (2^26-1) * 2 + (2^26-1)^2 + (2^26-1)^2 < 2^53 (by 134217728 )
             r = t.dp[ix + iy] + r + r + c;
@@ -1889,8 +1734,7 @@ Bigint.prototype.square = function()
             c = Math.floor(r / MP_DIGIT_MAX);
         }
 
-        while (c > 0)
-        {
+        while (c > 0) {
             iy++; // if you ask yourself: WTF? you're right
             r = t.dp[ix + iy - 1] + c;
             t.dp[ix + iy - 1] = r & MP_MASK;
@@ -1902,17 +1746,14 @@ Bigint.prototype.square = function()
     return t;
 };
 // public: square function
-Bigint.prototype.sqr = function()
-{
+Bigint.prototype.sqr = function() {
     this.sign = MP_ZPOS;
 
-    if (this.used >= FFT_SQR_CUTOFF)
-    {
+    if (this.used >= FFT_SQR_CUTOFF) {
         // FFT does both in one function
         return this.fft_mul();
     }
-    if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF)
-    {
+    if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF) {
         return this.toom_cook_square();
     }
 
@@ -1920,32 +1761,26 @@ Bigint.prototype.sqr = function()
 };
 
 
-Bigint.prototype.mulInt = function(si)
-{
+Bigint.prototype.mulInt = function(si) {
     var a = this,
         b = si,
         ret;
 
     // check numbers for 1(one) or 0(zero) respectively
-    if (a.isZero() || b == 0)
-    {
+    if (a.isZero() || b == 0) {
         return new Bigint(0);
     }
-    if (a.isUnity())
-    {
+    if (a.isUnity()) {
         ret = b.toBigint();
-        if (a.sign != b.sign())
-        {
+        if (a.sign != b.sign()) {
             ret.sign = MP_NEG;
         }
         return ret;
     }
-    if (b == 1 || b == -1)
-    {
+    if (b == 1 || b == -1) {
         ret = a.copy();
         // b.sign() is a function because b is a Number
-        if (a.sign != b.sign())
-        {
+        if (a.sign != b.sign()) {
             ret.sign = MP_NEG;
         }
         return ret;
@@ -1957,45 +1792,36 @@ Bigint.prototype.mulInt = function(si)
 
     var carry = 0 >>> 0,
         tmp, k;
-    for (k = 0; k < a.used; k++)
-    {
+    for (k = 0; k < a.used; k++) {
         tmp = this.dp[k] * si + carry;
         ret.dp[k] = tmp & MP_MASK;
         carry = Math.floor(tmp / MP_DIGIT_MAX);
     }
 
-    if (carry)
-    {
+    if (carry) {
         ret.dp[k] = carry;
     }
 
     ret.clamp();
-    if (this.sign != si.sign())
-    {
+    if (this.sign != si.sign()) {
         ret.sign = MP_NEG;
     }
     return ret;
 };
 // compares absolute values (magnitudes)
-Bigint.prototype.cmp_mag = function(bi)
-{
-    if (this.used < bi.used)
-    {
+Bigint.prototype.cmp_mag = function(bi) {
+    if (this.used < bi.used) {
         return MP_LT;
     }
-    if (this.used > bi.used)
-    {
+    if (this.used > bi.used) {
         return MP_GT;
     }
     // same size, get into details msb->lsb
-    for (var i = this.used; i >= 0; i--)
-    {
-        if (this.dp[i] > bi.dp[i])
-        {
+    for (var i = this.used; i >= 0; i--) {
+        if (this.dp[i] > bi.dp[i]) {
             return MP_GT;
         }
-        if (this.dp[i] < bi.dp[i])
-        {
+        if (this.dp[i] < bi.dp[i]) {
             return MP_LT;
         }
     }
@@ -2003,47 +1829,35 @@ Bigint.prototype.cmp_mag = function(bi)
 };
 
 // compares signed values
-Bigint.prototype.cmp = function(bi)
-{
+Bigint.prototype.cmp = function(bi) {
     /* compare based on sign */
-    if (this.sign != bi.sign)
-    {
-        if (this.sign == MP_NEG)
-        {
+    if (this.sign != bi.sign) {
+        if (this.sign == MP_NEG) {
             return MP_LT;
-        }
-        else
-        {
+        } else {
             return MP_GT;
         }
     }
     /* compare digits */
-    if (this.sign == MP_NEG)
-    {
+    if (this.sign == MP_NEG) {
         /* if negative compare opposite direction */
         return bi.cmp_mag(this);
-    }
-    else
-    {
+    } else {
         return this.cmp_mag(bi);
     }
 };
 // internal, unsigned adder, returns an Array, not a Bigint!
-Bigint.prototype.kadd = function(bi)
-{
+Bigint.prototype.kadd = function(bi) {
     var x, retdp, min, max, carry, i;
 
     /* find sizes, we let |a| <= |b| which means we have to sort
      * them.  "x" will point to the input with the most digits
      */
-    if (this.used > bi.used)
-    {
+    if (this.used > bi.used) {
         min = bi.used;
         max = this.used;
         x = this;
-    }
-    else
-    {
+    } else {
         min = this.used;
         max = bi.used;
         x = bi;
@@ -2052,18 +1866,15 @@ Bigint.prototype.kadd = function(bi)
     retdp = [];
 
     carry = 0;
-    for (i = 0; i < min; i++)
-    {
+    for (i = 0; i < min; i++) {
         retdp[i] = this.dp[i] + bi.dp[i] + carry;
         // works if MP_DIGIT_BIT < 32 bit (YMMV on a 64 bit machine)
         carry = retdp[i] >>> MP_DIGIT_BIT;
         retdp[i] &= MP_MASK;
     }
     // higher words
-    if (min != max)
-    {
-        for (; i < max; i++)
-        {
+    if (min != max) {
+        for (; i < max; i++) {
             retdp[i] = x.dp[i] + carry;
             carry = retdp[i] >>> MP_DIGIT_BIT;
             retdp[i] &= MP_MASK;
@@ -2073,33 +1884,26 @@ Bigint.prototype.kadd = function(bi)
     return retdp;
 };
 // public signed adder
-Bigint.prototype.add = function(bi)
-{
+Bigint.prototype.add = function(bi) {
     var sa = this.sign;
     var sb = bi.sign;
 
     var ret = new Bigint();
     /* handle two cases, not four */
-    if (sa == sb)
-    {
+    if (sa == sb) {
         /* both positive or both negative */
         /* add their magnitudes, copy the sign */
         ret.sign = sa;
         ret.dp = this.kadd(bi);
-    }
-    else
-    {
+    } else {
         /* one positive, the other negative */
         /* subtract the one with the greater magnitude from */
         /* the one of the lesser magnitude.  The result gets */
         /* the sign of the one with the greater magnitude. */
-        if (this.cmp_mag(bi) == MP_LT)
-        {
+        if (this.cmp_mag(bi) == MP_LT) {
             ret.sign = sb;
             ret.dp = bi.ksub(this);
-        }
-        else
-        {
+        } else {
             ret.sign = sa;
             ret.dp = this.ksub(bi);
         }
@@ -2109,15 +1913,13 @@ Bigint.prototype.add = function(bi)
     return ret;
 };
 // TODO: to do
-Bigint.prototype.addInt = function(si)
-{
+Bigint.prototype.addInt = function(si) {
     var bi = si.toBigint();
     return this.add(bi);
 };
 
 // internal unsigned subtractor
-Bigint.prototype.ksub = function(bi)
-{
+Bigint.prototype.ksub = function(bi) {
     var retdp, min, max, carry, i;
 
     /* find sizes */
@@ -2126,15 +1928,13 @@ Bigint.prototype.ksub = function(bi)
 
     retdp = [];
     carry = 0;
-    for (i = 0; i < min; i++)
-    {
+    for (i = 0; i < min; i++) {
         // the unsigned shift is not an error here, but prob. only here
         retdp[i] = this.dp[i] - bi.dp[i] - carry;
         carry = (retdp[i] >> (MP_DIGIT_BIT + 1)) & 0x1;
         retdp[i] &= MP_MASK;
     }
-    for (; i < max; i++)
-    {
+    for (; i < max; i++) {
         retdp[i] = this.dp[i] - carry;
         carry = (retdp[i] >> (MP_DIGIT_BIT + 1)) & 0x1;
         retdp[i] &= MP_MASK;
@@ -2142,38 +1942,31 @@ Bigint.prototype.ksub = function(bi)
     return retdp;
 };
 // public signed subtractor
-Bigint.prototype.sub = function(bi)
-{
+Bigint.prototype.sub = function(bi) {
     var sa, sb, ret;
 
     ret = new Bigint();
 
     sa = this.sign;
     sb = bi.sign;
-    if (sa != sb)
-    {
+    if (sa != sb) {
         /* subtract a negative from a positive, OR */
         /* subtract a positive from a negative. */
         /* In either case, ADD their magnitudes, */
         /* and use the sign of the first number. */
         ret.sign = sa;
         ret.dp = this.kadd(bi);
-    }
-    else
-    {
+    } else {
         /* subtract a positive from a positive, OR */
         /* subtract a negative from a negative. */
         /* First, take the difference between their */
         /* magnitudes, then... */
-        if (this.cmp_mag(bi) != MP_LT)
-        {
+        if (this.cmp_mag(bi) != MP_LT) {
             /* Copy the sign from the first */
             ret.sign = sa;
             /* The first has a larger or equal magnitude */
             ret.dp = this.ksub(bi);
-        }
-        else
-        {
+        } else {
             /* The result has the *opposite* sign from */
             /* the first number. */
             ret.sign = (sa == MP_NEG) ? MP_ZPOS : MP_NEG;
@@ -2187,16 +1980,13 @@ Bigint.prototype.sub = function(bi)
 };
 
 // TODO: to do
-Bigint.prototype.subInt = function(si)
-{
+Bigint.prototype.subInt = function(si) {
     return this.sub(si.toBigint());
 };
 // internal division with remainder (D. Knuth: Algo. D)
-Bigint.prototype.kdivrem = function(bint)
-{
+Bigint.prototype.kdivrem = function(bint) {
     // Port of divmnu64.c from "Hacker's Delight"
-    var divmnu = function(q, r, u, v, m, n)
-    {
+    var divmnu = function(q, r, u, v, m, n) {
         var b = MP_DIGIT_MAX >>> 0; // Number base.
         var mask = MP_MASK >>> 0; // Number mask b-1
         var un, vn; // Normalized form of u, v.
@@ -2207,11 +1997,9 @@ Bigint.prototype.kdivrem = function(bint)
 
         // gets checked by public function but we might use this
         // private function directly, too.
-        if (n == 1)
-        { // Take care of
+        if (n == 1) { // Take care of
             k = 0; // the case of a
-            for (j = m - 1; j >= 0; j--)
-            { // single-digit
+            for (j = m - 1; j >= 0; j--) { // single-digit
                 q[j] = Math.floor((k * b + u[j]) / v[0]); // divisor here.
                 k = (k * b + u[j]) - q[j] * v[0];
             }
@@ -2227,8 +2015,7 @@ Bigint.prototype.kdivrem = function(bint)
         s = MP_DIGIT_BIT - (((v[n - 1]).highBit() + 1)); // 0 <= s <= 25 .
         // TODO: V ans U are already deep copies we can work on them directly
         vn = new Array(n);
-        for (i = n - 1; i > 0; i--)
-        {
+        for (i = n - 1; i > 0; i--) {
             vn[i] = ((v[i] << s) & mask) | ((v[i - 1] >>> (MP_DIGIT_BIT -
                 s)) & mask);
         }
@@ -2236,29 +2023,24 @@ Bigint.prototype.kdivrem = function(bint)
 
         un = new Array((m + 1));
         un[m] = (u[m - 1] >>> (MP_DIGIT_BIT - s)) & mask;
-        for (i = m - 1; i > 0; i--)
-        {
+        for (i = m - 1; i > 0; i--) {
             un[i] = ((u[i] << s) & mask) | ((u[i - 1] >>> (MP_DIGIT_BIT -
                 s)) & mask);
         }
         un[0] = (u[0] << s) & mask;
 
-        for (j = m - n; j >= 0; j--)
-        { // Main loop.
+        for (j = m - n; j >= 0; j--) { // Main loop.
             // Compute estimate qhat of q[j].
             qhat = Math.floor((un[j + n] * b + un[j + n - 1]) / vn[n -
                 1]);
             rhat = (un[j + n] * b + un[j + n - 1]) - qhat * vn[n - 1];
 
-            while (true)
-            {
+            while (true) {
                 if (qhat >= b || qhat * vn[n - 2] > b * rhat + un[j + n -
-                        2])
-                {
+                        2]) {
                     qhat = qhat - 1;
                     rhat = rhat + vn[n - 1];
-                    if (rhat < b)
-                    {
+                    if (rhat < b) {
                         continue;
                     }
                 }
@@ -2267,8 +2049,7 @@ Bigint.prototype.kdivrem = function(bint)
 
             // Multiply and subtract.
             k = 0;
-            for (i = 0; i < n; i++)
-            {
+            for (i = 0; i < n; i++) {
                 p = qhat * vn[i];
                 t = un[i + j] - k - (p & mask);
                 un[i + j] = t & mask;
@@ -2278,12 +2059,10 @@ Bigint.prototype.kdivrem = function(bint)
             un[j + n] = t;
 
             q[j] = qhat; // Store quotient digit.
-            if (t < 0)
-            { // If we subtracted too
+            if (t < 0) { // If we subtracted too
                 q[j] = q[j] - 1; // much, add back.
                 k = 0;
-                for (i = 0; i < n; i++)
-                {
+                for (i = 0; i < n; i++) {
                     t = un[i + j] + vn[i] + k;
                     un[i + j] = t & mask;
                     k = Math.floor(t / b);
@@ -2293,8 +2072,7 @@ Bigint.prototype.kdivrem = function(bint)
         }
         // If the caller wants the remainder, unnormalize
         // it and pass it back.
-        for (i = 0; i < n; i++)
-        {
+        for (i = 0; i < n; i++) {
             r[i] = ((un[i] >>> s) & mask) | ((un[i + 1] << (
                 MP_DIGIT_BIT - s)) & mask);
         }
@@ -2323,38 +2101,33 @@ Bigint.prototype.kdivrem = function(bint)
     return [Q, R];
 };
 // public: division with remainder
-Bigint.prototype.divrem = function(bint)
-{
+Bigint.prototype.divrem = function(bint) {
     var a = this.abs();
     var b = bint.abs();
     var q, r, ret;
     var qsign, rsign;
 
     /* Some checks (NaN, Inf) */
-    if (isNaN(a.dp[0]) || isNaN(b.dp[0]))
-    {
+    if (isNaN(a.dp[0]) || isNaN(b.dp[0])) {
         return [a.setNaN(), b.setNaN()];
     }
-    if (a.isInf() || b.isInf())
-    {
+    if (a.isInf() || b.isInf()) {
         return [a.setInf(), b.setInf()];
     }
 
-    if (b.isZero())
-    {
+    if (b.isZero()) {
         return (b.sign == MP_NEG) ? [a.setNegInf(), new Bigint(0)] : [a.setPosInf(),
-            new Bigint(0)];
+            new Bigint(0)
+        ];
     }
 
     // Single digit b
-    if (b.used == 1)
-    {
+    if (b.used == 1) {
         return a.divremInt(b.dp[0]);
     }
 
     // a < b
-    if (a.cmp_mag(b) == MP_LT)
-    {
+    if (a.cmp_mag(b) == MP_LT) {
         return [new Bigint(0), a];
     }
 
@@ -2375,22 +2148,16 @@ Bigint.prototype.divrem = function(bint)
 };
 
 // this function returns a bigint as the remainder.
-Bigint.prototype.divremInt = function(si)
-{
-    var divrem2in1 = function(u, m, v, q, B)
-    {
+Bigint.prototype.divremInt = function(si) {
+    var divrem2in1 = function(u, m, v, q, B) {
         var k = 0,
             t;
-        for (var j = m - 1; j >= 0; j--)
-        {
+        for (var j = m - 1; j >= 0; j--) {
             k = (k << B) | u[j];
-            if (k >= v)
-            {
+            if (k >= v) {
                 t = Math.floor(k / v);
                 k -= t * v;
-            }
-            else
-            {
+            } else {
                 t = 0;
             }
             q[j] = t;
@@ -2416,27 +2183,22 @@ Bigint.prototype.divremInt = function(si)
 
 
 
-Bigint.prototype.div = function(bi)
-{
+Bigint.prototype.div = function(bi) {
     return this.divrem(bi)[0];
 };
-Bigint.prototype.divInt = function(si)
-{
+Bigint.prototype.divInt = function(si) {
     return this.divremInt(si)[0];
 };
-Bigint.prototype.rem = function(bi)
-{
+Bigint.prototype.rem = function(bi) {
     return this.divrem(bi)[1];
 };
-Bigint.prototype.remInt = function(si)
-{
+Bigint.prototype.remInt = function(si) {
     return this.divremInt(si)[1];
 };
 
 // Beware: works in-place!
-Bigint.prototype.incr = function()
-{
-    var carry, i, t;
+Bigint.prototype.incr = function() {
+    var carry, i;
     carry = 1;
     i = 0;
     this.dp[i] = this.dp[i] + carry;
@@ -2444,79 +2206,64 @@ Bigint.prototype.incr = function()
     this.dp[i] &= MP_MASK;
     // the chance of this early-out to happen has not yet been calculated but
     // conjectured to be quite high
-    if(carry === 0){
+    if (carry === 0) {
         return;
     }
-    for (i = 1; i < this.used; i++)
-    {
+    for (i = 1; i < this.used; i++) {
         this.dp[i] = this.dp[i] + carry;
         carry = this.dp[i] >>> MP_DIGIT_BIT;
         this.dp[i] &= MP_MASK;
     }
-    if (carry)
-    {
+    if (carry) {
         this.dp[i] = carry;
     }
     this.used = this.dp.length;
 };
 // Beware: works in-place!
-Bigint.prototype.decr = function()
-{
+Bigint.prototype.decr = function() {
     var carry, i;
 
     carry = 0;
     this.dp[0] = this.dp[0] - 1;
-    if (this.dp[0] < 0)
-    {
+    if (this.dp[0] < 0) {
         this.dp[0] += MP_DIGIT_MAX;
         carry = 1;
-    }
-    else
-    {
+    } else {
         carry = 0;
     }
-    if (carry)
-    {
-        for (i = 1; i < this.used; i++)
-        {
+    if (carry) {
+        for (i = 1; i < this.used; i++) {
             this.dp[i] = this.dp[i] - carry;
-            if (this.dp[i] < 0)
-            {
+            if (this.dp[i] < 0) {
                 this.dp[i] += MP_DIGIT_MAX;
                 carry = 1;
-            }
-            else
-            {
+            } else {
                 carry = 0;
             }
         }
     }
     // 10 - 1 = 9
-    if (this.dp[this.used - 1] == 0)
-    {
+    if (this.dp[this.used - 1] == 0) {
         this.used--;
     }
 };
 
 
-Bigint.prototype.slice = function(start, end)
-{
+Bigint.prototype.slice = function(start, end) {
     var ret = new Bigint(0);
     ret.dp = this.dp.slice(start, end);
     ret.used = end - start;
     ret.sign = this.sign;
     return ret;
 };
-Bigint.prototype.karatsuba = function(bint)
-{
+Bigint.prototype.karatsuba = function(bint) {
     var x0, x1, y0, y1, x0y0, x1y1, t1, xy;
 
     var tlen = this.used;
     var blen = bint.used;
 
     var m = Math.min(tlen, blen) >>> 1;
-    if (m <= KARATSUBA_MUL_CUTOFF)
-    {
+    if (m <= KARATSUBA_MUL_CUTOFF) {
         return this.multiply(bint);
     }
     x1 = this.slice(m, tlen);
@@ -2538,15 +2285,13 @@ Bigint.prototype.karatsuba = function(bint)
 
     return xy;
 };
-Bigint.prototype.karatsuba_square = function()
-{
+Bigint.prototype.karatsuba_square = function() {
     var x0, x1, x0y0, x1y1, t1, xy;
 
     var tlen = this.used;
 
     var m = tlen >>> 1;
-    if (m <= KARATSUBA_SQR_CUTOFF)
-    {
+    if (m <= KARATSUBA_SQR_CUTOFF) {
         return this.square();
     }
     x1 = this.slice(m, tlen);
@@ -2571,16 +2316,14 @@ Jaewook Chung, M. Anwar Hasan: Asymmetric Squaring Formulae, Centre for Applied
 Cryptographic Research, University of Waterloo, Ontario, Canada, (3-August-2006). URL:
 http://www.cacr.math.uwaterloo.ca/tech_reports.html. 551, 553, 557
 */
-Bigint.prototype.toom_cook_mul = function(bint)
-{
+Bigint.prototype.toom_cook_mul = function(bint) {
     var a0, a1, a2, b0, b1, b2, t1, t2, w0, w1, w2, w3, w4, c;
 
     var tlen = this.used;
     var blen = bint.used;
 
     var m = Math.floor(Math.min(tlen, blen) / 3);
-    if (m <= TOOM_COOK_MUL_CUTOFF)
-    {
+    if (m <= TOOM_COOK_MUL_CUTOFF) {
         return this.karatsuba(bint);
     }
 
@@ -2630,15 +2373,13 @@ Bigint.prototype.toom_cook_mul = function(bint)
     return c;
 };
 
-Bigint.prototype.toom_cook_sqr = function()
-{
+Bigint.prototype.toom_cook_sqr = function() {
     var a0, a1, a2, t1, w0, w1, w2, w3, w4, c;
 
     var tlen = this.used;
 
     var m = Math.floor(tlen / 3);
-    if (m <= 40 /* TOOM_MUL_CUTOFF */ )
-    {
+    if (m <= 40 /* TOOM_MUL_CUTOFF */ ) {
         return this.karatsuba_square();
     }
 
@@ -2675,21 +2416,17 @@ Bigint.prototype.toom_cook_sqr = function()
 };
 
 // detects automatically if a square is wanted, just leave out the argument
-Bigint.prototype.fft_mul = function(bint)
-{
+Bigint.prototype.fft_mul = function(bint) {
     /* base two integer logarithm */
-    var highbit = function(n)
-    {
+    var highbit = function(n) {
         var r = 0 >>> 0;
         var m = n >>> 0;
-        while (m >>>= 1)
-        {
+        while (m >>>= 1) {
             r++;
         }
         return r;
     };
-    var bi_to_fft = function(a, fa, b, fb, len)
-    {
+    var bi_to_fft = function(a, fa, b, fb, len) {
 
         var length_a, length_b, length_needed, i, j, hb;
 
@@ -2702,73 +2439,61 @@ Bigint.prototype.fft_mul = function(bint)
         /* final length must be a power of two to keep the FFTs simple */
         hb = highbit(length_needed);
         /* check for the rare case that it is already a power of 2 */
-        if (length_needed != 1 << hb)
-        {
+        if (length_needed != 1 << hb) {
             length_needed = 1 << (hb + 1);
         }
         /* Send computed length back to caller */
         len[0] = length_needed;
 
         /* Put splitted digits in double-array, in the same order as in mp_int */
-        for (i = 0, j = 0; i < length_needed / 2; i++, j += 2)
-        {
-            if (i < length_a)
-            {
+        for (i = 0, j = 0; i < length_needed / 2; i++, j += 2) {
+            if (i < length_a) {
                 fa[j] = 1.0 * (a.dp[i] & MP_HALF_DIGIT_MASK);
                 fa[j + 1] = 1.0 * ((a.dp[i] >>> MP_HALF_DIGIT_BIT) &
                     MP_HALF_DIGIT_MASK);
             }
             /* padding a */
-            if (i >= length_a)
-            {
+            if (i >= length_a) {
                 fa[j] = 0.0;
                 fa[j + 1] = 0.0;
             }
-            if (i < length_b)
-            {
+            if (i < length_b) {
                 fb[j] = 1.0 * (b.dp[i] & MP_HALF_DIGIT_MASK);
                 fb[j + 1] = 1.0 * ((b.dp[i] >>> MP_HALF_DIGIT_BIT) &
                     MP_HALF_DIGIT_MASK);
             }
             /* padding b */
-            if (i >= length_b)
-            {
+            if (i >= length_b) {
                 fb[j] = 0.0;
                 fb[j + 1] = 0.0;
             }
         }
     };
     /* same as dp_to_fft() for a single multiplicand for squaring */
-    var bi_to_fft_single = function(a, fa, len)
-    {
+    var bi_to_fft_single = function(a, fa, len) {
         var length_a, length_needed, i, j, hb;
         length_a = a.used;
         length_needed = (length_a * 2) * 2;
         hb = highbit(length_needed);
-        if (length_needed != 1 << hb)
-        {
+        if (length_needed != 1 << hb) {
             length_needed = 1 << (hb + 1);
         }
         len[0] = length_needed;
 
-        for (i = 0, j = 0; i < length_needed / 2; i++, j += 2)
-        {
-            if (i < length_a)
-            {
+        for (i = 0, j = 0; i < length_needed / 2; i++, j += 2) {
+            if (i < length_a) {
                 fa[j] = 1.0 * (a.dp[i] & MP_HALF_DIGIT_MASK);
                 fa[j + 1] = 1.0 * ((a.dp[i] >>> MP_HALF_DIGIT_BIT) &
                     MP_HALF_DIGIT_MASK);
             }
-            if (i >= length_a)
-            {
+            if (i >= length_a) {
                 fa[j] = 0.0;
                 fa[j + 1] = 0.0;
             }
         }
         return MP_OKAY;
     };
-    var fft_to_bi = function(fft_array, len)
-    {
+    var fft_to_bi = function(fft_array, len) {
         var new_length, i, j;
         var carry, temp;
         var a = new Bigint(0);
@@ -2778,13 +2503,11 @@ Bigint.prototype.fft_mul = function(bint)
 
         /* The FFT multiplication does no carry (it's one of the tricks of it) */
         carry = 0;
-        for (i = 0; i < len; i++)
-        {
+        for (i = 0; i < len; i++) {
             temp = carry;
             carry = 0;
             temp += Math.round(fft_array[i]);
-            if (temp >= MP_HALF_DIGIT)
-            {
+            if (temp >= MP_HALF_DIGIT) {
                 carry = Math.floor(temp / MP_HALF_DIGIT);
                 temp = temp % MP_HALF_DIGIT;
             }
@@ -2793,24 +2516,21 @@ Bigint.prototype.fft_mul = function(bint)
         }
 
         /* re-marry the digits */
-        for (i = 0, j = 0; j < new_length; i++, j += 2)
-        {
+        for (i = 0, j = 0; j < new_length; i++, j += 2) {
             a.dp[i] = ((fft_array[j + 1])) & MP_HALF_DIGIT_MASK;
             a.dp[i] <<= MP_HALF_DIGIT_BIT;
             a.dp[i] |= ((fft_array[j])) & MP_HALF_DIGIT_MASK;
             /* and count them all */
             a.used++;
         }
-        if (carry)
-        {
+        if (carry) {
             a.dp[i] = carry;
             a.used++;
         }
         a.clamp();
         return a;
     };
-    var fht_dif_iterative = function(x, n, offset, do_loop)
-    {
+    var fht_dif_iterative = function(x, n, offset, do_loop) {
         var m = 0 >>> 0,
             mh = 0 >>> 0,
             mq = 0 >>> 0;
@@ -2818,19 +2538,16 @@ Bigint.prototype.fft_mul = function(bint)
         var a, b, t, c, s, u, v, tmp;
         // a pointer to x in the original
         var dp;
-        for (m = n; m > 1; m >>>= 1)
-        {
+        for (m = n; m > 1; m >>>= 1) {
             mh = m >>> 1;
             mq = mh >>> 1;
             t = Math.PI / mh;
             a = Math.sin(0.5 * t);
             a *= 2.0 * a;
             b = Math.sin(t);
-            for (i = 0; i < n; i += m)
-            {
+            for (i = 0; i < n; i += m) {
                 dp = offset + i; // dp = x + i in original
-                for (j = 0, k = mh; j < mh; ++j, ++k)
-                {
+                for (j = 0, k = mh; j < mh; ++j, ++k) {
                     u = x[dp + j];
                     v = x[dp + k];
                     x[dp + j] = u + v;
@@ -2839,8 +2556,7 @@ Bigint.prototype.fft_mul = function(bint)
                 dp += mh;
                 c = 1.0;
                 s = 0.0;
-                for (j = 1, k = mh - 1; j < mq; ++j, --k)
-                {
+                for (j = 1, k = mh - 1; j < mq; ++j, --k) {
                     tmp = c;
                     c -= a * c + b * s;
                     s -= a * s - b * tmp;
@@ -2850,22 +2566,18 @@ Bigint.prototype.fft_mul = function(bint)
                     x[dp + k] = u * s - v * c;
                 }
             }
-            if (!do_loop)
-            {
+            if (!do_loop) {
                 break;
             }
         }
         return;
     };
-    var fht_dif_rec = function(x, n, offset)
-    {
+    var fht_dif_rec = function(x, n, offset) {
         var nh = 0 >>> 0;
-        if (n == 1)
-        {
+        if (n == 1) {
             return;
         }
-        if (n < Math.floor(MP_L1_SIZE / (2 * 8)))
-        { // 8 = sizeof(double)
+        if (n < Math.floor(MP_L1_SIZE / (2 * 8))) { // 8 = sizeof(double)
             fht_dif_iterative(x, n, offset, true);
             return;
         }
@@ -2875,8 +2587,7 @@ Bigint.prototype.fft_mul = function(bint)
         fht_dif_rec(x, nh, nh + offset);
         return;
     };
-    var fht_dit_iterative = function(x, n, offset, do_loop)
-    {
+    var fht_dit_iterative = function(x, n, offset, do_loop) {
         var m = 0 >>> 0,
             mh = 0 >>> 0,
             mq = 0 >>> 0;
@@ -2885,21 +2596,18 @@ Bigint.prototype.fft_mul = function(bint)
         var dp;
 
         m = (do_loop) ? 2 : n;
-        for (; m <= n; m <<= 1)
-        {
+        for (; m <= n; m <<= 1) {
             mh = m >>> 1;
             mq = mh >>> 1;
             t = Math.PI / mh;
             a = Math.sin(0.5 * t);
             a *= 2.0 * a;
             b = Math.sin(t);
-            for (i = 0; i < n; i += m)
-            {
+            for (i = 0; i < n; i += m) {
                 dp = offset + i + mh; // was dp = x + i + mh
                 c = 1.0;
                 s = 0.0;
-                for (j = 1, k = mh - 1; j < mq; ++j, --k)
-                {
+                for (j = 1, k = mh - 1; j < mq; ++j, --k) {
                     tmp = c;
                     c -= a * c + b * s;
                     s -= a * s - b * tmp;
@@ -2909,8 +2617,7 @@ Bigint.prototype.fft_mul = function(bint)
                     x[dp + k] = u * s - v * c;
                 }
                 dp -= mh;
-                for (j = 0, k = mh; j < mh; ++j, ++k)
-                {
+                for (j = 0, k = mh; j < mh; ++j, ++k) {
                     u = x[dp + j];
                     v = x[dp + k];
                     x[dp + j] = u + v;
@@ -2920,16 +2627,13 @@ Bigint.prototype.fft_mul = function(bint)
         }
         return;
     };
-    var fht_dit_rec = function(x, n, offset)
-    {
+    var fht_dit_rec = function(x, n, offset) {
         var nh;
 
-        if (n == 1)
-        {
+        if (n == 1) {
             return;
         }
-        if (n < Math.floor(MP_L1_SIZE / (2 * 8)))
-        { // 8 = sizeof(double)
+        if (n < Math.floor(MP_L1_SIZE / (2 * 8))) { // 8 = sizeof(double)
             fht_dit_iterative(x, n, offset, true);
             return;
         }
@@ -2945,22 +2649,18 @@ Bigint.prototype.fft_mul = function(bint)
       the otherwise costly bit reversing (which is called "revbin" in J. Arndt's
       book).
     */
-    var fht_conv_core = function(f, g, n, v /*=0.0*/ )
-    {
+    var fht_conv_core = function(f, g, n, v /*=0.0*/ ) {
         var nh, r, rm, k, km, tr, m;
         var xi, xj, yi, yj;
-        if (v == 0.0)
-        {
+        if (v == 0.0) {
             v = 1.0 / n;
         }
 
         g[0] *= (v * f[0]);
-        if (n >= 2)
-        {
+        if (n >= 2) {
             g[1] *= (v * f[1]);
         }
-        if (n < 4)
-        {
+        if (n < 4) {
             return;
         }
         v *= 0.5;
@@ -2976,13 +2676,11 @@ Bigint.prototype.fft_mul = function(bint)
 
         k = 2;
         km = n - 2;
-        while (k < nh)
-        {
+        while (k < nh) {
             rm -= nh;
             tr = r;
             r ^= nh;
-            for (m = (nh >>> 1); !((r ^= m) & m); m >>>= 1)
-            {}
+            for (m = (nh >>> 1); !((r ^= m) & m); m >>>= 1) {}
 
             xi = f[r];
             xj = f[rm];
@@ -3005,22 +2703,18 @@ Bigint.prototype.fft_mul = function(bint)
         }
         return;
     };
-    var fht_autoconv_core = function(f, n, v /*=0.0*/ )
-    {
+    var fht_autoconv_core = function(f, n, v /*=0.0*/ ) {
         var nh, r, rm, k, km, tr, m;
         var xi, xj, xi2, xj2, xij;
-        if (v == 0.0)
-        {
+        if (v == 0.0) {
             v = 1.0 / n;
         }
 
         f[0] *= (v * f[0]);
-        if (n >= 2)
-        {
+        if (n >= 2) {
             f[1] *= (v * f[1]);
         }
-        if (n < 4)
-        {
+        if (n < 4) {
             return;
         }
         v *= 0.5;
@@ -3037,13 +2731,11 @@ Bigint.prototype.fft_mul = function(bint)
 
         k = 2;
         km = n - 2;
-        while (k < nh)
-        {
+        while (k < nh) {
             rm -= nh;
             tr = r;
             r ^= nh;
-            for (m = (nh >>> 1); !((r ^= m) & m); m >>>= 1)
-            {}
+            for (m = (nh >>> 1); !((r ^= m) & m); m >>>= 1) {}
             xi = f[r];
             xj = f[rm];
             xi2 = xi * xi;
@@ -3070,12 +2762,10 @@ Bigint.prototype.fft_mul = function(bint)
         return;
     };
 
-    var MP_fft = function(x, y, len)
-    {
+    var MP_fft = function(x, y, len) {
         var n;
         n = len[0];
-        if (n < 2)
-        {
+        if (n < 2) {
             return MP_VAL;
         }
         fht_dif_rec(x, n, 0);
@@ -3084,12 +2774,10 @@ Bigint.prototype.fft_mul = function(bint)
         fht_dit_rec(y, n, 0);
         return MP_OKAY;
     };
-    var MP_fft_sqr = function(x, len)
-    {
+    var MP_fft_sqr = function(x, len) {
         var n;
         n = len[0];
-        if (n < 2)
-        {
+        if (n < 2) {
             return MP_VAL;
         }
         fht_dif_rec(x, n, 0);
@@ -3097,8 +2785,7 @@ Bigint.prototype.fft_mul = function(bint)
         fht_dit_rec(x, n, 0);
         return MP_OKAY;
     };
-    var fft_mul = function(a, b)
-    {
+    var fft_mul = function(a, b) {
         var fa = [],
             fb = [],
             len = [];
@@ -3111,8 +2798,7 @@ Bigint.prototype.fft_mul = function(bint)
         c = fft_to_bi(fb, len);
         return c;
     };
-    var fft_sqr = function(a)
-    {
+    var fft_sqr = function(a) {
         var fa = [],
             len = [];
         var c;
@@ -3125,8 +2811,7 @@ Bigint.prototype.fft_mul = function(bint)
         return c;
     };
 
-    if (arguments.length == 1)
-    {
+    if (arguments.length == 1) {
         return fft_mul(this, bint);
     }
     return fft_sqr(this);
@@ -3136,14 +2821,11 @@ Bigint.prototype.fft_mul = function(bint)
 
 // simple right-to-left
 // will implement and make use of left-to-right for x^y with very small x later
-Bigint.prototype.kpow = function(ui)
-{
+Bigint.prototype.kpow = function(ui) {
     var ret = new Bigint(1);
     var t = this;
-    while (ui != 0)
-    {
-        if (ui & 1 == 1)
-        {
+    while (ui != 0) {
+        if (ui & 1 == 1) {
             ret = ret.mul(t);
         }
         t = t.sqr();
@@ -3152,13 +2834,11 @@ Bigint.prototype.kpow = function(ui)
     return ret;
 };
 
-Bigint.prototype.pow = function(ui)
-{
+Bigint.prototype.pow = function(ui) {
     var sign = this.sign;
     var t;
 
-    if (ui < 0)
-    {
+    if (ui < 0) {
         //rounds to zero
         return (new Bigint(0));
     }
@@ -3166,17 +2846,14 @@ Bigint.prototype.pow = function(ui)
     if(ui == 1/2){
       return this.sqrt();
     }  */
-    if (ui == 1)
-    {
+    if (ui == 1) {
         return this.dup();
     }
-    if (ui == 2)
-    {
+    if (ui == 2) {
         return this.sqr();
     }
     // useless? Redundant even?
-    if (ui.isPow2())
-    {
+    if (ui.isPow2()) {
         t = this.dup();
         ui--;
         do {
@@ -3191,46 +2868,37 @@ Bigint.prototype.pow = function(ui)
        ...
       return t;
     } */
-    if (this.isZero())
-    {
+    if (this.isZero()) {
         // IEEE 754
-        if (ui == 0)
-        {
+        if (ui == 0) {
             return (new Bigint(1));
         }
         return (new Bigint(0));
     }
-    if (this.isInf())
-    {
+    if (this.isInf()) {
         // IEEE 754
-        if (ui == 0)
-        {
+        if (ui == 0) {
             return (new Bigint(1));
         }
         return this.dup();
     }
-    if (this.isUnity())
-    {
-        if (this.sign > 0)
-        {
+    if (this.isUnity()) {
+        if (this.sign > 0) {
             // IEEE 754 says it is always one, even for 1^\infty
             return (new Bigint(1));
         }
-        if (ui == Infinity)
-        {
+        if (ui == Infinity) {
             // IEEE 754 is unclear for -1
             return (new Bigint(0)).setNaN();
         }
-        if (ui & 1 == 0)
-        {
+        if (ui & 1 == 0) {
             return (new Bigint(1));
         }
         return this.dup();
     }
     t = this.abs();
     t = t.kpow(ui);
-    if (sign < 0 && ui & 1 == 0)
-    {
+    if (sign < 0 && ui & 1 == 0) {
         t.sign = MP_NEG;
     }
     return t;
@@ -3238,14 +2906,11 @@ Bigint.prototype.pow = function(ui)
 
 
 // should be done with left-to-right instead?
-Number.prototype.kpow = function(bi)
-{
+Number.prototype.kpow = function(bi) {
     var ret = new Bigint(1);
     var t = this.toBigint();
-    while (bi.isZero() == MP_NO)
-    {
-        if (bi.isOdd() == MP_YES)
-        {
+    while (bi.isZero() == MP_NO) {
+        if (bi.isOdd() == MP_YES) {
             ret = ret.mul(t);
         }
         t = t.sqr();
@@ -3254,15 +2919,12 @@ Number.prototype.kpow = function(bi)
     return ret;
 };
 
-Number.prototype.bigpow = function(si)
-{
+Number.prototype.bigpow = function(si) {
     var ret = new Bigint(1);
     var bi = si.toBigint();
     var t = this.toBigint();
-    while (bi.isZero() == MP_NO)
-    {
-        if (bi.isOdd() == MP_YES)
-        {
+    while (bi.isZero() == MP_NO) {
+        if (bi.isOdd() == MP_YES) {
             ret = ret.mul(t);
         }
         t = t.sqr();
@@ -3272,27 +2934,22 @@ Number.prototype.bigpow = function(si)
 };
 
 // Bigint gets simple bracketing
-Bigint.prototype.ilogb = function(base)
-{
+Bigint.prototype.ilogb = function(base) {
     var low, bracket_low, high, bracket_high, mid, bracket_mid;
     // log(-x)/log(y) = log(x)/log(y) + (k*pi *i)/log(y)
-    if (this.isNeg())
-    {
+    if (this.isNeg()) {
         return this.copy().setNaN();
     }
     // this works works for positive and integer bases only
     // if(base < 0) return this.toBigfloat().cilogb(b).abs().floor();
-    if (base < 1 || !base.isInt())
-    {
+    if (base < 1 || !base.isInt()) {
         return this.copy().setNaN();
     }
 
-    if (base == 1)
-    {
+    if (base == 1) {
         return this.copy();
     }
-    if (base == 2)
-    {
+    if (base == 2) {
         return this.highBit().toBigint();
     }
     low = new Bigint(0);
@@ -3300,86 +2957,66 @@ Bigint.prototype.ilogb = function(base)
     high = new Bigint(1);
     bracket_high = new Bigint(base);
 
-    while (bracket_high.cmp(this) == MP_LT)
-    {
+    while (bracket_high.cmp(this) == MP_LT) {
         low = high.copy();
         bracket_low = bracket_high;
         high.lShiftInplace(1);
         bracket_high = bracket_high.sqr();
     }
-    while (high.sub(low).cmp(Bigint.ONE) == MP_GT)
-    {
+    while (high.sub(low).cmp(Bigint.ONE) == MP_GT) {
 
         mid = (low.add(high)).rShift(1);
         bracket_mid = bracket_low.mul(base.kpow(mid.sub(low)));
-        if (this.cmp(bracket_mid) == MP_LT)
-        {
+        if (this.cmp(bracket_mid) == MP_LT) {
             high = mid;
             bracket_high = bracket_mid;
         }
-        if (this.cmp(bracket_mid) == MP_GT)
-        {
+        if (this.cmp(bracket_mid) == MP_GT) {
             low = mid;
             bracket_low = bracket_mid;
         }
-        if (this.cmp(bracket_mid) == MP_EQ)
-        {
+        if (this.cmp(bracket_mid) == MP_EQ) {
             return mid;
         }
     }
 
-    if (bracket_high.cmp(this) == MP_EQ)
-    {
+    if (bracket_high.cmp(this) == MP_EQ) {
         return high;
-    }
-    else
-    {
+    } else {
         return low;
     }
 };
 
-Bigint.prototype.nthroot = function(n)
-{
+Bigint.prototype.nthroot = function(n) {
     var low, high, mid;
 
-    if (!this.isZero() && n == 0)
-    {
+    if (!this.isZero() && n == 0) {
         return new Bigint(1);
     }
-    if (this.isZero() && n != 0)
-    {
+    if (this.isZero() && n != 0) {
         return new Bigint(1);
     }
-    if (this.isZero() && n == 0)
-    {
+    if (this.isZero() && n == 0) {
         return this.copy().setInf();
     }
-    if (this.isNeg())
-    {
+    if (this.isNeg()) {
         return this.copy().setNaN();
     }
     // actually: x^(1/(-y)) = 1/(x^(1/y)) and x^(1/1/y) = x^y
-    if (n < 0 || !n.isInt())
-    {
+    if (n < 0 || !n.isInt()) {
         return this.copy().setNaN();
     }
 
     high = new Bigint(1);
     high.lShiftInplace(Math.floor(this.highBit() / n) + 1);
     low = high.rShift(1);
-    while (low.cmp(high) == MP_LT)
-    {
+    while (low.cmp(high) == MP_LT) {
         mid = low.add(high).rShift(1);
-        if (low.cmp(mid) == MP_LT && mid.pow(n).cmp(this) == MP_LT)
-        {
+        if (low.cmp(mid) == MP_LT && mid.pow(n).cmp(this) == MP_LT) {
             low = mid;
-        }
-        else if (high.cmp(mid) == MP_GT && mid.pow(n).cmp(this) == MP_GT)
-        {
+        } else if (high.cmp(mid) == MP_GT && mid.pow(n).cmp(this) == MP_GT) {
             high = mid;
-        }
-        else
-        {
+        } else {
             return mid;
         }
     }
@@ -3387,53 +3024,43 @@ Bigint.prototype.nthroot = function(n)
 };
 
 
-Bigint.prototype.gcd = function(bint)
-{
+Bigint.prototype.gcd = function(bint) {
     var g = new Bigint(1);
     // checks and balances
     var x = this.copy();
     var y = bint.copy();
     var t;
-    while (x.isEven() && y.isEven())
-    {
+    while (x.isEven() && y.isEven()) {
         x.rShiftInplace(1);
         y.rShiftInplace(1);
         g.lShiftInplace(1);
     }
-    while (!x.isZero())
-    {
-        while (x.isEven())
-        {
+    while (!x.isZero()) {
+        while (x.isEven()) {
             x.rShiftInplace(1);
         }
-        while (y.isEven())
-        {
+        while (y.isEven()) {
             y.rShiftInplace(1);
         }
         t = x.sub(y);
         t.sign = MP_ZPOS;
         t.rShiftInplace(1);
         // TODO: full copy prob. not necessary, check
-        if (x.cmp(y) != MP_LT)
-        {
+        if (x.cmp(y) != MP_LT) {
             x = t.copy();
-        }
-        else
-        {
+        } else {
             y = t.copy();
         }
     }
     return g.mul(y);
 };
-Bigint.prototype.egcd = function(bint)
-{
+Bigint.prototype.egcd = function(bint) {
     var g = new Bigint(1);
     // checks and balances
     var x = this.copy();
     var y = bint.copy();
     var u, v, A, B, C, D;
-    while (x.isEven() && y.isEven())
-    {
+    while (x.isEven() && y.isEven()) {
         x.rShiftInplace(1);
         y.rShiftInplace(1);
         g.lShiftInplace(1);
@@ -3445,46 +3072,35 @@ Bigint.prototype.egcd = function(bint)
     C = new Bigint(0);
     D = new Bigint(1);
     do {
-        while (u.isEven())
-        {
+        while (u.isEven()) {
             u.rShiftInplace(1);
-            if (A.isEven() && B.isEven())
-            {
+            if (A.isEven() && B.isEven()) {
                 A.rShiftInplace(1);
                 B.rShiftInplace(1);
-            }
-            else
-            {
+            } else {
                 A = A.add(y);
                 A.rShiftInplace(1);
                 B = B.sub(x);
                 B.rShiftInplace(1);
             }
         }
-        while (v.isEven())
-        {
+        while (v.isEven()) {
             v.rShiftInplace(1);
-            if (C.isEven() && D.isEven())
-            {
+            if (C.isEven() && D.isEven()) {
                 C.rShiftInplace(1);
                 D.rShiftInplace(1);
-            }
-            else
-            {
+            } else {
                 C = C.add(y);
                 C.rShiftInplace(1);
                 D = D.sub(x);
                 D.rShiftInplace(1);
             }
         }
-        if (u.cmp(v) != MP_LT)
-        {
+        if (u.cmp(v) != MP_LT) {
             u = u.sub(v);
             A = A.sub(C);
             B = B.sub(D);
-        }
-        else
-        {
+        } else {
             v = v.sub(u);
             C = C.sub(A);
             D = D.sub(B);
@@ -3494,19 +3110,59 @@ Bigint.prototype.egcd = function(bint)
     return [C, D, g.mul(v)];
 };
 
-Bigint.prototype.lcm = function(bint)
-{
+Bigint.prototype.lcm = function(bint) {
     var t1 = this.gcd(bint),
         ret;
-    if (this.cmp_mag(bint) == MP_LT)
-    {
+    if (this.cmp_mag(bint) == MP_LT) {
         ret = bint.mul(this.div(t1));
-    }
-    else
-    {
+    } else {
         ret = this.mul(bint.div(t1));
     }
     ret.sign = MP_ZPOS;
     return ret;
 };
+
+
+Bigint.prototype.bitops = function(bint, bitop) {
+    var ret = new Bigint(0);
+    var a, b, i;
+    if (this.used < bint.used) {
+        a = bint;
+        b = this;
+    } else {
+        a = this;
+        b = bint;
+    }
+    if (typeof bitop !== 'function') {
+        return ret.setNaN();
+    }
+    for (i = 0; i < b.used; i++) {
+        ret.dp[i] = bitop(a.dp[i], b.dp[i]);
+    }
+    for (; i < a.used; i++) {
+        ret.dp[i] = a.dp[i];
+    }
+    ret.used = a.used;
+    ret.clamp();
+    return ret;
+};
+
+Bigint.prototype.or = function(bint) {
+    return this.bitop(bint, function(a, b) {
+        return (a & b);
+    });
+};
+
+Bigint.prototype.and = function(bint) {
+    return this.bitop(bint, function(a, b) {
+        return (a | b);
+    });
+};
+
+Bigint.prototype.xor = function(bint) {
+    return this.bitop(bint, function(a, b) {
+        return (a ^ b);
+    });
+};
+
 
