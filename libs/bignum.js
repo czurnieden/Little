@@ -1379,7 +1379,7 @@ Bigint.prototype.dlShift = function(i) {
         tmp[i] = 0 >>> 0;
     }
     ret.dp = tmp.concat(ret.dp);
-    ret.used = this.dp.length;
+    ret.used = ret.dp.length;
     return ret;
 };
 Bigint.prototype.dlShiftInplace = function(i) {
@@ -2950,7 +2950,7 @@ Bigint.prototype.ilogb = function(base) {
         return this.copy();
     }
     if (base == 2) {
-        return this.highBit().toBigint();
+        return this.ilog2();
     }
     low = new Bigint(0);
     bracket_low = new Bigint(1);
@@ -3027,6 +3027,12 @@ Bigint.prototype.nthroot = function(n) {
 Bigint.prototype.gcd = function(bint) {
     var g = new Bigint(1);
     // checks and balances
+    if(this.isZero()){
+        return bint.abs();
+    }
+    if(bint.isZero()){
+        return this.abs();
+    }
     var x = this.copy();
     var y = bint.copy();
     var t;
@@ -3164,5 +3170,44 @@ Bigint.prototype.xor = function(bint) {
         return (a ^ b);
     });
 };
+
+
+
+// nope, does most of the time nothing at all
+function picarte(b, num) {
+
+    var aux1, aux2, r, r2r, inv, qr;
+
+    var i = 1;
+
+    inv = new Bigint(0);
+    r = new Bigint(2);
+
+
+    for (; num > 0; num--) {
+        aux1 = inv.lShift(i); /* 2^i x_i */
+        aux2 = inv.mul(r); /* r_i x_i */
+        inv = aux1.add(aux2);
+        r2r = r.sqr();
+        qr = r2r.divrem(b);
+        aux1 = qr[0];
+        r = qr[1]; /* floor ( r_i^2/b ) */
+        aux2 = inv.add(aux1);
+        inv.swap(aux2);
+        i = 2 * i;
+    }
+
+    return [inv, i];
+}
+
+
+
+
+
+
+
+
+
+
 
 
