@@ -3176,6 +3176,24 @@ Bigint.prototype.xor = function(bint) {
     });
 };
 
+// all single bit manipulators are zero based
+Bigint.prototype.getBit = function(n){
+    var digit = this.dp[Math.floor(n/MP_DIGIT_BIT)];
+    return (  ( digit >>> ( ( n % MP_DIGIT_BIT ) )  )  &  1);
+};
+
+Bigint.prototype.setBit = function(n){
+    this.dp[Math.floor(n/MP_DIGIT_BIT)] |= (1 << ( n % MP_DIGIT_BIT ) );
+};
+
+Bigint.prototype.flipBit = function(n){
+    this.dp[Math.floor(n/MP_DIGIT_BIT)] ^= (1 << ( n % MP_DIGIT_BIT ) );
+};
+
+Bigint.prototype.clearBit = function(n){
+    this.dp[Math.floor(n/MP_DIGIT_BIT)] &= ~(1 << ( n % MP_DIGIT_BIT ) );
+};
+
 
 
 // nope, does most of the time nothing at all
