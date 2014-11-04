@@ -1571,7 +1571,7 @@ Bigint.prototype.rShiftInplace = function(i) {
 Bigint.prototype.rShiftRounded = function(i) {
     var ret = this.rShift(i);
     if (i > 0 && this.getBit(i-1) == 1){
-        if(this.sign == MP_NEG){
+        if(this.sign === MP_NEG){
             ret.decr();
         } else {
             ret.incr();
@@ -1771,7 +1771,7 @@ Bigint.prototype.sqr = function() {
         return this.fft_mul();
     }
     if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF) {
-        return this.toom_cook_square();
+        return this.toom_cook_sqr();
     }
 
     return this.square();
