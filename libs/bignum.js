@@ -16,6 +16,8 @@
   254:19  error  'alert' is not defined                     no-undef
   201:11  error  MP_L1_SIZE was used before it was defined  no-use-before-define
 
+    The reasons for occuring and/or the reasons for ignoring:
+
   205:21 typed arrays are not in ECMAScript 5.1 but implemented everywhere
   251:19 we check if something is defined, so it is possible it wasn't defined
   252:12 in the first place
@@ -247,6 +249,9 @@ var double_int = new DataView(new ArrayBuffer(8));
   it? Always?), so I've chosen the long and tedious but correct way.
 
   Throws a FatalError which you may or may not want to catch.
+
+  It seems as if the endianess of typed arrays gets fixed in the next ECMAScript
+  standard to big-endian. But only them.
 */
 var __bigint_check_endianess = (function() {
     try {
@@ -847,23 +852,17 @@ Bigint.prototype.toString = function(radix) {
     // assumes 26 bit digits
     if (radix == 16 && MP_DIGIT_BIT == 26) {
         //s += (t.sign == MP_NEG)?"-":"";
-        var current_length = t.used;
+        var current_length = t.used-1;
         // the case of a single digit has been catched above, the loop will run
         // at least once
-        while (current_length - 1 > 0) {
+        while (current_length > 0) {
             // we need to fill 32 bit. 32-26 = 6, mask = 0x3f
             // take it from the digit above if it exists
-            if (current_length - 1 >= 2) {
+            if (current_length >= 2) {
                 tmp = t.dp[0] | (((t.dp[1] & 0x3f) << 26) & 0xffffffff);
             } else {
                 tmp = t.dp[0];
             }
-            // add it to the result string
-            s = tmp.toHex32() + s;
-            // divide by 2^32
-            t.rShiftInplace(32);
-            // adjust anchor
-            current_length = t.used;
             // check if something is left
             if (t.used == 1) {
                 if (t.dp[0] != 0) {
@@ -873,6 +872,12 @@ Bigint.prototype.toString = function(radix) {
                 // it's the last one, let's get some coffee and make a break
                 break;
             }
+            // add it to the result string
+            s = tmp.toHex32() + s;
+            // divide by 2^32
+            t.rShiftInplace(32);
+            // adjust anchor
+            current_length = t.used;-1
         }
         return (sign < 0) ? "-" + s : s;
     }
