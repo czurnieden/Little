@@ -1172,7 +1172,12 @@ Bigint.prototype.random = function(bits, seed) {
     }
 
     mod_mask = (1 << modbits) - 1;
-
+    if(mod_mask > 0){
+        this.dp[digbits] = burtle_rand() & mod_mask;
+    } else {
+        // to keep it downwards compatible
+        burtle_rand();
+    }
     this.dp[digbits] = burtle_rand() & mod_mask;
     while (digbits--) {
         this.dp[digbits] = burtle_rand() & MP_MASK;
