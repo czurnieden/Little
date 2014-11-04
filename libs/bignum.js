@@ -3151,46 +3151,61 @@ Bigint.prototype.lcm = function(bint) {
 };
 
 
-Bigint.prototype.bitops = function(bint, bitop) {
+Bigint.prototype.or = function(bint) {
     var ret = new Bigint(0);
-    var a, b, i;
-    if (this.used < bint.used) {
+    var a,b,i;
+    if(this.used < bint.used){
         a = bint;
         b = this;
     } else {
         a = this;
         b = bint;
     }
-    if (typeof bitop !== 'function') {
-        return ret.setNaN();
-    }
+    ret.dp = new Array(b.used);
     for (i = 0; i < b.used; i++) {
-        ret.dp[i] = bitop(a.dp[i], b.dp[i]);
-    }
-    for (; i < a.used; i++) {
-        ret.dp[i] = a.dp[i];
+        ret.dp[i] = a.dp[i] | b.dp[i];
     }
     ret.used = a.used;
     ret.clamp();
     return ret;
 };
 
-Bigint.prototype.or = function(bint) {
-    return this.bitop(bint, function(a, b) {
-        return (a & b);
-    });
-};
-
 Bigint.prototype.and = function(bint) {
-    return this.bitop(bint, function(a, b) {
-        return (a | b);
-    });
+    var ret = new Bigint(0);
+    var a,b,i;
+    if(this.used < bint.used){
+        a = bint;
+        b = this;
+    } else {
+        a = this;
+        b = bint;
+    }
+    ret.dp = new Array(b.used);
+    for (i = 0; i < b.used; i++) {
+        ret.dp[i] = a.dp[i] & b.dp[i];
+    }
+    ret.used = a.used;
+    ret.clamp();
+    return ret;
 };
 
 Bigint.prototype.xor = function(bint) {
-    return this.bitop(bint, function(a, b) {
-        return (a ^ b);
-    });
+    var ret = new Bigint(0);
+    var a,b,i;
+    if(this.used < bint.used){
+        a = bint;
+        b = this;
+    } else {
+        a = this;
+        b = bint;
+    }
+    ret.dp = new Array(b.used);
+    for (i = 0; i < b.used; i++) {
+        ret.dp[i] = a.dp[i] & b.dp[i];
+    }
+    ret.used = a.used;
+    ret.clamp();
+    return ret;
 };
 
 // all single bit manipulators are zero based
