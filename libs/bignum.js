@@ -3201,7 +3201,7 @@ Bigint.prototype.xor = function(bint) {
     }
     ret.dp = new Array(b.used);
     for (i = 0; i < b.used; i++) {
-        ret.dp[i] = a.dp[i] & b.dp[i];
+        ret.dp[i] = a.dp[i] ^ b.dp[i];
     }
     ret.used = a.used;
     ret.clamp();
