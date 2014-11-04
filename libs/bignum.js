@@ -1567,6 +1567,18 @@ Bigint.prototype.rShiftInplace = function(i) {
     }
     this.clamp();
 };
+// like rShift but rounds to +inf
+Bigint.prototype.rShiftRounded = function(i) {
+    var ret = this.rShift(i);
+    if (i > 0 && this.getBit(i-1) == 1){
+        if(this.sign == MP_NEG){
+            ret.decr();
+        } else {
+            ret.incr();
+        }
+    }
+    return ret;  
+};
 
 Bigint.prototype.mul_digs = function(bi, digs) {
     var t;
