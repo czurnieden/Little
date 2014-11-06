@@ -222,6 +222,10 @@ if (typeof MP_L1_SIZE === 'undefined') {
 // Memory for some of the bit-juggling below
 var double_int = new DataView(new ArrayBuffer(8));
 
+// modular multiplicative inverse of 3 (three) for exactDiv3
+var MOD_MUL_INV_THREE;
+var MOD_MUL_INV_THREE_HALF;
+
 /*
   checking for endianess (little endian only for now)
 
@@ -481,7 +485,37 @@ Number.prototype.setBits = function() {
     return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
 };
 
-
+// calculate multiplicative modular inverse (for exactDiv3)
+Number.prototype.modInv = function(m) {
+    var t1, t2, x, y, q, a, b;
+    a = this;
+    if (m < 0) {
+        m = -m;
+    }
+    if (a < 0) {
+        a = m - (-a % m);
+    }
+    t1 = 0;
+    x = 1;
+    y = a % m;
+    b = m;
+    while (y != 0) {
+        q = Math.floor(b / y);
+        t2 = x;
+        x = t1 - q * x;
+        t1 = t2;
+        t2 = y;
+        y = b - q * y;
+        b = t2;
+    }
+    if (b > 1) {
+        return Number.NaN;
+    }
+    if (t1 < 0) {
+        t1 += m;
+    }
+    return t1;
+};
 
 /*
   Prototype of Bigint.
@@ -1380,8 +1414,11 @@ Bigint.prototype.numSetBits = function() {
 // shift left big-digit-wise
 Bigint.prototype.dlShift = function(i) {
     var ret = this.copy();
-    if (i <= 0) {
+    if (i == 0) {
         return ret;
+    }
+    if (i < 0) {
+        return this.drShift(-i);
     }
     var tmp = [];
     //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
@@ -1393,7 +1430,11 @@ Bigint.prototype.dlShift = function(i) {
     return ret;
 };
 Bigint.prototype.dlShiftInplace = function(i) {
-    if (i <= 0) {
+    if (i == 0) {
+        return;
+    }
+    if (i < 0) {
+        this.drShiftInplace(-i);
         return;
     }
     var tmp = [];
@@ -1407,6 +1448,12 @@ Bigint.prototype.dlShiftInplace = function(i) {
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
 Bigint.prototype.drShift = function(i) {
     var ret;
+    if ( i == 0) {
+         return this.copy();
+    }
+    if( i < 0 ) {
+         return this.dlShift(-i);
+    }
     if (this.used < i) {
         ret = new Bigint();
         ret.dp[0] = 0;
@@ -1424,9 +1471,13 @@ Bigint.prototype.drShift = function(i) {
     ret.sign = this.sign;
     return ret;
 };
-// shift right big-digit-wise, returns 0 if shift is bigger or equal length
+// shift right big-digit-wise
 Bigint.prototype.drShiftInplace = function(i) {
-    if (i <= 0) {
+    if (i == 0) {
+        return;
+    }
+    if (i < 0) {
+        this.dlShiftInplace(-i);
         return;
     }
     if (this.used < i) {
@@ -1440,14 +1491,19 @@ Bigint.prototype.drShiftInplace = function(i) {
 };
 // shift left bit-wise
 Bigint.prototype.lShift = function(i) {
-    var dlshift = Math.floor(i / MP_DIGIT_BIT);
-    var lshift = i % MP_DIGIT_BIT;
+    var dlshift;
+    var lshift;
     var r, rr, k;
     var ret;
 
-    if (i <= 0) {
-        return ret;
+    if (i == 0) {
+        return this.copy();
     }
+    if (i < 0) {
+        return this.rShift(-i);
+    } 
+    dlshift = Math.floor(i / MP_DIGIT_BIT);
+    lshift = i % MP_DIGIT_BIT;
 
     ret = this.copy();
     ret.dlShiftInplace(dlshift);
@@ -1472,13 +1528,20 @@ Bigint.prototype.lShift = function(i) {
     return ret;
 };
 Bigint.prototype.lShiftInplace = function(i) {
-    var dlshift = Math.floor(i / MP_DIGIT_BIT);
-    var lshift = i % MP_DIGIT_BIT;
+    var dlshift;
+    var lshift;
     var r, rr, k;
 
-    if (i <= 0) {
+    if (i == 0) {
         return;
     }
+    if (i < 0) {
+        this.rShiftInplace(-i);
+        return;
+    }
+
+    dlshift = Math.floor(i / MP_DIGIT_BIT);
+    lshift = i % MP_DIGIT_BIT;
 
     this.dlShiftInplace(dlshift);
     if (lshift == 0) {
@@ -1503,11 +1566,14 @@ Bigint.prototype.lShiftInplace = function(i) {
 
 // shift right bit-wise
 Bigint.prototype.rShift = function(i) {
-    var ret = this.copy();
-    if (i <= 0) {
-        return ret;
+    var ret;
+    if (i == 0) {
+        return this.copy();
     }
-
+    if (i < 0) {
+        return this.lShift(-i);
+    }
+    ret = this.copy();
     if (this.highBit() < i) {
         ret.dp[0] = 0;
         ret.used = 1;
@@ -1540,7 +1606,11 @@ Bigint.prototype.rShift = function(i) {
     return ret;
 };
 Bigint.prototype.rShiftInplace = function(i) {
-    if (i <= 0) {
+    if (i == 0) {
+        return;
+    }
+    if (i < 0) {
+        this.lShiftInplace(-i);
         return;
     }
     if (this.highBit() < i) {
@@ -2202,6 +2272,49 @@ Bigint.prototype.divremInt = function(si) {
 };
 
 
+// division by 3 if fraction is known to have no remainder (e.g. in Toom-Cook)
+// uses MP_DIGIT_BIT = 26 only but is easily changed
+// It depends on architecture if it is actually faster, please test but I found
+// at 1,000,000 bit long numbers in my good ol' Duron a difference of a mere
+// 150 milliseconds (201 to 53)
+/*
+    Uses multiplication with the multiplicative modular inverse of 3 with the
+    modulus 2^26, that is, the canonical residue of v mod 2^26 such that
+    v * 3 is congruent to 1 mod 2^26.
+
+   modulus         v               ceil(v/2)
+     2^26      0x2aaaaab           0x1555556 
+     2^28      0xaaaaaab           0x5555556
+     2^30      0x2aaaaaab          0x15555556
+     2^31      0x2aaaaaab          0x15555556
+*/
+MOD_MUL_INV_THREE = (3).modInv(1 << MP_DIGIT_BIT);
+MOD_MUL_INV_THREE_HALF = Math.ceil(MOD_MUL_INV_THREE / 2);
+Bigint.prototype.exactDiv3 = function() {
+    var ret;
+    var i, tmp, carry;
+    // checks & balances
+    ret = new Bigint(0);
+    ret.dp = new Array(this.used);
+    ret.used = ret.dp.length;
+    carry = 0;
+    for (i = 0; i < this.used; i++) {
+        tmp = this.dp[i] - carry;
+        if (tmp < 0) {
+            carry = 1;
+        } else {
+            carry = 0;
+        }
+        ret.dp[i] = (tmp * MOD_MUL_INV_THREE) & MP_MASK;
+        if (ret.dp[i] >= MOD_MUL_INV_THREE_HALF) {
+            carry++;
+            if (ret.dp[i] >= MOD_MUL_INV_THREE) {
+                carry++;
+            }
+        }
+    }
+    return ret;
+};
 
 
 
@@ -2376,7 +2489,7 @@ Bigint.prototype.toom_cook_mul = function(bint) {
     w3 = (a2.sub(a1).add(a0)).toom_cook_mul(b2.sub(b1).add(b0));
 
     t1 = w3.lShift(1).add(w2);
-    t1 = t1.divInt(3);
+    t1 = t1.exactDiv3();
     t1 = t1.add(w0);
     t1 = t1.rShift(1);
     t1 = t1.sub(w4.lShift(1));
