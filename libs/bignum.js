@@ -2,7 +2,7 @@
 
 /*
     Errors found by an unbridled eslint are mostly intentionally (e.g.: "=="
-    instead of "===") but shoulkd be checked carefully nevertheless.
+    instead of "===") but should be checked carefully nevertheless.
 
     The command
 
@@ -167,7 +167,7 @@ var TOOM_COOK_MUL_CUTOFF = 475;
 var TOOM_COOK_SQR_CUTOFF = 600;
 
 // although not tested yet, but seemed reasonable
-var FFT_MUL_CUTOFF = 2048;
+var FFT_MUL_CUTOFF = 4096;
 // do one karatsuba mul. if limit is reached
 // 2^23 is below limit and still 8,388,608 limbs large which is > 10^(10^14)
 var FFT_UPPER_LIMIT = 1 << 23; // only if NTT is not implemented
@@ -184,6 +184,22 @@ var TOOM_COOK_5_MUL_CO;
 var TOOM_COOK_5_SQR_CO;
 */
 
+// Cut-offs for fast division (YMMV. Please send a note if it varies)
+
+/*
+var BURN_ZIEG_NUMERATOR;
+var BURN_ZIEG_DENOMINATOR;
+var BURN_ZIEG_RELATION;
+*/
+// for N<=2*D size of numerator, size of denominator otherwise
+// Reason: Barrett-division works only with multiplication faster than
+// O(n^2) in theory, in praxi it needs the O(n^1.465) of Toom-Cook 3-way
+var BARRETT_NUMERATOR   = 3800;
+var BARRETT_DENOMINATOR = 1900;
+var BARRETT_RELATION    = .5;
+// when to do some rounds of Newton-Raphson to refine mu (the reciprocal) for
+// Barrett-division
+var BARRETT_NEWTON_CUTOFF = 100;
 
 // Bits per digit. See below for details
 var MP_DIGIT_BIT = 26;
@@ -322,6 +338,26 @@ function xtypeof(obj) {
             return "object";
         }
     }
+}
+
+// Computes iteration steps for e.g. Newton-Raphson
+// "stepsize" is the length of the steps and a multiplicator.
+// For example stepsize=2 for quadratic convergences (Newton), stepsize=3
+// for cubic ones (Housholder), etc.
+// Yep, just like the similarily named Python function
+function computeGiantsteps(start, end, stepsize) {
+    var ret = [ end ],
+        i = 1;
+    if (arguments.length != 3) {
+        return MP_VAL;
+    }
+    while (true) {
+        if (ret[ ret.length - 1 ] <= start * stepsize) {
+            break;
+        }
+        ret[ i++ ] = Math.floor(ret[ret.length - 1] / stepsize) + 2;
+    }
+    return ret.reverse();
 }
 
 /*
@@ -886,7 +922,7 @@ Bigint.prototype.toString = function(radix) {
     // assumes 26 bit digits
     if (radix == 16 && MP_DIGIT_BIT == 26) {
         //s += (t.sign == MP_NEG)?"-":"";
-        var current_length = t.used-1;
+        var current_length = t.used - 1;
         // the case of a single digit has been catched above, the loop will run
         // at least once
         while (current_length > 0) {
@@ -911,7 +947,7 @@ Bigint.prototype.toString = function(radix) {
             // divide by 2^32
             t.rShiftInplace(32);
             // adjust anchor
-            current_length = t.used;-1
+            current_length = t.used;
         }
         return (sign < 0) ? "-" + s : s;
     }
@@ -1501,7 +1537,7 @@ Bigint.prototype.lShift = function(i) {
     }
     if (i < 0) {
         return this.rShift(-i);
-    } 
+    }
     dlshift = Math.floor(i / MP_DIGIT_BIT);
     lshift = i % MP_DIGIT_BIT;
 
@@ -1645,14 +1681,14 @@ Bigint.prototype.rShiftInplace = function(i) {
 // like rShift but rounds to +inf
 Bigint.prototype.rShiftRounded = function(i) {
     var ret = this.rShift(i);
-    if (i > 0 && this.getBit(i-1) == 1){
-        if(this.sign === MP_NEG){
+    if (i > 0 && this.getBit(i - 1) == 1) {
+        if (this.sign === MP_NEG) {
             ret.decr();
         } else {
             ret.incr();
         }
     }
-    return ret;  
+    return ret;
 };
 
 Bigint.prototype.mul_digs = function(bi, digs) {
@@ -2192,6 +2228,106 @@ Bigint.prototype.kdivrem = function(bint) {
 
     return [Q, R];
 };
+
+// approximate reciprocal 1/this for Barrett-division
+Bigint.prototype.inverse = function(n) {
+    var m = this.highBit() + 1;
+    var giantsteps;
+    var steps, gs, gs0, i;
+    var r, s, t, u, w, a, b;
+    // truncated division
+    if (n <= BARRETT_NEWTON_CUTOFF) {
+        var ret = new Bigint(1);
+        ret.lShiftInplace(2 * n);
+        return ret.div(this.rShiftRounded(m - n));
+    }
+    // some rounds of Newton-Raphson
+    giantsteps = computeGiantsteps(BARRETT_NEWTON_CUTOFF, n, 2);
+    steps = giantsteps.length;
+    gs = n;
+    r = new Bigint(1);
+    r.lShiftInplace(2 * giantsteps[0]);
+    r = r.div(this.rShiftRounded(m - giantsteps[0]));
+    gs0 = giantsteps[0];
+    for (i = 0; i < steps; i++) {
+        gs = giantsteps[i];
+        a = r.lShift(giantsteps[i] - gs0 + 1);
+        b = r.sqr().mul(this.rShift(m - giantsteps[i])).rShift(2 * gs0);
+        r = a.sub(b);
+        gs0 = giantsteps[i];
+    }
+    return r;
+};
+// Take an approximation of the reciprocal of the denominator and correct it
+// the trick is to find the right amount of approximateness (is this really a
+// proper English word? Found it in at least one book: Clifford Alan Hooker,
+// "A Realistic Theory of Science", SUNY Press, 1987).
+Bigint.prototype.barretDivisionCorrection = function(b, mu) {
+    var m = this.highBit() + 1;
+    var n = b.highBit() + 1;
+
+    var digit = this.rShift(n - 1);
+    var q = digit.mul(mu).rShift(m - n + 1);
+    var r = this.sub(b.mul(q));
+
+    while (r.sign < 0 || r.cmp(b) != MP_LT) {
+        if (r.sign < 0) {
+            r = r.add(b);
+            q.decr();
+        } else {
+            r = r.sub(b);
+            q.incr();
+        }
+    }
+    return [q, r];
+};
+// Barrett-division works for N<=2*D, anything else needs some work
+Bigint.prototype.barrettDivision = function(bint) {
+    var m = this.highBit() + 1;
+    var n = bint.highBit() + 1;
+    var mu, largemu, start, q, r, mask, digit, c;
+    if (m < n) {
+        return [new Bigint(0), this.copy()];
+    } else if (m <= 2 * n) {
+        mu = bint.inverse(m - n);
+        return this.barretDivisionCorrection(bint, mu);
+    } else {
+        // do school-divison with big-digits of a size chosen such that
+        // the condition N<=2*D holds.
+
+        // Overall mu, gets splitted later
+        largemu = bint.inverse(n);
+        // choose the startpoint as an integer multiple of n
+        start = Math.floor(m / n) * n;
+        q = new Bigint(0);
+        // first part of the new numerator
+        r = this.rShift(start);
+        // mask of size n
+        mask = new Bigint(1);
+        mask.lShiftInplace(n);
+        mask.decr();
+        while (start > 0) {
+            start -= n;
+            // Snip a large digit from the LSB side of the original numerator
+            digit = this.rShift(start).and(mask);
+            // make room for it in the new numerator
+            r.lShiftInplace(n);
+            // put the digit there
+            r = r.add(digit);
+            // get the right amount of mu (still under the condition N<=2*D)
+            mu = largemu.rShiftRounded(2 * n - (r.highBit() + 1));
+            // correct the result
+            c = r.barretDivisionCorrection(bint, mu);
+            // make room for the quotient-part
+            q.lShiftInplace(n);
+            // put it there
+            q = q.add(c[0]);
+            // the remainder is the new numerator
+            r = c[1];
+        }
+        return [q, r];
+    }
+};
 // public: division with remainder
 Bigint.prototype.divrem = function(bint) {
     var a = this.abs();
@@ -2226,7 +2362,16 @@ Bigint.prototype.divrem = function(bint) {
     qsign = ((this.sign * bint.sign) < 0) ? MP_NEG : MP_ZPOS;
     rsign = (this.sign == MP_NEG) ? MP_NEG : MP_ZPOS;
 
-    ret = a.kdivrem(b);
+    if(a.used >= BARRETT_NUMERATOR || b.used >= BARRETT_DENOMINATOR){
+        // splitted in two for legibility
+        if( a.used <= 2 * b.used && a.used >= BARRETT_NUMERATOR){
+            ret = a.barrettDivison(b);
+        } else if ( a.used > 2 * b.used && b.used >=  BARRETT_DENOMINATOR){
+            ret = a.barrettDivison(b);
+        }
+    } else {
+        ret = a.kdivrem(b);
+    }
     // long version
     q = ret[0];
     r = ret[1];
@@ -2283,7 +2428,7 @@ Bigint.prototype.divremInt = function(si) {
     v * 3 is congruent to 1 mod 2^26.
 
    modulus         v               ceil(v/2)
-     2^26      0x2aaaaab           0x1555556 
+     2^26      0x2aaaaab           0x1555556
      2^28      0xaaaaaab           0x5555556
      2^30      0x2aaaaaab          0x15555556
      2^31      0x2aaaaaab          0x15555556
@@ -3322,60 +3467,20 @@ Bigint.prototype.xor = function(bint) {
 };
 
 // all single bit manipulators are zero based
-Bigint.prototype.getBit = function(n){
-    var digit = this.dp[Math.floor(n/MP_DIGIT_BIT)];
-    return (  ( digit >>> ( ( n % MP_DIGIT_BIT ) )  )  &  1);
+Bigint.prototype.getBit = function(n) {
+    var digit = this.dp[Math.floor(n / MP_DIGIT_BIT)];
+    return ((digit >>> ((n % MP_DIGIT_BIT))) & 1);
 };
 
-Bigint.prototype.setBit = function(n){
-    this.dp[Math.floor(n/MP_DIGIT_BIT)] |= (1 << ( n % MP_DIGIT_BIT ) );
+Bigint.prototype.setBit = function(n) {
+    this.dp[Math.floor(n / MP_DIGIT_BIT)] |= (1 << (n % MP_DIGIT_BIT));
 };
 
-Bigint.prototype.flipBit = function(n){
-    this.dp[Math.floor(n/MP_DIGIT_BIT)] ^= (1 << ( n % MP_DIGIT_BIT ) );
+Bigint.prototype.flipBit = function(n) {
+    this.dp[Math.floor(n / MP_DIGIT_BIT)] ^= (1 << (n % MP_DIGIT_BIT));
 };
 
-Bigint.prototype.clearBit = function(n){
-    this.dp[Math.floor(n/MP_DIGIT_BIT)] &= ~(1 << ( n % MP_DIGIT_BIT ) );
+Bigint.prototype.clearBit = function(n) {
+    this.dp[Math.floor(n / MP_DIGIT_BIT)] &= ~(1 << (n % MP_DIGIT_BIT));
 };
-
-
-
-// nope, does most of the time nothing at all
-function picarte(b, num) {
-
-    var aux1, aux2, r, r2r, inv, qr;
-
-    var i = 1;
-
-    inv = new Bigint(0);
-    r = new Bigint(2);
-
-
-    for (; num > 0; num--) {
-        aux1 = inv.lShift(i); /* 2^i x_i */
-        aux2 = inv.mul(r); /* r_i x_i */
-        inv = aux1.add(aux2);
-        r2r = r.sqr();
-        qr = r2r.divrem(b);
-        aux1 = qr[0];
-        r = qr[1]; /* floor ( r_i^2/b ) */
-        aux2 = inv.add(aux1);
-        inv.swap(aux2);
-        i = 2 * i;
-    }
-
-    return [inv, i];
-}
-
-
-
-
-
-
-
-
-
-
-
 
