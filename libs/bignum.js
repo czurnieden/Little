@@ -190,10 +190,13 @@ var TOOM_COOK_5_SQR_CO;
 var BURN_ZIEG_NUMERATOR;
 var BURN_ZIEG_DENOMINATOR;
 var BURN_ZIEG_RELATION;
+// when to do the normal division
+var BURN_ZIEG_CUTOFF;
 */
 // for N<=2*D size of numerator, size of denominator otherwise
 // Reason: Barrett-division works only with multiplication faster than
-// O(n^2) in theory, in praxi it needs the O(n^1.465) of Toom-Cook 3-way
+// O(n^2) in theory, in praxi it needs the O(n^1.465) of Toom-Cook 3-way, 2-way
+// does not seem fast enough
 var BARRETT_NUMERATOR   = 3800;
 var BARRETT_DENOMINATOR = 1900;
 var BARRETT_RELATION    = .5;
@@ -622,7 +625,18 @@ Bigint.prototype.clear = function() {
     this.alloc = 1;
     this.sign = MP_ZPOS;
 };
-
+/*
+   Add "n" numbers of zeros to the MSB side aka preallocate more memory.
+   Probably faster then the engines heuristics for growing an Array.
+   Does *not* set this.used!
+*/
+Bigint.prototype.grow = function(n){
+  //checks & balances
+ var t = [];
+ while(n--){t[n] = 0 >>> 0;}
+ this.dp = this.dp.concat(t);
+ return (this.dp.length);
+};
 
 // avoid mess
 Bigint.prototype.clamp = function() {
@@ -3483,4 +3497,16 @@ Bigint.prototype.flipBit = function(n) {
 Bigint.prototype.clearBit = function(n) {
     this.dp[Math.floor(n / MP_DIGIT_BIT)] &= ~(1 << (n % MP_DIGIT_BIT));
 };
+
+
+
+
+
+
+
+
+
+
+
+
 
