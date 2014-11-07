@@ -1704,6 +1704,29 @@ Bigint.prototype.rShiftRounded = function(i) {
     }
     return ret;
 };
+// this % 2^b, like in libtommmath. Actually a port of the libtommmath function
+Bigint.prototype.mod2d = function (b){
+  var x, ret;
+
+  if(b <= 0 ){
+    return new Bigint(0);
+  }
+  if(b >= a.used * MP_DIGIT_BIT){
+    return this.copy();
+  }
+
+  ret = this.copy();
+  /* faster than doing a t&(2^b-1) */
+
+  /* zero digits above the last digit of the modulus */
+  for (x = (b / MP_DIGIT_BIT) + ((b % MP_DIGIT_BIT) == 0 ? 0 : 1); x < ret.used; x++) {
+    ret.dp[x] = 0;
+  }
+  /* clear the digit that is not completely outside/inside the modulus */
+  ret.dp[Math.floor(b / MP_DIGIT_BIT)] &= (1 << (b % DIGIT_BIT)) -  1;
+  ret.clamp();
+  return ret;
+};
 
 Bigint.prototype.mul_digs = function(bi, digs) {
     var t;
