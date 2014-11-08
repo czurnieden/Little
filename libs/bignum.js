@@ -1711,7 +1711,7 @@ Bigint.prototype.mod2d = function (b){
   if(b <= 0 ){
     return new Bigint(0);
   }
-  if(b >= a.used * MP_DIGIT_BIT){
+  if(b >= this.used * MP_DIGIT_BIT){
     return this.copy();
   }
 
@@ -1723,7 +1723,7 @@ Bigint.prototype.mod2d = function (b){
     ret.dp[x] = 0;
   }
   /* clear the digit that is not completely outside/inside the modulus */
-  ret.dp[Math.floor(b / MP_DIGIT_BIT)] &= (1 << (b % DIGIT_BIT)) -  1;
+  ret.dp[Math.floor(b / MP_DIGIT_BIT)] &= (1 << (b % MP_DIGIT_BIT)) -  1;
   ret.clamp();
   return ret;
 };
