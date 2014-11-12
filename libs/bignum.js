@@ -405,6 +405,19 @@ Number.prototype.sign = function() {
  *  Most of the following functions assume 32-bit little-endian integers.
  */
 
+Number.prototype.nextPow2 = function() {
+    var n = this;
+    // checks & balances
+    n--;
+    n |= n >>> 1;
+    n |= n >>> 2;
+    n |= n >>> 4;
+    n |= n >>> 8;
+    n |= n >>> 16;
+    n++;
+    return n;
+};
+
 Number.prototype.lowBit = function() {
     if (this == 0) {
         return 0;
@@ -1149,7 +1162,7 @@ Bigint.prototype.issmallenough = function() {
 };
 
 Bigint.prototype.isOk = function() {
-    if (this.isNaN || !this.isFinite()) {
+    if (this.isNaN() || !this.isFinite()) {
         return false;
     }
     return true;
@@ -2329,7 +2342,7 @@ Bigint.prototype.barrettDivision = function(bint) {
         mu = bint.inverse(m - n);
         return this.barretDivisionCorrection(bint, mu);
     } else {
-        // do school-divison with big-digits of a size chosen such that
+        // do school-division with big-digits of a size chosen such that
         // the condition N<=2*D holds.
 
         // Overall mu, gets splitted later
@@ -2402,9 +2415,9 @@ Bigint.prototype.divrem = function(bint) {
     if(a.used >= BARRETT_NUMERATOR || b.used >= BARRETT_DENOMINATOR){
         // splitted in two for legibility
         if( a.used <= 2 * b.used && a.used >= BARRETT_NUMERATOR){
-            ret = a.barrettDivison(b);
+            ret = a.barrettDivision(b);
         } else if ( a.used > 2 * b.used && b.used >=  BARRETT_DENOMINATOR){
-            ret = a.barrettDivison(b);
+            ret = a.barrettDivision(b);
         }
     } else {
         ret = a.kdivrem(b);
@@ -3449,16 +3462,19 @@ Bigint.prototype.lcm = function(bint) {
 Bigint.prototype.or = function(bint) {
     var ret = new Bigint(0);
     var a,b,i;
-    if(this.used < bint.used){
-        a = bint;
-        b = this;
-    } else {
+    if(this.used > bint.used){
         a = this;
         b = bint;
+    } else {
+        a = bint;
+        b = this;
     }
     ret.dp = new Array(b.used);
     for (i = 0; i < b.used; i++) {
         ret.dp[i] = a.dp[i] | b.dp[i];
+    }
+    for (; i < a.used; i++) {
+        ret.dp[i] = a.dp[i];
     }
     ret.used = a.used;
     ret.clamp();
@@ -3497,6 +3513,9 @@ Bigint.prototype.xor = function(bint) {
     ret.dp = new Array(b.used);
     for (i = 0; i < b.used; i++) {
         ret.dp[i] = a.dp[i] ^ b.dp[i];
+    }
+    for (; i < a.used; i++) {
+        ret.dp[i] = a.dp[i];
     }
     ret.used = a.used;
     ret.clamp();
