@@ -204,6 +204,15 @@ var BARRETT_RELATION    = .5;
 // Barrett-division
 var BARRETT_NEWTON_CUTOFF = 100;
 
+// Division by multiplication with reciprocal (simple Newton-Raphson)
+// These are the ranges where the steps of FFT multiplication can influence
+// some specific cutoffs values. Truncated FFT is planned but not yet
+// implemented
+var NEWTON_NUMERATOR = 8000;
+var NEWTON_DENOMINATOR = 4000;
+// reasonabel general cutoff if the k of N=k*D is not too large
+var NEWTON_CUTOFF = 77000; // >2 mio bits
+
 // Bits per digit. See below for details
 var MP_DIGIT_BIT = 26;
 // Digit mask (e.g.: 0x3fffffff for 30 bit long digits)
@@ -2386,6 +2395,78 @@ Bigint.prototype.barrettDivision = function(bint) {
         return [q, r];
     }
 };
+
+Bigint.prototype.divisionNewton = function(bint){
+    var tlen, blen, rlen, extra;
+    var t1, t2, t3, t4, ts, q, r;
+    var giantsteps, steps, gs0, gsi, startprecision;
+
+    tlen = this.highBit() + 1;
+    blen = bint.highBit() + 1;
+    rlen = tlen - blen;
+
+    // probably too much and should be adjusted to fill a limb if possible, too.
+    extra = blen.highBit() + 1;
+    // should also have three bits at least
+    if(extra < 3){
+         extra = 3;
+    }
+    ts = this.lShift(extra);
+    tlen += extra;
+    rlen += extra;
+
+    // The value of startprecision has been choosen to keep the first
+    // approximation in the Number range but is was found to be of about the
+    // same speed as with Bigints. YMMV, so please try it out yourself.
+    startprecision = 15;
+    // precompute individual precisions to keep the iteration loop legible.
+    giantsteps = computeGiantsteps(startprecision,rlen,2);
+    steps = giantsteps.length;
+
+    t1 =  new Bigint(1);
+    t1.lShiftInplace(2 * giantsteps[0]);
+    t1 = t1.div(bint.rShiftRounded(blen - giantsteps[0]));
+
+    // the first entry of giantsteps is not necessarily equal to startprecision
+    gs0 = giantsteps[0];
+
+    for(var i = 0; i < steps ; i++){
+        gsi = giantsteps[i];
+        // Adjust numerator (2^k) to new precision
+        t3 = t1.lShift(gsi - gs0 + 1);
+        // Adjust denominator to new precision
+        t4 = bint.rShift(blen - gsi);
+        // Do the squaring of the Newton-Raphson algorithm
+        t1 = t1.sqr();
+        // Do the multiplication of the Newton-Raphson algorithm
+        t1 = t1.mul(t4);
+        // The division of N-R gets replaced by a simple shift
+        t4 = t1.rShift(2 * gs0);
+        // Do the subtraction of the Newton-Raphson algorithm
+        t1 = t3.sub(t4);
+        gs0 = gsi;
+    }
+    // the reciprocal is in t1, do the final multiplication to get the quotient
+    // Adjust the numerator's precision to the precision of the denominator
+    ts.rShiftInplace(blen);
+    // Do the actual multiplication N*1/D
+    q = ts.mul(t1);
+    // Divide by 2^k to get the quotient
+    q.rShiftInplace(rlen + extra);
+    // compute the remainder
+    r = this.sub(q.mul(bint));
+    // The N_R algorithm as implemented can be off by one, correct it
+    if( r.sign == MP_NEG){
+        r = r.add(bint);
+        q.decr();
+    }
+    else if( r.cmp(bint) == MP_GT){
+        r = r.sub(bint);
+        q.incr();
+    }
+    return [q, r];
+};
+
 // public: truncated division with remainder
 Bigint.prototype.divrem = function(bint) {
     var a = this.abs();
@@ -2420,9 +2501,12 @@ Bigint.prototype.divrem = function(bint) {
     qsign = ((this.sign * bint.sign) < 0) ? MP_NEG : MP_ZPOS;
     rsign = (this.sign == MP_NEG) ? MP_NEG : MP_ZPOS;
 
-    if(a.used >= BARRETT_NUMERATOR || b.used >= BARRETT_DENOMINATOR){
+    // The cutoffs overlap, these branches are just rough limits
+    if (a.used >= NEWTON_NUMERATOR && b.used >= NEWTON_DENOMINATOR){
+        ret = a.divisionNewton(b);
+    } else if (a.used >= BARRETT_NUMERATOR || b.used >= BARRETT_DENOMINATOR){
         // splitted in two for legibility
-        if( a.used <= 2 * b.used && a.used >= BARRETT_NUMERATOR){
+        if ( a.used <= 2 * b.used && a.used >= BARRETT_NUMERATOR){
             ret = a.barrettDivision(b);
         } else if ( a.used > 2 * b.used && b.used >=  BARRETT_DENOMINATOR){
             ret = a.barrettDivision(b);
@@ -2508,7 +2592,7 @@ Bigint.prototype.divmod = function(bint){
         return qr;
     }
     return a.divrem(b);
-}
+};
 
 // division by 3 if fraction is known to have no remainder (e.g. in Toom-Cook)
 // uses MP_DIGIT_BIT = 26 only but is easily changed
