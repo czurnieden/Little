@@ -950,6 +950,14 @@ Bigint.prototype.toString = function(radix) {
     if (radix == 16 && MP_DIGIT_BIT == 26) {
         //s += (t.sign == MP_NEG)?"-":"";
         var current_length = t.used - 1;
+        if(current_length == 0){
+            s = t.dp[0].toString(16);
+            return (sign < 0) ? "-" + s : s;
+        }
+        else if(current_length == 1){
+            s = (t.dp[1] * (1 << MP_DIGIT_BIT) + t.dp[0]).toString(16);
+            return (sign < 0) ? "-" + s : s;
+        }
         // the case of a single digit has been catched above, the loop will run
         // at least once
         while (current_length > 0) {
