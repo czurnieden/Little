@@ -2440,7 +2440,10 @@ Bigint.prototype.divremInt = function(si) {
         var k = 0,
             t;
         for (var j = m - 1; j >= 0; j--) {
-            k = (k << B) | u[j];
+            k = k * (1<<B);
+            k += u[j];
+            // No, this does not work in ECMAScript *hng!*
+            //k = (k << B) | u[j];
             if (k >= v) {
                 t = Math.floor(k / v);
                 k -= t * v;
@@ -2470,7 +2473,7 @@ Bigint.prototype.divremInt = function(si) {
 // division by 3 if fraction is known to have no remainder (e.g. in Toom-Cook)
 // uses MP_DIGIT_BIT = 26 only but is easily changed
 // It depends on architecture if it is actually faster, please test but I found
-// at 1,000,000 bit long numbers in my good ol' Duron a difference of a mere
+// at 1,000,000 bit long numbers with my good ol' Duron a difference of a mere
 // 150 milliseconds (201 to 53)
 /*
     Uses multiplication with the multiplicative modular inverse of 3 with the
