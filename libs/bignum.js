@@ -2386,7 +2386,7 @@ Bigint.prototype.barrettDivision = function(bint) {
         return [q, r];
     }
 };
-// public: division with remainder
+// public: truncated division with remainder
 Bigint.prototype.divrem = function(bint) {
     var a = this.abs();
     var b = bint.abs();
@@ -2443,6 +2443,7 @@ Bigint.prototype.divrem = function(bint) {
 };
 
 // this function returns a bigint as the remainder.
+// truncated division with remainder
 Bigint.prototype.divremInt = function(si) {
     var divrem2in1 = function(u, m, v, q, B) {
         var k = 0,
@@ -2477,6 +2478,37 @@ Bigint.prototype.divremInt = function(si) {
     return [Q, R];
 };
 
+// division with remainder, rounding to -Infinity (like in GP/PARI for example)
+Bigint.prototype.divmod = function(bint){
+    var a = this;
+    var b = bint;
+    var qr;
+    if(a.sign == MP_NEG && b.sign == MP_NEG){
+        qr = a.abs().divrem(b.abs());
+        if(!qr[1].isZero()){
+            qr[0].incr();
+            qr[1] = b.add(qr[1]).abs();
+        }
+        return qr;
+    }
+    else if(a.sign == MP_NEG  && b.sign == MP_ZPOS){
+        qr = a.abs().divrem(b);
+        if(!qr[1].isZero()){
+            qr[0].incr();
+            qr[0] = qr[0].neg();
+            qr[1] = b.sub(qr[1]);
+            return qr;
+        }
+        qr[0] = qr[0].neg();
+        return qr;
+    }
+    else if(a.sign == MP_ZPOS && b.sign == MP_NEG){
+        qr = a.divrem(b.abs());
+        qr[0] = qr[0].neg();
+        return qr;
+    }
+    return a.divrem(b);
+}
 
 // division by 3 if fraction is known to have no remainder (e.g. in Toom-Cook)
 // uses MP_DIGIT_BIT = 26 only but is easily changed
