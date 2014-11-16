@@ -1894,9 +1894,6 @@ Bigint.prototype.mul = function(bi) {
     } else {
         ret = a.multiply(b);
     }
-
-    ret = a.multiply(b);
-
     if (asign != bsign) {
         ret.sign = MP_NEG;
     }
