@@ -1886,10 +1886,13 @@ Bigint.prototype.mul = function(bi) {
     */
     // check for cutoffs to do T-C or FFT respectively here
     if (Math.min(a.used, b.used) >= FFT_MUL_CUTOFF) {
-        return a.fft_mul(b);
-    }
-    if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF) {
-        return a.toom_cook_mul(b);
+        ret = a.fft_mul(b);
+    } else if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF) {
+        ret = a.toom_cook_mul(b);
+    } else if (Math.min(a.used, b.used) >= 2 * KARATSUBA_MUL_CUTOFF) {
+        ret = a.karatsuba(b);
+    } else {
+        ret = a.multiply(b);
     }
 
     ret = a.multiply(b);
@@ -1952,12 +1955,13 @@ Bigint.prototype.sqr = function() {
     if (this.used >= FFT_SQR_CUTOFF) {
         // FFT does both in one function
         return this.fft_mul();
-    }
-    if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF) {
+    } else if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF) {
         return this.toom_cook_sqr();
+    } else if (this.used >= 2 * KARATSUBA_SQR_CUTOFF) {
+        return this.karatsuba_square();
+    } else {
+        return this.square();
     }
-
-    return this.square();
 };
 
 
