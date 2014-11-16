@@ -10,19 +10,25 @@
 
     will result in the following output (linenumbers may change)
 
-  205:21  error  'DataView' is not defined                  no-undef
-  251:19  error  'console' is not defined                   no-undef
-  252:12  error  'console' is not defined                   no-undef
-  254:19  error  'alert' is not defined                     no-undef
-  201:11  error  MP_L1_SIZE was used before it was defined  no-use-before-define
+   250:21  error  'DataView' is not defined                  no-undef
+   303:19  error  'console' is not defined                   no-undef
+   304:12  error  'console' is not defined                   no-undef
+   306:19  error  'alert' is not defined                     no-undef
+   246:11  error  MP_L1_SIZE was used before it was defined  no-use-before-define
+  2330:17  error  div2n1n was used before it was defined     no-use-before-define
+  2361:13  error  div3n2n was used before it was defined     no-use-before-define
+  2366:13  error  div3n2n was used before it was defined     no-use-before-define
 
     The reasons for occuring and/or the reasons for ignoring:
 
   205:21 typed arrays are not in ECMAScript 5.1 but implemented everywhere
-  251:19 we check if something is defined, so it is possible it wasn't defined
-  252:12 in the first place
-  254:19    -"-
-  201:11 basically the same as above
+  303:19 we check if something is defined, so it is possible it wasn't defined
+  304:12 in the first place
+  306:19    -"-
+  246:11 basically the same as above
+ 2330:17     _"_
+ 2361:13     _"_
+ 2366:13     _"_
 
 */
 
@@ -185,21 +191,20 @@ var TOOM_COOK_5_SQR_CO;
 */
 
 // Cut-offs for fast division (YMMV. Please send a note if it varies)
+// all limits are in limbs exept where indicated differently
 
-/*
-var BURN_ZIEG_NUMERATOR;
-var BURN_ZIEG_DENOMINATOR;
-var BURN_ZIEG_RELATION;
-// when to do the normal division
-var BURN_ZIEG_CUTOFF;
-*/
+// Burnikel-Ziegel division (divide&conquer taken literally)
+var BURN_ZIEG_NUMERATOR = 300;
+var BURN_ZIEG_DENOMINATOR = 500;
+// when to do the normal division instead of recursing (in bits)
+var BURN_ZIEG_CUTOFF = 3000;
+
 // for N<=2*D size of numerator, size of denominator otherwise
 // Reason: Barrett-division works only with multiplication faster than
 // O(n^2) in theory, in praxi it needs the O(n^1.465) of Toom-Cook 3-way, 2-way
 // does not seem fast enough
 var BARRETT_NUMERATOR   = 3800;
 var BARRETT_DENOMINATOR = 1900;
-var BARRETT_RELATION    = .5;
 // when to do some rounds of Newton-Raphson to refine mu (the reciprocal) for
 // Barrett-division
 var BARRETT_NEWTON_CUTOFF = 100;
@@ -2296,6 +2301,106 @@ Bigint.prototype.kdivrem = function(bint) {
     return [Q, R];
 };
 
+Bigint.prototype.burnZiegDivision = function(bint) {
+    var divrem = function(a, b) {
+        // (max) size of one block
+        var n = b.highBit() + 1;
+        var tlen = a.highBit() + 1;
+        // # of blocks
+        var nblocks = Math.ceil((a.highBit() + 1) / n);
+        // # of n-sized blocks
+        var mblocks = Math.floor((a.highBit() + 1) / n);
+
+        var firstblock;
+        var r, q, qr, t;
+        var count;
+        var mask = new Bigint(0);
+
+        mask.mask(n);
+
+        count = 0;
+
+        //firstblock = a.bitSlice(mblocks*n, tlen);
+        firstblock = a.rShift(mblocks * n).and(mask);
+        if (firstblock.cmp(b) != MP_LT) {
+            r = new Bigint(0);
+        } else {
+            r = firstblock;
+            mblocks--;
+            nblocks--;
+        }
+        q = new Bigint(0);
+
+        while (nblocks--) {
+            t = a.rShift(mblocks * n).and(mask);
+            qr = div2n1n(r.lShift(n).add(t), b, n);
+            t = qr[0];
+            r = qr[1];
+            q = q.lShift(n).add(t);
+            mblocks--;
+        }
+        return [q, r];
+    };
+
+    var div2n1n = function(a, b, n) {
+        var mask, q1, q2, r, qr, a3, b1, b2;
+        var half;
+        if (n <= BURN_ZIEG_CUTOFF) {
+            return a.divrem(b);
+        }
+        var isodd = n & 1;
+        if (isodd) {
+            a.lShiftInplace(1);
+            b = b.lShift(1);
+            //b.lShiftInplace(1);
+            n++;
+        }
+        half = n >>> 1;
+        mask = new Bigint(0);
+        mask.mask(half);
+        b1 = b.rShift(half);
+        b2 = b.and(mask);
+        //b2 = b.bitSlice(0,half);
+        a3 = a.rShift(half).and(mask);
+        //a3 =  a.bitSlice(half, n);
+        r = a.rShift(n);
+        qr = div3n2n(r, a3, b1, b2, half);
+        q1 = qr[0];
+        r = qr[1];
+        a3 = a.and(mask);
+        //a3 = a.bitSlice(0,half);
+        qr = div3n2n(r, a3, b1, b2, half);
+        q2 = qr[0];
+        r = qr[1];
+        if (isodd) {
+            r.rShiftInplace(1);
+        }
+        return [q1.lShift(half).or(q2), r];
+    };
+    var div3n2n = function(a12, a3, b1, b2, n) {
+        var t = a12.rShift(n),
+            qr, q, r;
+        if (t.cmp(b1) == MP_EQ) {
+            q = new Bigint(1);
+            q = q.lShift(n);
+            q.decr();
+            r = a12.sub(b1.lShift(n)).add(b1);
+        } else {
+            qr = div2n1n(a12, b1, n);
+            q = qr[0];
+            r = qr[1];
+        }
+        r = r.lShift(n).or(a3).sub(q.mul(b2));
+        while (r.sign == MP_NEG) {
+            q.decr();
+            r = r.add(b1.lShift(n).or(b2));
+        }
+        return [q, r];
+    };
+    return divrem(this, bint);
+};
+
+
 // approximate reciprocal 1/this for Barrett-division
 Bigint.prototype.inverse = function(n) {
     var m = this.highBit() + 1;
@@ -2511,6 +2616,8 @@ Bigint.prototype.divrem = function(bint) {
         } else if ( a.used > 2 * b.used && b.used >=  BARRETT_DENOMINATOR){
             ret = a.barrettDivision(b);
         }
+    } else if (a.used >= BURN_ZIEG_NUMERATOR && b.used >= BURN_ZIEG_DENOMINATOR){
+        ret = a.burnZiegDivision(b);
     } else {
         ret = a.kdivrem(b);
     }
