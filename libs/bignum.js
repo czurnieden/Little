@@ -1837,15 +1837,35 @@ Bigint.prototype.multiply = function(bi) {
     ret.clamp();
     return ret;
 };
-Bigint.prototype.mul = function(bi) {
+Bigint.prototype.mul = function(bi, flag) {
     var ret, asign, bsign, a, b;
+    var mulBalanced = function(x, y) {
+        var tmp, ret;
+        var xlen, ylen, nblocks;
+        xlen = x.used;
+        ylen = y.used;
+        // make big-digits and work with them like normal
+        // sized digits with b representing a single digit.
+        nblocks = Math.floor(xlen / ylen);
+        ret = new Bigint(0);
+        for (var i = 0; i < nblocks; i++) {
+            tmp = x.slice(ylen * i, ylen * (i + 1)).mul(y, true);
+            tmp.dlShiftInplace(ylen * i);
+            ret = ret.add(tmp);
+        }
+        tmp = x.slice(ylen * i, x.used).mul(y, true);
+        tmp.dlShiftInplace(ylen * i);
+        ret = ret.add(tmp);
+
+        return ret;
+    };
     // larger one first
     if (this.used <= bi.used) {
-        a = this;
-        b = bi;
-    } else {
         a = bi;
         b = this;
+    } else {
+        a = this;
+        b = bi;
     }
     // check numbers for 1(one) or 0(zero) respectively
     if (a.isZero() || b.isZero()) {
@@ -1877,22 +1897,21 @@ Bigint.prototype.mul = function(bi) {
     b.sign = MP_ZPOS;
 
     // check for absolute cutoff to do multiplier balancing here
-    /*
-       if(this.used + bi.used > MUL_BALANCING_CUTOFF){
-         // check for relative difference for balancing multipliers here or
-         // elsewhere
-         return this.mulBalanced(bi);
-       }
-    */
-    // check for cutoffs to do T-C or FFT respectively here
-    if (Math.min(a.used, b.used) >= FFT_MUL_CUTOFF) {
-        ret = a.fft_mul(b);
-    } else if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF) {
-        ret = a.toom_cook_mul(b);
-    } else if (Math.min(a.used, b.used) >= 2 * KARATSUBA_MUL_CUTOFF) {
-        ret = a.karatsuba(b);
+    if (arguments.length == 1 &&
+        a.used >= b.used + (KARATSUBA_MUL_CUTOFF >>> 1) &&
+        b.used >=  KARATSUBA_MUL_CUTOFF) {
+        ret = mulBalanced(a, b);
     } else {
-        ret = a.multiply(b);
+        // check for cutoffs to do T-C or FFT respectively here
+        if (Math.min(a.used, b.used) >= FFT_MUL_CUTOFF) {
+            ret = a.fft_mul(b);
+        } else if (Math.min(a.used, b.used) >= 3 * TOOM_COOK_MUL_CUTOFF) {
+            ret = a.toom_cook_mul(b);
+        } else if (Math.min(a.used, b.used) >= 2 * KARATSUBA_MUL_CUTOFF) {
+            ret = a.karatsuba(b);
+        } else {
+            ret = a.multiply(b);
+        }
     }
     if (asign != bsign) {
         ret.sign = MP_NEG;
