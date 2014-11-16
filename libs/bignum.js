@@ -194,8 +194,8 @@ var TOOM_COOK_5_SQR_CO;
 // all limits are in limbs exept where indicated differently
 
 // Burnikel-Ziegel division (divide&conquer taken literally)
-var BURN_ZIEG_NUMERATOR = 300;
-var BURN_ZIEG_DENOMINATOR = 500;
+var BURN_ZIEG_NUMERATOR = 500;
+var BURN_ZIEG_DENOMINATOR = 300;
 // when to do the normal division instead of recursing (in bits)
 var BURN_ZIEG_CUTOFF = 3000;
 
@@ -3774,7 +3774,35 @@ Bigint.prototype.clearBit = function(n) {
     this.dp[Math.floor(n / MP_DIGIT_BIT)] &= ~(1 << (n % MP_DIGIT_BIT));
 };
 
+Bigint.prototype.mask = function(n){
+    var ndlen, nblen, mask, ret;
+    // or allow zero?
+    if(n <= 0){
+        this.dp[0] = Number.NaN;
+        return;
+    }
+    ndlen = Math.floor(n / MP_DIGIT_BIT);
+    nblen = n % MP_DIGIT_BIT;
 
+    mask = (1 << nblen) - 1;
+    if(ndlen == 0){
+        this.dp = [];
+        this.dp[0] = mask;
+        this.used = 1;
+        this.sign = MP_ZPOS;
+        return;
+    }
+    this.dp = [];
+    if(mask){
+        this.dp[ndlen] = mask;
+    }
+    while (ndlen--) {
+        this.dp[ndlen] = MP_MASK;
+    }
+    this.used = this.dp.length;
+    this.sign = MP_ZPOS;
+    return;
+};
 
 
 
