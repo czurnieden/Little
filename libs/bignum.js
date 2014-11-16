@@ -2880,6 +2880,7 @@ Bigint.prototype.karatsuba_square = function() {
     }
     x1 = this.slice(m, tlen);
     x0 = this.slice(0, m);
+    x0y0 = x0.karatsuba_square();
     x1y1 = x1.karatsuba_square();
 
     t1 = x1.add(x0);
