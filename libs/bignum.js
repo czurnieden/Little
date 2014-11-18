@@ -2434,7 +2434,7 @@ Bigint.prototype.inverse = function(n) {
         return ret.div(this.rShiftRounded(m - n));
     }
     // some rounds of Newton-Raphson
-    giantsteps = computeGiantsteps(BARRETT_NEWTON_CUTOFF, n, 2);
+    giantsteps = computeGiantsteps(MP_DIGIT_BIT>>1, n, 2);
     steps = giantsteps.length;
     gs = n;
     r = new Bigint(1);
@@ -2531,7 +2531,7 @@ Bigint.prototype.divisionNewton = function(bint){
     rlen = tlen - blen;
 
     // probably too much and should be adjusted to fill a limb if possible, too.
-    extra = blen.highBit() + 1;
+    extra = blen.highBit() + tlen.highBit() + 1;
     // should also have three bits at least
     if(extra < 3){
          extra = 3;
