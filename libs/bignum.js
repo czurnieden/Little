@@ -1771,7 +1771,7 @@ Bigint.prototype.muldigs = function(bint, digs) {
         return new Bigint(0);
     }
     // fallback is full multiplication?
-    if (arguments.length == 1 || (digs && digs >= bint.used)) {
+    if (arguments.length == 1) {
         return this.mul(bint);
     }
     sign = (this.sign != bint.sign) ? MP_NEG : MP_ZPOS;
