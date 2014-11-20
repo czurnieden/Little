@@ -1762,57 +1762,37 @@ Bigint.prototype.mod2d = function (b){
   ret.clamp();
   return ret;
 };
-
-Bigint.prototype.mul_digs = function(bi, digs) {
-    var t;
-    var pa, pb, ix, iy;
-    var u;
-    var r;
-    var tmpx;
-
-    /* can we use the fast multiplier? */
-    /*
-       Uhm ... no.
-
-    if (((digs) < MP_WARRAY) &&
-        MIN (a->used, b->used) <
-            (1 << ((CHAR_BIT * sizeof (mp_word)) - (2 * DIGIT_BIT)))) {
-      return fast_s_mp_mul_digs (a, b, c, digs);
+// multiplication modulo 2^(digs * MP_DIGIT_BIT)
+Bigint.prototype.muldigs = function(bint, digs) {
+    var u, r, pb, ix, iy;
+    var sign;
+    var ret;
+    if (bint.isZero() || this.isZero() || (digs && digs <= 0)) {
+        return new Bigint(0);
     }
-    */
-    t = new Bigint();
-    t.dp = new Array(digs);
-    t.used = digs;
+    // fallback is full multiplication?
+    if (arguments.length == 1 || (digs && digs >= bint.used)) {
+        return this.mul(bint);
+    }
+    sign = (this.sign != bint.sign) ? MP_NEG : MP_ZPOS;
+    ret = new Bigint(0);
+    ret.grow(digs);
 
-    /* compute the digits of the product directly */
-    pa = this.used;
-    for (ix = 0; ix < pa; ix++) {
-        /* set the carry to zero */
+    for (ix = 0; ix < this.used; ix++) {
         u = 0;
-
-        /* limit ourselves to making digs digits of output */
-        pb = Math.min(bi.used, digs - ix);
-
-        /* setup some aliases */
-        /* copy of the digit from a used within the nested loop */
-        tmpx = this.dp[ix];
-        /* compute the columns of the output and propagate the carry */
+        pb = Math.min(bint.used, digs - ix);
         for (iy = 0; iy < pb; iy++) {
-            /* compute the column as a mp_word */
-            r = t.dp[iy + ix] + tmpx * bi.dp[iy] + u;
-            /* the new column is the lower part of the result */
-            t.dp[iy + ix] = r & MP_MASK;
-            /* get the carry word from the result */
+            r = ret.dp[iy + ix] + this.dp[ix] * bint.dp[iy] + u;
+            ret.dp[iy + ix] = r & MP_MASK;
             u = Math.floor(r / MP_DIGIT_MAX);
         }
-        /* set carry if it is placed below digs */
         if (ix + iy < digs) {
-            t.dp[iy + ix] = u;
+            ret.dp[ix + iy] = u;
         }
     }
-
-    t.clamp();
-    return t;
+    ret.used = ret.dp.length;
+    ret.clamp();
+    return ret;
 };
 // standard unsigned multiply
 Bigint.prototype.multiply = function(bi) {
