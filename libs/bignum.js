@@ -3841,9 +3841,44 @@ Bigint.prototype.mask = function(n){
     return;
 };
 
+/*
+     Modular arithmetic
+*/
+// Barrett reduction, slower than division
+Bigint.prototype.barrettreduce = function(bint) {
+    var calcmu = function(m, b) {
+        var mu = new Bigint(1);
+        mu = mu.lShift(2 * MP_DIGIT_BIT * m);
+        return mu.div(b);
+    };
+    var blen;
+    var ret, q, mu;
+    // checks and balances
+    blen = bint.used;
+    q = this.copy();
+    q.drShiftInplace(blen - 1);
+    mu = calcmu(blen, bint);
 
+    if (blen > (1 << (MP_DIGIT_BIT - 1))) {
+        q = q.mul(mu);
+    } else {
+        q = q.mulhighdigs(mu, blen);
+    }
 
-
+    q.drShiftInplace(blen + 1);
+    ret = this.mod2d(MP_DIGIT_BIT * (blen + 1));
+    q = q.muldigs(bint, blen + 1);
+    ret = ret.sub(q);
+    if (ret.sign == MP_NEG) {
+        q = new Bigint(1);
+        q.dlShiftInplace(blen + 1);
+        ret = ret.add(q);
+    }
+    while (ret.cmp(bint) != MP_LT) {
+        ret = ret.sub(bint);
+    }
+    return ret;
+};
 
 
 
