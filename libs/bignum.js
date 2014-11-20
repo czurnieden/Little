@@ -1762,6 +1762,42 @@ Bigint.prototype.mod2d = function (b){
   ret.clamp();
   return ret;
 };
+// multiplication limited to the higher digits
+Bigint.prototype.mulhighdigs = function(bint, digs) {
+    var pa, pb, ix, iy, i;
+    var u;
+    var r;
+    var t;
+    var a, b;
+    var tmpx, tmpt, tmpy;
+
+    if (bint.isZero() || this.isZero()) {
+        return new Bigint(0);
+    }
+
+    a = this;
+    b = bint;
+    t = new Bigint(0);
+    t.grow(a.used + b.used + 1);
+    t.used = a.used + b.used + 1;
+    pa = a.used;
+    pb = b.used;
+    for (ix = 0; ix < pa; ix++) {
+        u = 0;
+        tmpx = a.dp[ix];
+        tmpt = digs;
+        tmpy = digs - ix;
+        for (i = 0, iy = digs - ix; iy < pb; iy++, i++) {
+            r = t.dp[tmpt + i] + tmpx * b.dp[tmpy + i] + u;
+            t.dp[tmpt + i] = r & MP_MASK;
+            u = Math.floor(r / MP_DIGIT_MAX);
+        }
+        t.dp[tmpt + i] = u;
+    }
+    t.used = t.dp.length;
+    t.clamp();
+    return t;
+};
 // multiplication modulo 2^(digs * MP_DIGIT_BIT)
 Bigint.prototype.muldigs = function(bint, digs) {
     var u, r, pb, ix, iy;
