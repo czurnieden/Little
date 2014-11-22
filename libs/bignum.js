@@ -1165,14 +1165,20 @@ Number.prototype.toBigint = function() {
     }
     var temp = Math.abs(this);
     ret.sign = (this < 0) ? MP_NEG : MP_ZPOS;
-
     ret.dp[0] = temp & MP_MASK;
-    ret.dp[1] = Math.floor(temp / MP_DIGIT_MAX) & MP_MASK;
-    ret.used = 2;
+    ret.dp[1] = Math.floor(temp / MP_DIGIT_MAX);
+    // we might have one bit left-over
+    if (ret.dp[1] > MP_MASK) {
+        var t = ret.dp[1];
+        ret.dp[1] &= MP_MASK;
+        ret.dp[2] = Math.floor(t / MP_DIGIT_MAX) & MP_MASK;
+    }
 
+    ret.used = ret.dp.length;
     ret.clamp();
     return ret;
 };
+
 
 Bigint.prototype.issmallenough = function() {
     // TODO: we can use two bigdigits if MP_DIGIT_BIT <= 26
@@ -3791,6 +3797,28 @@ Bigint.prototype.xor = function(bint) {
     ret.used = a.used;
     ret.clamp();
     return ret;
+};
+
+Bigint.prototype.not = function() {
+    var ret = new Bigint(0);
+    var a,i;
+    a = this;
+    ret.dp = new Array(a.used);
+    for (i = 0; i < a.used; i++) {
+        ret.dp[i] = (~a.dp[i])&MP_MASK;
+    }
+    ret.used = ret.dp.length;
+    ret.clamp();
+    return ret;
+};
+// Despite its name it _does_ work in-place
+Bigint.prototype.notInplace = function() {
+    var i;
+    a = this;
+    for (i = 0; i < a.used; i++) {
+        a.dp[i] = (~a.dp[i])&MP_MASK;
+    }
+    this.clamp();
 };
 
 // all single bit manipulators are zero based
