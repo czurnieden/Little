@@ -53,7 +53,7 @@ function frexp(dnum)
 	temp *= 18014398509481984.0;	// 2^54
 	num.setFloat64(0, temp);
 
-	high = num.getUint32(4);
+	high = num.getUint32(0);
 	tmp = high & 0x7fffffff;
         /* down-size to normal */
 	exp = -54;
