@@ -3640,8 +3640,8 @@ Bigint.prototype.gcd = function(bint) {
     if(bint.isZero()){
         return this.abs();
     }
-    var x = this.copy();
-    var y = bint.copy();
+    var x = this.abs();
+    var y = bint.abs();
     var t;
     while (x.isEven() && y.isEven()) {
         x.rShiftInplace(1);
