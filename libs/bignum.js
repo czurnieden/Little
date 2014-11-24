@@ -2637,7 +2637,7 @@ Bigint.prototype.divrem = function(bint) {
 
     // Single digit b
     if (b.used == 1) {
-        return a.divremInt(b.dp[0]);
+        return this.divremInt(bint.dp[0]);
     }
 
     // a < b
