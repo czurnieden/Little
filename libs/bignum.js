@@ -3594,6 +3594,30 @@ Bigint.prototype.ilogb = function(base) {
     }
 };
 
+Bigint.prototype.sqrt = function() {
+    var t1, t2;
+
+    // complex comes later
+    if (this.sign == MP_NEG) {
+        return MP_VAL;
+    }
+
+    if (this.isZero()) {
+        return new Bigrational();
+    }
+
+    t1 = this.copy();
+    t1.rShiftInplace((t1.highBit() + 1) >>> 1);
+
+    // one round of N-R beforehand
+    t1 = t1.add(this.div(t1)).rShift(1);
+    do {
+        t2 = this.div(t1);
+        t1 = t1.add(t2).rShift(1);
+    } while (t1.cmp_mag(t2) == MP_GT);
+    return t1;
+};
+
 Bigint.prototype.nthroot = function(n) {
     var low, high, mid;
 
