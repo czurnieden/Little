@@ -3603,7 +3603,7 @@ Bigint.prototype.sqrt = function() {
     }
 
     if (this.isZero()) {
-        return new Bigrational();
+        return new Bigint();
     }
 
     t1 = this.copy();
