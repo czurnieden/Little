@@ -3724,7 +3724,7 @@ Bigint.prototype.nthroot = function(b) {
     */
     if (ilog2 / b <= 52) {
         var r = Math.floor(Math.pow(2, (ilog2) / b)) + 1;
-        t2 = new Bigint(r);
+        t2 = r.toBigint();
     } else {
         ilog2 = Math.floor(ilog2 / b);
         t2 = new Bigint(1);
