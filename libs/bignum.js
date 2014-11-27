@@ -2072,20 +2072,42 @@ Bigint.prototype.cmp_mag = function(bi) {
 
 // compares signed values
 Bigint.prototype.cmp = function(bi) {
+    /* 
+        We have signed zeros, that makes it a bit more complicated to avoid
+        curious things when comparing to -0. We just set -0 = +0 temprorarily.
+     */
+    var a = this;
+    var b = bi;
+    var asign = a.sign;
+    var bsign = b.sign;
+    if(a.isZero()){
+        a.sign = MP_ZPOS;
+    }
+    if(b.isZero()){
+        b.sign = MP_ZPOS;
+    }
     /* compare based on sign */
-    if (this.sign != bi.sign) {
-        if (this.sign == MP_NEG) {
+    if (a.sign != b.sign) {
+        if (a.sign == MP_NEG) {
+            a.sign = asign;
+            b.sign = bsign;
             return MP_LT;
         } else {
+            a.sign = asign;
+            b.sign = bsign;
             return MP_GT;
         }
     }
     /* compare digits */
-    if (this.sign == MP_NEG) {
+    if (a.sign == MP_NEG) {
+        a.sign = asign;
+        b.sign = bsign;
         /* if negative compare opposite direction */
-        return bi.cmp_mag(this);
+        return b.cmp_mag(a);
     } else {
-        return this.cmp_mag(bi);
+        a.sign = asign;
+        b.sign = bsign;
+        return a.cmp_mag(b);
     }
 };
 // internal, unsigned adder, returns an Array, not a Bigint!
