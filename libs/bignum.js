@@ -2072,7 +2072,7 @@ Bigint.prototype.cmp_mag = function(bi) {
 
 // compares signed values
 Bigint.prototype.cmp = function(bi) {
-    /* 
+    /*
         We have signed zeros, that makes it a bit more complicated to avoid
         curious things when comparing to -0. We just set -0 = +0 temprorarily.
      */
@@ -3640,25 +3640,160 @@ Bigint.prototype.sqrt = function() {
     return t1;
 };
 
-Bigint.prototype.nthroot = function(n) {
-    var low, high, mid;
 
-    if (!this.isZero() && n == 0) {
+Bigint.prototype.nthroot = function(b) {
+    var t1, t2, t3, t4, a;
+    var sign, ilog2;
+
+    if (this.isZero()) {
+        if (b > 0) {
+            return new Bigint(0);
+        } else {
+            return (new Bigint()).setNaN();
+        }
+    }
+
+    if (this.isUnity()) {
+        if (b == 0) {
+            return (new Bigint()).setNaN();
+        } else {
+            return this.copy();
+        }
+    }
+
+    if (b < 0) {
+        // would return 1/(x^(1/-b)) but that is always < 1
+        return new Bigint(0);
+    }
+    if (b == 0 || b.isNaN()) {
+        // zero means this^(1/0) which is a division by zero
+        return (new Bigint()).setNaN();
+    }
+    if (b == 1) {
+        // one means this^(1/1) -> no effect
+        return this.copy();
+    }
+
+    /* input must be positive if b is even */
+    if ((b & 1) == 0 && this.sign == MP_NEG) {
+        return (new Bigint()).setNaN();
+    }
+    if (b == 2) {
+        return this.sqrt();
+    }
+    a = this;
+
+    sign = a.sign;
+    a.sign = MP_ZPOS;
+
+    /*
+
+    This is, believe it or not, slower than a full blown round together
+    with the next shortcut.
+    Are the native functions really that slow?
+
+    if (a.used == 0) {
+        if (b == 0) {
+            return (new Bigint()).setNaN();
+        } else if (b < 0) {
+            return new Bigint(0);
+        } else {
+            t1 = Math.exp(Math.log(a.dp[0]) / b);
+            t1 = Math.floor(t1);
+            t1.sign = sign;
+            return t1;
+        }
+    }
+     */
+
+    /* Set initial value:
+     *     n-th root of r = exp(log_e(r) / n)
+     * That can be done with every base for the logarithm, so with base 2 and
+     * integer logarithm:
+     *     n-th root of r < 2^( floor( ceil( log_2(r) ) / n) +1 )
+     */
+    // floor(log_2(this)) + 1
+    ilog2 = a.highBit() + 1;
+    // smallest base is 2
+    if (b >= ilog2) {
         return new Bigint(1);
     }
-    if (this.isZero() && n != 0) {
-        return new Bigint(1);
+    /*
+       If ilog2/b<=52 we can do a shortcut here and have a better initial
+       value, too. That makes it as fast as the binary algorithm for large b
+    */
+    if (ilog2 / b <= 52) {
+        var r = Math.floor(Math.pow(2, (ilog2) / b)) + 1;
+        t2 = new Bigint(r);
+    } else {
+        ilog2 = Math.floor(ilog2 / b);
+        t2 = new Bigint(1);
+        t2.lShiftInplace(ilog2 + 1);
     }
-    if (this.isZero() && n == 0) {
-        return this.copy().setInf();
+    do {
+        // compute difference
+        t3 = t2.pow(b - 1);
+        t3 = a.div(t3);
+        t3 = t3.sub(t2);
+        t3 = t3.divInt(b);
+        // add difference to last approximation
+        t2 = t2.add(t3);
+        // we reach the final approximation when the difference is zero
+    } while (!t3.isZero())
+
+    /*
+       The value is most probable 1 (one) digit too large, so to save one
+       exponentiation subtract 1 (one) in advance.
+       TODO: check if that is always the case, as the author of the patch
+             conjectures.
+       DONE: it isn't: (321^123)^(1/321) ~ 9 but comes out as 16 with this
+             method. The initial value is too much off in this case.
+       REOPEN: with the better initial value it works better and the questions
+               is open again.
+    */
+    while (true) {
+        t1 = t2.pow(b);
+        if (t1.cmp(a) == MP_GT) {
+            t2.decr();
+        } else {
+            break;
+        }
     }
-    if (this.isNeg()) {
+    //   console.log("i = " + i)
+    /* reset the sign of a first */
+    a.sign = sign;
+    /* set the sign of the result */
+    t2.sign = sign;
+    return t2;
+};
+
+
+Bigint.prototype.nthrootold = function(n) {
+    var low, high, mid, sign;
+
+    if (this.isZero()) {
+        if (n > 0) {
+            return new Bigint(0);
+        } else {
+            return this.copy().setNaN();
+        }
+    }
+    if (this.isOne()) {
+        if (n == 0) {
+            return  (new Bigint()).setNaN();
+        } else {
+            return new Bigint(1);
+        }
+    }
+    if ((n & 1) == 0 && this.isNeg()) {
         return this.copy().setNaN();
     }
     // actually: x^(1/(-y)) = 1/(x^(1/y)) and x^(1/1/y) = x^y
     if (n < 0 || !n.isInt()) {
         return this.copy().setNaN();
     }
+    sign = this.sign;
+    this.sign = MP_ZPOS;
 
     high = new Bigint(1);
     high.lShiftInplace(Math.floor(this.highBit() / n) + 1);
@@ -3673,7 +3808,9 @@ Bigint.prototype.nthroot = function(n) {
             return mid;
         }
     }
-    return mid.incr();
+    mid.incr();
+    mid.sign = sign;
+    return mid;
 };
 
 
@@ -3860,7 +3997,7 @@ Bigint.prototype.not = function() {
 // Despite its name it _does_ work in-place
 Bigint.prototype.notInplace = function() {
     var i;
-    a = this;
+    var a = this;
     for (i = 0; i < a.used; i++) {
         a.dp[i] = (~a.dp[i])&MP_MASK;
     }
