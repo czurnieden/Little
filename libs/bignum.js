@@ -343,15 +343,15 @@ function xtypeof(obj) {
         } else {
             // Put your own objects here
             // they must exist at this point
-            //var list = {
-            // "bigint": Bigint ,
+            var list = {
+                 "bigint": Bigint
             // "complex": Complex
-            //};
-            //for (var p in list) {
-            //if (obj instanceof list[p]) {
-            //return p;
-            //}
-            //}
+            };
+            for (var p in list) {
+                if (obj instanceof list[p]) {
+                    return p;
+               }
+            }
             return "object";
         }
     }
@@ -3463,9 +3463,26 @@ Bigint.prototype.kpow = function(ui) {
     return ret;
 };
 
+Bigint.prototype.bpow = function(bi) {
+    var ret = new Bigint(1);
+    var t = this.copy();
+    while (bi.isZero() == MP_NO) {
+        if (bi.isOdd() == MP_YES) {
+            ret = ret.mul(t);
+        }
+        t = t.sqr();
+        bi.rShiftInplace(1);
+    }
+    return ret;
+};
+
 Bigint.prototype.pow = function(ui) {
     var sign = this.sign;
     var t;
+
+    if(xtypeof(ui) == "bigint"){
+        return this.powBigint(ui);
+    }
 
     if (ui < 0) {
         //rounds to zero
@@ -3533,6 +3550,60 @@ Bigint.prototype.pow = function(ui) {
     return t;
 };
 
+Bigint.prototype.powBigint = function(bi){
+    var sign = this.sign;
+    var t;
+
+    if (bi.sign == MP_NEG) {
+        //rounds to zero
+        return (new Bigint(0));
+    }
+    /*
+    if(bi == 1/2){
+      return this.sqrt();
+    }  */
+    if (bi.isOne()) {
+        return this.dup();
+    }
+    if (bi.used == 1 && bi.dp[0] == 2) {
+        return this.sqr();
+    }
+
+    if (this.isZero()) {
+        // IEEE 754
+        if (bi.isZero()) {
+            return (new Bigint(1));
+        }
+        return (new Bigint(0));
+    }
+    if (this.isInf()) {
+        // IEEE 754
+        if (bi.isZero()) {
+            return (new Bigint(1));
+        }
+        return this.dup();
+    }
+    if (this.isUnity()) {
+        if (this.sign > 0) {
+            // IEEE 754 says it is always one, even for 1^\infty
+            return (new Bigint(1));
+        }
+        if (bi.isInf()) {
+            // IEEE 754 is unclear for -1
+            return (new Bigint(0)).setNaN();
+        }
+        if (bi.dp[0] & 1 == 0) {
+            return (new Bigint(1));
+        }
+        return this.dup();
+    }
+    t = this.abs();
+    t = t.bpow(bi);
+    if (sign < 0 && bi.dp[0] & 1 == 0) {
+        t.sign = MP_NEG;
+    }
+    return t;
+};
 
 // should be done with left-to-right instead?
 Number.prototype.kpow = function(bi) {
