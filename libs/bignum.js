@@ -218,6 +218,13 @@ var NEWTON_DENOMINATOR = 4000;
 // reasonabel general cutoff if the k of N=k*D is not too large
 var NEWTON_CUTOFF = 77000; // >2 mio bits
 
+// Some cutoffs related to factorial computing
+// YMMV, but that's also about the range where the largest
+// multiplications reach Toom-Cook territory
+var FACTORIAL_BORW_LOOP_CUTOFF = 500;
+var FACTORIAL_BORW_PRIMORIAL_CUTOFF = 500;
+var FACTORIAL_BORW_CUTOFF = 500;
+
 // Bits per digit. See below for details
 var MP_DIGIT_BIT = 26;
 // Digit mask (e.g.: 0x3fffffff for 30 bit long digits)
@@ -354,6 +361,338 @@ function xtypeof(obj) {
             }
             return "object";
         }
+    }
+}
+
+// A primesieve, full implementation, for factorial computation
+var primesieve = (function() {
+    var Primesieve = {};
+    var primelimit = 0;
+    var buffer;
+    var primesieve;
+    var primesizelimit = 0x800000; // 1 megabyte
+
+    // works with normal arrays, too
+    if (typeof Uint32Array === 'undefined'){
+        Uint32Array = Array;
+        ArrayBuffer = function(){return 0;};
+    }
+
+    // 30*log(113)/113 see also http://oeis.org/A209883
+    var LN_113 = 1.25505871293247979696870747618124469168920275806274;
+    // Rosser, J. B. and Schoenfeld, L. "Approximate Formulas for Some
+    // Functions of Prime Numbers." Illinois J. Math. 6, 64-97, 1962
+    // http://projecteuclid.org/DPubS?service=UI&version=1.0&verb=Display&handle=euclid.ijm/1255631807
+    var approx_pi = function(limit){
+        // Math.ceil(5*x/(4*Math.log(x))) // would be more exact for large x
+        return Math.ceil( (LN_113 * limit) / Math.log(limit) ) + 2;
+    };
+    var approx_limit = function(prime_pi){
+        if(prime_pi < 10){
+          return 30;
+        }
+        // see first term of expansion of li(x)-li(2)
+        return Math.ceil( prime_pi * ( Math.log( prime_pi * Math.log( prime_pi))));
+    };
+    var isInt = function(x) {
+        if (isNaN(x)) {
+            return false;
+        }
+        if (x > -9007199254740992 && x < 9007199254740992 && Math.floor(
+                x) == x) {
+            return true;
+        }
+    };
+    var clear = function(where) {
+        primesieve[where >>> 5] &= ~((1 << (31 - (where & 31))) );
+    };
+    var get = function(where) {
+        return ((primesieve[where >>> 5] >>> ((31 - (where & 31)))) & 1);
+    };
+    var nextset = function(from) {
+        while (from < primelimit && !get(from)) {
+            from++;
+        }
+        if (from === primelimit && !get(from)) {
+            return -1;
+        }
+        return from;
+    };
+    var prevset = function(from) {
+        while (from >= 0 && !get(from)) {
+            from--;
+        }
+        if (from == 0 && !get(from)) {
+            return -1;
+        }
+        return from;
+    };
+    var fillsieve = function(n) {
+        var k, r, j;
+        n = n + 1;
+        primelimit = n - 1;
+        k = Math.ceil(n / 32);
+        if(typeof ArrayBuffer !== "function"){
+            buffer = new ArrayBuffer(k * 4);
+        } else {
+            buffer = k;
+        }
+        primesieve = new Uint32Array(buffer);
+        while (k--) {
+            primesieve[k] = 0xffffffff;
+        }
+        clear(0);
+        clear(1);
+        for (k = 4; k < n; k += 2) {
+            clear(k);
+        }
+        r = Math.floor(Math.sqrt(n));
+        k = 0;
+        while (k < n) {
+            k = nextset(k + 1);
+            if (k > r || k < 0) {
+                break;
+            }
+            for (j = k * k; j < n; j += 2 * k) {
+                clear(j);
+            }
+        }
+    };
+    var E_SUCCESS = 0;
+    var E_ARG_NO_INT = 1;
+    var E_ARG_TOO_LOW = 2;
+    var E_ARG_TOO_HIGH = 3;
+    var E_ABOVE_LIMIT = 4;
+    Primesieve.error = 0;
+    Primesieve.strerror = function(){
+        var strerrors = [
+            "Success",
+            "Argument not an integer",
+            "Argument too low",
+            "Argument too high",
+            "Prime wanted is higher than the limit ",
+            "Unknown error"
+                        ];
+        var e = Primesieve.error;
+        if(e == 0){
+            return strerrors[ 0 ];
+        }
+        if(e < 0 || e > strerrors.length - 1){
+            return strerrors[ strerrors.length - 1 ];
+        }
+        if(e == E_ABOVE_LIMIT){
+            return strerrors[ E_ABOVE_LIMIT ] + primesizelimit;
+        } else {
+            return strerrors[e];
+        }
+    };
+    Primesieve.isSmallPrime = function(prime) {
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (prime < 2 ) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        if (prime > primelimit) {
+            Primesieve.grow(prime + 100);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        Primesieve.error = E_SUCCESS;
+        if (get(prime) == 1) {
+            return true;
+        }
+        return false;
+    };
+    Primesieve.nextPrime = function(prime) {
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        }
+        if (prime < 0) {
+            return 2;
+        }
+        if (prime > primelimit) {
+            Primesieve.grow(prime + 100);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        Primesieve.error = E_SUCCESS;
+        return nextset(prime);
+    };
+    Primesieve.precPrime = function(prime) {
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (prime < 2 ) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        if (prime > primelimit) {
+            Primesieve.grow(prime + 100);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        Primesieve.error = E_SUCCESS;
+        return prevset(prime);
+    };
+    Primesieve.primePi = function(prime) {
+        var k = 0;
+        var ct = 0;
+
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (prime < 2 ) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+
+        if (prime > primelimit) {
+            Primesieve.grow(prime + 100);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        while (k < prime) {
+            k = nextset(k + 1);
+            if (k > primelimit || k < 0 || k > prime) {
+                break;
+            }
+            ct++;
+        }
+        Primesieve.error = E_SUCCESS;
+        return ct;
+    };
+    Primesieve.primePiApprox = function(prime) {
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (prime < 2 ) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        Primesieve.error = E_SUCCESS;
+        return approx_pi(prime);
+    };
+    Primesieve.primeRange = function(low, high) {
+        var down = 0,
+            up = 0,
+            ret = [],
+            i = 1;
+
+        if (!isInt(low) || !isInt(high)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (low < 0 ) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        } else if ( low > high ) {
+            /* try again, maybe just a fluke */
+            return Primesieve.primeRange(high,low);
+        }
+
+        if(primelimit < high){
+             Primesieve.grow(high + 100);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        down = nextset(low);
+        up = prevset(high);
+        ret[0] = down;
+        if (down == up) {
+            return ret;
+        }
+        while (down < up) {
+            down = nextset(down + 1);
+            if (down > high || down < 0) {
+                break;
+            }
+            ret[i++] = down;
+        }
+        Primesieve.error = E_SUCCESS;
+        return ret;
+    };
+    Primesieve.primes = function(prime) {
+        var ret, k, count, limit,i;
+        limit = approx_limit(prime);
+
+        if (!isInt(prime)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (prime < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+
+        if(primelimit < limit){
+            Primesieve.grow(limit);
+            if(Primesieve.error ==  E_ABOVE_LIMIT){
+                return undefined;
+            }
+        }
+        ret = [];
+        k = 0;
+        i = 0;
+        count = prime;
+        while (count--) {
+            k = nextset(k + 1);
+            if (k > primelimit || k < 0) {
+                break;
+            }
+            ret[i++] = k;
+        }
+        Primesieve.error = E_SUCCESS;
+        return ret;
+    };
+    Primesieve.grow = function(alot) {
+        if (!isInt(alot)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (alot < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        } else if (alot > primesizelimit) {
+            Primesieve.error = E_ABOVE_LIMIT;
+            return undefined;
+        } else if(alot > primelimit){
+            Primesieve.error = E_SUCCESS;
+            fillsieve(alot);
+        } /* else {
+           Do nothing for now
+        }*/
+    };
+    Primesieve.fill = Primesieve.grow;
+    Primesieve.raiseLimit = function(raise) {
+        if (!isInt(raise)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (raise < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        } else if (raise > primesizelimit) {
+            Primesieve.error = E_SUCCESS;
+            primesizelimit = raise;
+        }
+    };
+    Primesieve.sieve = function() {
+        return primesieve;
+    };
+    return Primesieve;
+})(/* You may place a start-size here */);
+
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+    module.exports = primesieve;
+} else {
+    if (typeof define === 'function' && define.amd) {
+        define([], function() { return primesieve; });
+    } else {
+        window.primesieve = primesieve;
     }
 }
 
@@ -4164,7 +4503,255 @@ Bigint.prototype.barrettreduce = function(bint) {
 
 
 
+Bigint.prototype.factorial = function() {
+    // first fifty factorials
+    var small_factorials = [
+        [1],
+        [1],
+        [2],
+        [6],
+        [24],
+        [120],
+        [720],
+        [5040],
+        [40320],
+        [362880],
+        [3628800],
+        [39916800],
+        [9239552, 7],
+        [53005312, 92],
+        [3876864, 1299],
+        [58152960, 19485],
+        [58032128, 311773],
+        [47022080, 5300155],
+        [41091072, 28293938, 1],
+        [42532864, 713921, 27],
+        [45350912, 14278432, 540],
+        [12845056, 31411630, 11344],
+        [14155776, 19967224, 249578],
+        [57147392, 56592972, 5740300],
+        [29360128, 16054068, 3549492, 2],
+        [62914560, 65807390, 21628441, 51],
+        [25165824, 33270564, 25468579, 1334],
+        [8388608, 25890006, 16563006, 36028],
+        [33554432, 53831531, 61110994, 1008790],
+        [33554432, 17610541, 27388385, 29254936],
+        [0, 3240779, 36938838, 28000939, 405],
+        [0, 36596064, 41192129, 23614833, 12973],
+        [0, 66819424, 17162994, 41092005, 428120],
+        [0, 57267904, 46670917, 54950898, 14556100],
+        [0, 58219584, 22869388, 44233262, 39701480, 7],
+        [0, 15530240, 17991631, 48893572, 19967159, 273],
+        [0, 37747968, 61710579, 64231709, 587405, 10112],
+        [0, 25136640, 63300647, 24885872, 22321426, 384256],
+        [0, 40804864, 52806143, 31024948, 65229260, 14985996],
+        [0, 21581824, 31870960, 33038399, 59033586, 62568966, 8],
+        [0, 12439552, 31640957, 12397098, 4457942, 15190810, 366],
+        [0, 52699136, 53851785, 50916087, 53015843, 34034246, 15381],
+        [0, 51470336, 33925412, 41908127, 65088769, 54186467, 661404],
+        [0, 50102272, 16323153, 32018282, 45333575, 35394350, 29101811],
+        [0, 40009728, 63453278, 31536556, 26744976, 49241908, 34513102,
+            19
+        ],
+        [0, 28508160, 33169663, 41395475, 22309365, 50535274, 44098853,
+            897
+        ],
+        [0, 64815104, 15470308, 66539156, 41907223, 26347653, 59380206,
+            42189
+        ],
+        [0, 24117248, 4377326, 39762891, 65389695, 56727821, 31677618,
+            2025114
+        ],
+        [0, 40894464, 13162399, 2224606, 49978476, 28199852, 8699451,
+            32121745, 1
+        ],
+        [0, 31457280, 54140204, 44121445, 15895833, 706493, 32319387,
+            62583384, 73
+        ]
+    ];
+    var n;
+    var ret;
+    // helper function: find x in p^x <= n!
+    var prime_divisors = function(n, p) {
+            var q, m;
+            q = n;
+            m = 0;
+            if (p > n) {
+                return 0;
+            }
+            if (p > Math.floor(n / 2)) {
+                return 1;
+            }
+            while (q >= p) {
+                q = Math.floor(q / p);
+                m += q;
+            }
+            return m;
 
+        };
+    // The actual binary splitting algorithm
+    // A bit more complicated by the lack of factors of two
+    var fbinsplit2b = function(n, m) {
+            var t1, t2, k;
+            if (m <= (n + 1)) {
+                return n.toBigint();
+            }
+            if (m == (n + 2)) {
+                return (n * m).toBigint();
+            }
+            k = Math.floor((n + m) / 2);
+            if ((k & 1) != 1) {
+                k--;
+            }
+            t1 = fbinsplit2b(n, k);
+            t2 = fbinsplit2b(k + 2, m);
+            return t1.mul(t2);
+        };
+    // binary splitting, sieve out factors of two and feed
+    // the actual splitting algorithm
+    var fbinsplit2a = function(n, p, r) {
+        if (n <= 2){
+            return;
+        }
+        fbinsplit2a(Math.floor(n / 2), p, r);
+        p[0] = p[0].mul(fbinsplit2b(Math.floor(n / 2) + 1 + (Math.floor(
+            n / 2) & 1), n - 1 + (n & 1)));
+        r[0] = r[0].mul(p[0]);
+    };
+    // binary splitting, base function
+    var bin_split = function(n) {
+        var p, r, shift;
+        p = [new Bigint(1)];
+        r = [new Bigint(1)];
+        fbinsplit2a(n, p, r);
+        shift = prime_divisors(n, 2);
+        r[0].lShiftInplace(shift);
+        return r[0];
+    };
+    // compute primorial with binary splitting
+    var primorial__lowlevel = function(array, array_pointer, n, result) {
+            var i, first_half, second_half;
+            var tmp;
 
+            if (n == 0) {
+                result[0] = new Bigint(1);
+                return MP_OKAY;
+            }
+            // Do the rest linearly. Faster for primorials at least,  but YMMV
+            if (n <= 64) {
+                result[0] = array[array_pointer].toBigint();
+                for (i = 1; i < n; i++){
+                    result[0] = result[0].mul(array[array_pointer + i].toBigint());
+                }
+                return MP_OKAY;
+            }
 
+            first_half = Math.floor(n / 2);
+            second_half = n - first_half;
+            primorial__lowlevel(array, array_pointer, second_half, result);
+            tmp = [new Bigint(1)];
+            primorial__lowlevel(array, array_pointer + second_half,
+                first_half, tmp);
+            result[0] = result[0].mul(tmp[0]);
+            return MP_OKAY;
+        };
+    // Borwein trick
+    var factorial_borwein = function(n) {
+        var p_list, arr;
+        var exp_list;
+        var p, i, j, cut;
+        var bit;
+        var shift, e;
+        var temp;
+        var r;
+        var buffer;
+        var result;
+
+        p_list = primesieve.primeRange(3, n);
+        r = p_list.length;
+        buffer = new ArrayBuffer(r * 4);
+        exp_list = new Uint32Array(buffer);
+
+        result = new Bigint(1);
+        shift = prime_divisors(n, 2);
+
+        cut = Math.floor(n / 2);
+
+        for (p = 0; p < r; p++) {
+            if (p_list[p] > cut) {
+                break;
+            }
+            exp_list[p] = prime_divisors(n, p_list[p]);
+        }
+
+        bit = exp_list[0].highBit();
+        if (n < FACTORIAL_BORW_LOOP_CUTOFF) {
+            for (; bit >= 0; bit--) {
+                result = result.sqr();
+                for (i = 0; i < p; i++) {
+                    if ((exp_list[i] & (1 << bit)) != 0) {
+                        result = result.mul(p_list[i].toBigint());
+                    }
+                }
+            }
+        } else {
+            // memory is abundant today, isn't it?
+            buffer = new ArrayBuffer(r * 4);
+            arr = new Uint32Array(buffer);
+            for (; bit >= 0; bit--) {
+                result = result.sqr();
+                temp = [new Bigint(1)];
+                for (i = 0, j = 0; i < p; i++) {
+                    if ((exp_list[i] & (1 << bit)) != 0) {
+                        /*
+                          result = result.mul(p_list[i].toBigint());
+                        */
+                        arr[j++] = p_list[i];
+                    }
+                }
+                primorial__lowlevel(arr, 0, j, temp);
+                result = result.mul(temp[0]);
+            }
+        }
+        if (n < FACTORIAL_BORW_PRIMORIAL_CUTOFF) {
+            for (; p < r; p++) {
+                result = result.mul(p_list[p].toBigint());
+            }
+        } else {
+            temp = [new Bigint(1)];
+
+            p_list = primesieve.primeRange(cut, n);
+
+            primorial__lowlevel(p_list, 0, p_list.length, temp);
+
+            result = result.mul(temp[0]);
+
+        }
+        result.lShiftInplace(shift);
+        return result;
+    };
+
+    if (this.used != 1) {
+        // Result would be larger than 1.497e49,6101,294
+        // but more seriously: must be smaller than the base to work
+        return (new Bigint()).setNaN();
+    }
+    if (this.sign == MP_NEG) {
+        // singularities at the negative integers, all the way down.
+        return (new Bigint()).setInf();
+    }
+    n = this.dp[0];
+    ret = new Bigint();
+    if (n < small_factorials.length) {
+        ret.dp = small_factorials[n];
+        ret.used = ret.dp.length;
+        ret.clamp();
+        return ret;
+    }
+    if (n < FACTORIAL_BORW_CUTOFF) {
+        return bin_split(n);
+    }
+    return factorial_borwein(n);
+
+};
 
