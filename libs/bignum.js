@@ -2248,7 +2248,8 @@ Bigint.prototype.mul = function(bi, flag) {
     }
     // Check if smaller number is small enough for mulInt()
     if (b.used == 1) {
-        return a.mulInt(b.dp[0]);
+        bsign = (b.sign == MP_NEG)?-1:1;
+        return a.mulInt(b.dp[0] * bsign);
     }
 
     // compute with abs. values
