@@ -124,7 +124,13 @@ function Bigrational() {
         this.sign = MP_ZPOS;
     }
 }
-
+Bigrational.prototype.free = function() {
+    this.num.free();
+    this.num = null;
+    this.den.free();
+    this.den = null;
+    this.sign = null;
+};
 Bigrational.prototype.setNaN = function() {
     this.num = new Bigint(0).setNaN();
     this.den = new Bigint(0).setNaN();
@@ -1020,6 +1026,158 @@ Bigrational.prototype.nthroot = function(b) {
     }
     return t2;
 };
+
+/*
+   Compute Bernoulli numbers
+   Algorithm is good but won't run sufficiently fast for 
+   values above about n = 500.
+   Got B_1000 calulated in slightly under twenty minutes on
+   an old 1GHz AMD-Duron. Not bad for such an old destrier.
+   
+   The algorithm using Riemann zeta function is being worked on
+   but will most probably need the Bigfloat to work fast enough.
+   Although no floating point arithmetic is essential, the
+   Bigrational is just too slow for this.
+*/
+// keeps B_n != 0 only
+var STATIC_BERN_ARRAY;
+// for B_n: STATIC_BERN_ARRAY_SIZE = floor(n/2) +1
+// plus one because B_1 = -1/2 and the rest of odd(n) = 0
+var STATIC_BERN_ARRAY_SIZE = 0;
+// for B_max set STATIC_BERN_ARRAY_PREFILL
+var STATIC_BERN_ARRAY_PREFILL = 50;
+// This should be a normal function, not a prototype.
+Bigrational.prototype.bernoulli = function(N) {
+
+    var n, e, k;
+    var bhbern = function(limit) {
+        var tmp, A, U, E;
+        var T;
+        var j, k, alloc_mem;
+        var e, counter = 0;
+
+        if (limit < STATIC_BERN_ARRAY_SIZE) {
+            //console.log("Cache hit: " + limit);
+            return MP_OKAY;
+        }
+        // calculate the first one hundred to fill the cache
+        // because Bernoulli numbers almost always come in hordes.
+        if (STATIC_BERN_ARRAY_SIZE == 0 && limit <
+            STATIC_BERN_ARRAY_PREFILL) {
+            limit = STATIC_BERN_ARRAY_PREFILL;
+        }
+
+        T = new Array(limit + 2);
+        /* For sake of simplicity */
+        STATIC_BERN_ARRAY = new Array(limit + 4);
+
+        /* This algorithm starts at B_2 = 1/6 */
+        /* B_0 = 1 */
+        STATIC_BERN_ARRAY[counter++] = new Bigrational(1, 1);
+        /* B_1 = -1/2 */
+        STATIC_BERN_ARRAY[counter++] = new Bigrational(-1, 2);
+        // T[0] is not used
+        T[1] = new Bigint(1);
+
+        for (k = 2; k <= limit; k++) {
+            /* T[k] = (k-1)*T[k-1] */
+            if (typeof T[k] === "undefined") {
+                T[k] = new Bigint(1);
+            }
+            T[k] = T[k - 1].mulInt(k - 1);
+        }
+
+        for (k = 2; k <= limit; k++) {
+            for (j = k; j < limit; j++) {
+                /* T[j] =  (j-k)*T[j-1]  +   (j-k+2)*T[j] */
+                /* tmp  =  (j-k)*T[j-1]  */
+                tmp = T[j - 1].mulInt(j - k);
+                /* T[j] =   (j-k+2)*T[j] */
+                T[j] = T[j].mulInt(j - k + 2)
+                /* T[j] =   T[j]  + tmp */
+                T[j] = T[j].add(tmp);
+            }
+        }
+
+        /* E = -2; U = 1 */
+        E = new Bigint(-2);
+        U = new Bigint(1);
+
+        for (k = 1; k <= limit; k++) {
+            /* U = 4*U */
+            U = U.mulInt(4);
+            /*  A = U*(U-1) */
+            A = U.mul(U.subInt(1));
+            /* E = -E */
+            E = E.neg();
+            /* result = (E*T[k]*k) / (A) */
+            tmp = E.mulInt(k);
+            tmp = tmp.mul(T[k]);
+
+            e = new Bigrational(tmp, A);
+            e.normalize();
+            e.sign = e.num.sign;
+            STATIC_BERN_ARRAY[counter++] = e;
+        }
+
+        // Denominator of last entry is incompletely computed
+        STATIC_BERN_ARRAY_SIZE = counter - 1;
+
+        /*  It is deemed good style to clean up after work */
+        for (k = 1; k < limit; k++) {
+            T[k].free();
+            T[k] = null;
+        }
+        T = null;
+        return MP_OKAY;
+    };
+
+    // works for small values only.
+    // Really small values.
+    if (arguments.length == 0 && this.num.used != 1) {
+        return this.copy().setNaN();
+    }
+    // argument given wins over "this". Should it?
+    if(arguments.length == 0){
+        n = this.num.dp[0];
+    } else {
+        n = N;
+    }
+    if (n < 0) {
+        // Riemann's zeta function not yet implemented.
+        // PARI/GP returns zero and so do we
+        return new Bigrational(0, 1);
+    }
+    /* all odd Bernoulli numbers are zero except B_1 */
+    if ((n & 0x1) && n != 1) {
+        return new Bigrational(0, 1);
+    }
+    // cache already and sufficiently filled?
+    if (STATIC_BERN_ARRAY_SIZE < n) {
+        // does not return an error yet
+        if ((e = bhbern(Math.floor(n / 2) + 1)) != MP_OKAY) {
+            return e;
+        }
+    }
+    /* It simplifies things a bit to get the exceptions out of the way */
+    if (n < 2) {
+        return STATIC_BERN_ARRAY[n];
+    }
+    k = Math.floor(n / 2) + 1;
+    return STATIC_BERN_ARRAY[k];
+};
+/*
+function bernoulli_free(){
+    var i = 0;
+    for (; i < bern_array_size; i++) {
+      STATIC_BERN_ARRAY[i].free();
+    }
+    STATIC_BERN_ARRAY = null;
+    STATIC_BERN_ARRAY_SIZE = 0;
+}
+*/
+
+
 
 
 
