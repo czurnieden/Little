@@ -1029,15 +1029,21 @@ Bigrational.prototype.nthroot = function(b) {
 
 /*
    Compute Bernoulli numbers
-   Algorithm is good but won't run sufficiently fast for 
+   Algorithm is good but won't run sufficiently fast for
    values above about n = 500.
    Got B_1000 calulated in slightly under twenty minutes on
    an old 1GHz AMD-Duron. Not bad for such an old destrier.
-   
+
    The algorithm using Riemann zeta function is being worked on
    but will most probably need the Bigfloat to work fast enough.
    Although no floating point arithmetic is essential, the
    Bigrational is just too slow for this.
+
+   Brent, Richard P., and David Harvey. "Fast computation of Bernoulli, Tangent
+   and Secant numbers." Computational and Analytical Mathematics. Springer New
+   York, 2013. 127-142.
+
+   Preprint: http://arxiv.org/abs/1108.0286
 */
 // keeps B_n != 0 only
 var STATIC_BERN_ARRAY;
@@ -1076,6 +1082,7 @@ Bigrational.prototype.bernoulli = function(N) {
         STATIC_BERN_ARRAY[counter++] = new Bigrational(1, 1);
         /* B_1 = -1/2 */
         STATIC_BERN_ARRAY[counter++] = new Bigrational(-1, 2);
+        // Compute tangent numbers
         // T[0] is not used
         T[1] = new Bigint(1);
 
@@ -1093,12 +1100,12 @@ Bigrational.prototype.bernoulli = function(N) {
                 /* tmp  =  (j-k)*T[j-1]  */
                 tmp = T[j - 1].mulInt(j - k);
                 /* T[j] =   (j-k+2)*T[j] */
-                T[j] = T[j].mulInt(j - k + 2)
+                T[j] = T[j].mulInt(j - k + 2);
                 /* T[j] =   T[j]  + tmp */
                 T[j] = T[j].add(tmp);
             }
         }
-
+        // compute Bernoulli numbers from tangent numbers
         /* E = -2; U = 1 */
         E = new Bigint(-2);
         U = new Bigint(1);
@@ -1124,6 +1131,7 @@ Bigrational.prototype.bernoulli = function(N) {
         STATIC_BERN_ARRAY_SIZE = counter - 1;
 
         /*  It is deemed good style to clean up after work */
+        // The array T holds the tangent numbers.
         for (k = 1; k < limit; k++) {
             T[k].free();
             T[k] = null;
@@ -1145,6 +1153,7 @@ Bigrational.prototype.bernoulli = function(N) {
     }
     if (n < 0) {
         // Riemann's zeta function not yet implemented.
+        // There is also Harvey's multi-modal approach...
         // PARI/GP returns zero and so do we
         return new Bigrational(0, 1);
     }
@@ -1171,6 +1180,7 @@ function bernoulli_free(){
     var i = 0;
     for (; i < bern_array_size; i++) {
       STATIC_BERN_ARRAY[i].free();
+      STATIC_BERN_ARRAY[i] = null;
     }
     STATIC_BERN_ARRAY = null;
     STATIC_BERN_ARRAY_SIZE = 0;
