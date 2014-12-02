@@ -225,6 +225,12 @@ var FACTORIAL_BORW_LOOP_CUTOFF = 500;
 var FACTORIAL_BORW_PRIMORIAL_CUTOFF = 500;
 var FACTORIAL_BORW_CUTOFF = 500;
 
+// Euler numbers, cache related
+var STATIC_EULER_ARRAY;
+var STATIC_EULER_ARRAY_SIZE = 0;
+var STATIC_EULER_ARRAY_PREFILL = 50;
+
+
 // Bits per digit. See below for details
 var MP_DIGIT_BIT = 26;
 // Digit mask (e.g.: 0x3fffffff for 30 bit long digits)
@@ -4753,6 +4759,93 @@ Bigint.prototype.factorial = function() {
         return bin_split(n);
     }
     return factorial_borwein(n);
-
 };
+
+/*
+   Compute Euler numbers
+   Algorithm is good but won't run sufficiently fast for
+   values above about n = 500.
+   Got E_1000 calulated in slightly over 2 minutes on
+   an old 1GHz AMD-Duron. Not bad for such an old destrier.
+
+   Brent, Richard P., and David Harvey. "Fast computation of Bernoulli, Tangent
+   and Secant numbers." Computational and Analytical Mathematics. Springer New
+   York, 2013. 127-142.
+
+   Preprint: http://arxiv.org/abs/1108.0286
+*/
+Bigint.prototype.euler = function(N) {
+    var n, e, k;
+    var bheuler = function(limit) {
+        var tmp;
+        var j, k, N;
+        var e;
+
+        N = limit + 1;
+
+        if (N < STATIC_EULER_ARRAY_SIZE) {
+            //console.log("Cache hit:" + N);
+            return MP_OKAY;
+        }
+        // calculate the first one hundred to fill the cache
+        // because Euler numbers almost always come in hordes.
+        if (STATIC_EULER_ARRAY_SIZE == 0 && N <
+            STATIC_EULER_ARRAY_PREFILL) {
+            N = STATIC_EULER_ARRAY_PREFILL;
+        }
+        /* For sake of simplicity */
+        //euler_array = malloc(sizeof(mp_int)*N+2);
+        STATIC_EULER_ARRAY = new Array(N + 2);
+        STATIC_EULER_ARRAY[0] = new Bigint(1);
+        for (k = 1; k <= N; k++) {
+            STATIC_EULER_ARRAY[k] = STATIC_EULER_ARRAY[k - 1].mulInt(k);
+        }
+        STATIC_EULER_ARRAY[k] = new Bigint(0);
+
+        for (k = 1; k < N; k++) {
+            for (j = k + 1; j < N; j++) {
+                /* euler_array[j] =  (j-k)*euler_array[j-1]  +   (j-k+1)*euler_array[j] */
+                /* tmp  =  (j-k)*euler_array[j-1]  */
+                tmp = STATIC_EULER_ARRAY[j - 1].mulInt(j - k);
+                /* euler_array[j] =   (j-k+1)*euler_array[j] */
+                STATIC_EULER_ARRAY[j] = STATIC_EULER_ARRAY[j].mulInt(j -
+                    k + 1);
+
+                /* euler_array[j] =   euler_array[j]  + tmp*/
+                STATIC_EULER_ARRAY[j] = STATIC_EULER_ARRAY[j].add(tmp);
+            }
+        }
+        for (k = 0; k < N; k++) {
+            /* Even Euler numbers (if indexed by even n) are negative */
+            if (k & 0x1) {
+                STATIC_EULER_ARRAY[k].sign = MP_NEG;
+            }
+        }
+        STATIC_EULER_ARRAY_SIZE = N;
+        return MP_OKAY;
+    };
+
+    // works for small values only.
+    // Really small values.
+    if (arguments.length == 0 && this.num.used != 1) {
+        return this.copy().setNaN();
+    }
+    // argument given wins over "this". Should it?
+    if (arguments.length == 0) {
+        n = this.num.dp[0];
+    } else {
+        n = N;
+    }
+
+    /* all odd Euler numbers are zero */
+    if ((n & 0x1) && n != 1) {
+        return new Bigint(0);
+    }
+    if ((e = bheuler(Math.floor(n / 2))) != MP_OKAY) {
+        return e;
+    }
+    k = Math.floor(n / 2);
+    return STATIC_EULER_ARRAY[k];
+};
+
 
