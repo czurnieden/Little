@@ -456,6 +456,10 @@ function binomial(n, k) {
         }
         prime = primesieve.nextPrime(prime + 1);
     } while (prime > 0 && prime <= n - k);
+    // we might be done now, check (for {k, n-k} = {2,3}) 
+    if(prime < 0){
+        return compute_factored_factorial(prime_list,K -1,0);
+    }
     do {
         prime_list[K] = prime;
         prime_list[K + 1] = prime_divisors(n, prime);
