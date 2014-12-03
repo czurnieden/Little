@@ -1046,3 +1046,48 @@ function doublefactorial(n) {
         return c;
     }
 }
+function fallingfactorial(n, k) {
+    var prime_list, c;
+    var pix = 0,
+        prime, K, diff;
+
+    if (n < k) {
+        return new Bigint(0);
+    }
+    if (k == 0) {
+        return new Bigint(1);
+    }
+    if (k == 1) {
+        return n.toBigint();
+    }
+    if (k == n) {
+        return factorial(n);
+    }
+    primesieve.fill(n);
+
+    /* One could also count the number of primes in the already filled sieve */
+    pix = primesieve.primePi(n);
+
+    prime_list = new Array(pix * 2);
+    prime = 2;
+    K = 0;
+    do {
+        diff = prime_divisors(n, prime) - prime_divisors(n - k, prime);
+        if (diff != 0) {
+            prime_list[K] = prime;
+            prime_list[K + 1] = diff;
+            K += 2;
+        }
+        prime = primesieve.nextPrime(prime + 1);
+    } while (prime > 0 && prime <= n - k);
+    do {
+        prime_list[K] = prime;
+        prime_list[K + 1] = prime_divisors(n, prime);
+        prime = primesieve.nextPrime(prime + 1);
+        K += 2;
+    } while (prime > 0 && prime <= n);
+
+    c = compute_factored_factorial(prime_list, K - 1, 0);
+    return c;
+}
+
