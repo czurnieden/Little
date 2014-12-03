@@ -14,6 +14,25 @@ var STATIC_EULER_ARRAY;
 var STATIC_EULER_ARRAY_SIZE = 0;
 var STATIC_EULER_ARRAY_PREFILL = 50;
 
+// helper functions   
+// find x in p^x <= n!
+function prime_divisors(n, p) {
+    var q, m;
+    q = n;
+    m = 0;
+    if (p > n) {
+        return 0;
+    }
+    if (p > Math.floor(n / 2)) {
+        return 1;
+    }
+    while (q >= p) {
+        q = Math.floor(q / p);
+        m += q;
+    }
+    return m;
+}
+
 // calculated 100000! in about 8 minutes on my 1GHz Duron
 function factorial(n) {
     // first fifty factorials
@@ -82,24 +101,6 @@ function factorial(n) {
         ]
     ];
     var ret;
-    // helper function: find x in p^x <= n!
-    var prime_divisors = function(n, p) {
-            var q, m;
-            q = n;
-            m = 0;
-            if (p > n) {
-                return 0;
-            }
-            if (p > Math.floor(n / 2)) {
-                return 1;
-            }
-            while (q >= p) {
-                q = Math.floor(q / p);
-                m += q;
-            }
-            return m;
-
-        };
     // The actual binary splitting algorithm
     // A bit more complicated by the lack of factors of two
     var fbinsplit2b = function(n, m) {
@@ -948,7 +949,8 @@ function power_factored_factorials(  input,
   l_product = product.length;
   return [product,product.length];
 }
-
+// computes catalan(10000) in about 2,5 seconds on my good ol' 1GHz Duron
+// a 6015 decimal digits long number.
 function catalan(n) {
     var temp, c;
     if (n == 0 || n == 1) {
@@ -969,5 +971,78 @@ function catalan(n) {
     c = c.div(temp);
     return c;
 }
+// timing is about the same as for the factorial
+function doublefactorial(n) {
+    var prime_list, c;
+    var pix = 0,
+        prime, K, diff;
+    var temp;
 
+    /* it is df(2n + 1) = (2*n)!/(n!*2^n) for odd n */
+    if (n >= MP_INT_MAX >>> 1) {
+        return MP_VAL;
+    }
+    // TODO: make a larger table out of it
+    switch (n) {
+        case -1:
+        case 0:
+            return new Bigint(1);
+            break;
+        case 2:
+            return new Bigint(2);
+            break;
+        case 3:
+            return new Bigint(3);
+            break;
+        case 4:
+            return new Bigint(8);
+            break;
+        case 5:
+            return new Bigint(15);
+            break;
+        case 6:
+            return new Bigint(48);
+            break;
+            /* smallest DIGIT_BIT is 8 */
+        case 7:
+            return new Bigint(105);
+            break;
+        default:
+            break;
+    }
 
+    if (n & 0x1) {
+        n = (n + 1) / 2;
+        primesieve.fill(2 * n + 1);
+
+        pix = primesieve.primePi(2 * n + 1);
+
+        prime_list = new Array(pix * 2);
+
+        prime = 3;
+        K = 0;
+        do {
+            diff = prime_divisors(2 * n, prime) - prime_divisors(n, prime);
+            if (diff != 0) {
+                prime_list[K] = prime;
+                prime_list[K + 1] = diff;
+                K += 2;
+            }
+            prime = primesieve.nextPrime(prime + 1);
+        } while (prime > 0 && prime <= n);
+        do {
+            prime_list[K] = prime;
+            prime_list[K + 1] = prime_divisors(2 * n, prime);
+            K += 2;
+            prime = primesieve.nextPrime(prime + 1);
+        } while (prime > 0 && prime <= 2 * n);
+        c = compute_factored_factorial(prime_list, K - 1, 0);
+        return c;
+    } else {
+        /* Even n */
+        n >>>= 1;
+        c = factorial(n);
+        c.lShiftInplace(n);
+        return c;
+    }
+}
