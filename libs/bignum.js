@@ -128,6 +128,11 @@ var MP_ZPOS = 1;
 // Flag for negative value
 var MP_NEG = -1;
 
+var MP_LONG_MAX = 9007199254740992;
+var MP_LONG_MIN = -9007199254740992;
+var MP_INT_MAX = 0xffffffff;
+var MP_INT_MIN = -0xffffffff;
+
 // Comparing
 // less than
 var MP_LT = -1;
@@ -203,8 +208,9 @@ var BURN_ZIEG_CUTOFF = 3000;
 // Reason: Barrett-division works only with multiplication faster than
 // O(n^2) in theory, in praxi it needs the O(n^1.465) of Toom-Cook 3-way, 2-way
 // does not seem fast enough
-var BARRETT_NUMERATOR   = 3800;
-var BARRETT_DENOMINATOR = 1900;
+// TODO: find the bug
+var BARRETT_NUMERATOR   = 3800000; // was 3800
+var BARRETT_DENOMINATOR = 1900000; // was 1900
 // when to do some rounds of Newton-Raphson to refine mu (the reciprocal) for
 // Barrett-division
 var BARRETT_NEWTON_CUTOFF = 100;
@@ -217,18 +223,6 @@ var NEWTON_NUMERATOR = 8000;
 var NEWTON_DENOMINATOR = 4000;
 // reasonabel general cutoff if the k of N=k*D is not too large
 var NEWTON_CUTOFF = 77000; // >2 mio bits
-
-// Some cutoffs related to factorial computing
-// YMMV, but that's also about the range where the largest
-// multiplications reach Toom-Cook territory
-var FACTORIAL_BORW_LOOP_CUTOFF = 500;
-var FACTORIAL_BORW_PRIMORIAL_CUTOFF = 500;
-var FACTORIAL_BORW_CUTOFF = 500;
-
-// Euler numbers, cache related
-var STATIC_EULER_ARRAY;
-var STATIC_EULER_ARRAY_SIZE = 0;
-var STATIC_EULER_ARRAY_PREFILL = 50;
 
 
 // Bits per digit. See below for details
@@ -926,6 +920,57 @@ Number.prototype.modInv = function(m) {
         t1 += m;
     }
     return t1;
+};
+Number.prototype.abs = function(){
+    return Math.abs(this);
+};
+Number.prototype.gcd = function(n){
+  var x,y,g,temp;
+  if(this.abs() > n.abs()){
+    return n.gcd(this);
+  }
+  x = Math.abs(this);
+  y = Math.abs(n);
+  if(x == 0 && y != 0) return y;
+  if(x != 0 && y == 0) return x;
+  if(x == 0 && y == 0) return 0;
+  if(x == y) return x;
+  if(x == 1 || n == 1) return 1;
+  if(x == 2){
+    if(y.isOdd()) return 1;
+    return 2;
+  }
+  g = 1;
+  if(   x > MP_INT_MAX
+     || y > MP_INT_MAX){
+    while(x.isEven() && y.isEven()){
+      x = Math.floor(x/2);
+      y = Math.floor(y/2);
+      g = Math.floor(g*2);
+    }
+    while(x != 0){
+      while(x.isEven())x = Math.floor(x/2);
+      while(y.isEven())y = Math.floor(y/2);
+      temp =   Math.floor(Math.abs(x-y)/2);
+      if(x>=y)x = temp;
+      else y = temp;
+    }
+    return (g*y);    
+  }
+  else{
+    while(!(x&1) && !(y&1)){
+      x = x>>>1;y = y>>>1;
+          g = g<<1;
+    }
+    while(x != 0){
+      while(!(x&1))x >>>= 1;
+      while(!(y&1))y >>>= 1;
+      temp =   Math.abs(x-y)>>>1;
+      if(x>=y)x = temp;
+      else y = temp;
+    }
+    return (g*y);
+  }
 };
 
 /*
@@ -4506,346 +4551,6 @@ Bigint.prototype.barrettreduce = function(bint) {
         ret = ret.sub(bint);
     }
     return ret;
-};
-
-
-
-Bigint.prototype.factorial = function() {
-    // first fifty factorials
-    var small_factorials = [
-        [1],
-        [1],
-        [2],
-        [6],
-        [24],
-        [120],
-        [720],
-        [5040],
-        [40320],
-        [362880],
-        [3628800],
-        [39916800],
-        [9239552, 7],
-        [53005312, 92],
-        [3876864, 1299],
-        [58152960, 19485],
-        [58032128, 311773],
-        [47022080, 5300155],
-        [41091072, 28293938, 1],
-        [42532864, 713921, 27],
-        [45350912, 14278432, 540],
-        [12845056, 31411630, 11344],
-        [14155776, 19967224, 249578],
-        [57147392, 56592972, 5740300],
-        [29360128, 16054068, 3549492, 2],
-        [62914560, 65807390, 21628441, 51],
-        [25165824, 33270564, 25468579, 1334],
-        [8388608, 25890006, 16563006, 36028],
-        [33554432, 53831531, 61110994, 1008790],
-        [33554432, 17610541, 27388385, 29254936],
-        [0, 3240779, 36938838, 28000939, 405],
-        [0, 36596064, 41192129, 23614833, 12973],
-        [0, 66819424, 17162994, 41092005, 428120],
-        [0, 57267904, 46670917, 54950898, 14556100],
-        [0, 58219584, 22869388, 44233262, 39701480, 7],
-        [0, 15530240, 17991631, 48893572, 19967159, 273],
-        [0, 37747968, 61710579, 64231709, 587405, 10112],
-        [0, 25136640, 63300647, 24885872, 22321426, 384256],
-        [0, 40804864, 52806143, 31024948, 65229260, 14985996],
-        [0, 21581824, 31870960, 33038399, 59033586, 62568966, 8],
-        [0, 12439552, 31640957, 12397098, 4457942, 15190810, 366],
-        [0, 52699136, 53851785, 50916087, 53015843, 34034246, 15381],
-        [0, 51470336, 33925412, 41908127, 65088769, 54186467, 661404],
-        [0, 50102272, 16323153, 32018282, 45333575, 35394350, 29101811],
-        [0, 40009728, 63453278, 31536556, 26744976, 49241908, 34513102,
-            19
-        ],
-        [0, 28508160, 33169663, 41395475, 22309365, 50535274, 44098853,
-            897
-        ],
-        [0, 64815104, 15470308, 66539156, 41907223, 26347653, 59380206,
-            42189
-        ],
-        [0, 24117248, 4377326, 39762891, 65389695, 56727821, 31677618,
-            2025114
-        ],
-        [0, 40894464, 13162399, 2224606, 49978476, 28199852, 8699451,
-            32121745, 1
-        ],
-        [0, 31457280, 54140204, 44121445, 15895833, 706493, 32319387,
-            62583384, 73
-        ]
-    ];
-    var n;
-    var ret;
-    // helper function: find x in p^x <= n!
-    var prime_divisors = function(n, p) {
-            var q, m;
-            q = n;
-            m = 0;
-            if (p > n) {
-                return 0;
-            }
-            if (p > Math.floor(n / 2)) {
-                return 1;
-            }
-            while (q >= p) {
-                q = Math.floor(q / p);
-                m += q;
-            }
-            return m;
-
-        };
-    // The actual binary splitting algorithm
-    // A bit more complicated by the lack of factors of two
-    var fbinsplit2b = function(n, m) {
-            var t1, t2, k;
-            if (m <= (n + 1)) {
-                return n.toBigint();
-            }
-            if (m == (n + 2)) {
-                return (n * m).toBigint();
-            }
-            k = Math.floor((n + m) / 2);
-            if ((k & 1) != 1) {
-                k--;
-            }
-            t1 = fbinsplit2b(n, k);
-            t2 = fbinsplit2b(k + 2, m);
-            return t1.mul(t2);
-        };
-    // binary splitting, sieve out factors of two and feed
-    // the actual splitting algorithm
-    var fbinsplit2a = function(n, p, r) {
-        if (n <= 2){
-            return;
-        }
-        fbinsplit2a(Math.floor(n / 2), p, r);
-        p[0] = p[0].mul(fbinsplit2b(Math.floor(n / 2) + 1 + (Math.floor(
-            n / 2) & 1), n - 1 + (n & 1)));
-        r[0] = r[0].mul(p[0]);
-    };
-    // binary splitting, base function
-    var bin_split = function(n) {
-        var p, r, shift;
-        p = [new Bigint(1)];
-        r = [new Bigint(1)];
-        fbinsplit2a(n, p, r);
-        shift = prime_divisors(n, 2);
-        r[0].lShiftInplace(shift);
-        return r[0];
-    };
-    // compute primorial with binary splitting
-    var primorial__lowlevel = function(array, array_pointer, n, result) {
-            var i, first_half, second_half;
-            var tmp;
-
-            if (n == 0) {
-                result[0] = new Bigint(1);
-                return MP_OKAY;
-            }
-            // Do the rest linearly. Faster for primorials at least,  but YMMV
-            if (n <= 64) {
-                result[0] = array[array_pointer].toBigint();
-                for (i = 1; i < n; i++){
-                    result[0] = result[0].mul(array[array_pointer + i].toBigint());
-                }
-                return MP_OKAY;
-            }
-
-            first_half = Math.floor(n / 2);
-            second_half = n - first_half;
-            primorial__lowlevel(array, array_pointer, second_half, result);
-            tmp = [new Bigint(1)];
-            primorial__lowlevel(array, array_pointer + second_half,
-                first_half, tmp);
-            result[0] = result[0].mul(tmp[0]);
-            return MP_OKAY;
-        };
-    // Borwein trick
-    var factorial_borwein = function(n) {
-        var p_list, arr;
-        var exp_list;
-        var p, i, j, cut;
-        var bit;
-        var shift, e;
-        var temp;
-        var r;
-        var buffer;
-        var result;
-
-        p_list = primesieve.primeRange(3, n);
-        r = p_list.length;
-        buffer = new ArrayBuffer(r * 4);
-        exp_list = new Uint32Array(buffer);
-
-        result = new Bigint(1);
-        shift = prime_divisors(n, 2);
-
-        cut = Math.floor(n / 2);
-
-        for (p = 0; p < r; p++) {
-            if (p_list[p] > cut) {
-                break;
-            }
-            exp_list[p] = prime_divisors(n, p_list[p]);
-        }
-
-        bit = exp_list[0].highBit();
-        if (n < FACTORIAL_BORW_LOOP_CUTOFF) {
-            for (; bit >= 0; bit--) {
-                result = result.sqr();
-                for (i = 0; i < p; i++) {
-                    if ((exp_list[i] & (1 << bit)) != 0) {
-                        result = result.mul(p_list[i].toBigint());
-                    }
-                }
-            }
-        } else {
-            // memory is abundant today, isn't it?
-            buffer = new ArrayBuffer(r * 4);
-            arr = new Uint32Array(buffer);
-            for (; bit >= 0; bit--) {
-                result = result.sqr();
-                temp = [new Bigint(1)];
-                for (i = 0, j = 0; i < p; i++) {
-                    if ((exp_list[i] & (1 << bit)) != 0) {
-                        /*
-                          result = result.mul(p_list[i].toBigint());
-                        */
-                        arr[j++] = p_list[i];
-                    }
-                }
-                primorial__lowlevel(arr, 0, j, temp);
-                result = result.mul(temp[0]);
-            }
-        }
-        if (n < FACTORIAL_BORW_PRIMORIAL_CUTOFF) {
-            for (; p < r; p++) {
-                result = result.mul(p_list[p].toBigint());
-            }
-        } else {
-            temp = [new Bigint(1)];
-
-            p_list = primesieve.primeRange(cut, n);
-
-            primorial__lowlevel(p_list, 0, p_list.length, temp);
-
-            result = result.mul(temp[0]);
-
-        }
-        result.lShiftInplace(shift);
-        return result;
-    };
-
-    if (this.used != 1) {
-        // Result would be larger than 1.497e49,6101,294
-        // but more seriously: must be smaller than the base to work
-        return (new Bigint()).setNaN();
-    }
-    if (this.sign == MP_NEG) {
-        // singularities at the negative integers, all the way down.
-        return (new Bigint()).setInf();
-    }
-    n = this.dp[0];
-    ret = new Bigint();
-    if (n < small_factorials.length) {
-        ret.dp = small_factorials[n];
-        ret.used = ret.dp.length;
-        ret.clamp();
-        return ret;
-    }
-    if (n < FACTORIAL_BORW_CUTOFF) {
-        return bin_split(n);
-    }
-    return factorial_borwein(n);
-};
-
-/*
-   Compute Euler numbers
-   Algorithm is good but won't run sufficiently fast for
-   values above about n = 500.
-   Got E_1000 calulated in slightly over 2 minutes on
-   an old 1GHz AMD-Duron. Not bad for such an old destrier.
-
-   Brent, Richard P., and David Harvey. "Fast computation of Bernoulli, Tangent
-   and Secant numbers." Computational and Analytical Mathematics. Springer New
-   York, 2013. 127-142.
-
-   Preprint: http://arxiv.org/abs/1108.0286
-*/
-Bigint.prototype.euler = function(N) {
-    var n, e, k;
-    var bheuler = function(limit) {
-        var tmp;
-        var j, k, N;
-        var e;
-
-        N = limit + 1;
-
-        if (N < STATIC_EULER_ARRAY_SIZE) {
-            //console.log("Cache hit:" + N);
-            return MP_OKAY;
-        }
-        // calculate the first one hundred to fill the cache
-        // because Euler numbers almost always come in hordes.
-        if (STATIC_EULER_ARRAY_SIZE == 0 && N <
-            STATIC_EULER_ARRAY_PREFILL) {
-            N = STATIC_EULER_ARRAY_PREFILL;
-        }
-        /* For sake of simplicity */
-        //euler_array = malloc(sizeof(mp_int)*N+2);
-        STATIC_EULER_ARRAY = new Array(N + 2);
-        STATIC_EULER_ARRAY[0] = new Bigint(1);
-        for (k = 1; k <= N; k++) {
-            STATIC_EULER_ARRAY[k] = STATIC_EULER_ARRAY[k - 1].mulInt(k);
-        }
-        STATIC_EULER_ARRAY[k] = new Bigint(0);
-
-        for (k = 1; k < N; k++) {
-            for (j = k + 1; j < N; j++) {
-                /* euler_array[j] =  (j-k)*euler_array[j-1]  +   (j-k+1)*euler_array[j] */
-                /* tmp  =  (j-k)*euler_array[j-1]  */
-                tmp = STATIC_EULER_ARRAY[j - 1].mulInt(j - k);
-                /* euler_array[j] =   (j-k+1)*euler_array[j] */
-                STATIC_EULER_ARRAY[j] = STATIC_EULER_ARRAY[j].mulInt(j -
-                    k + 1);
-
-                /* euler_array[j] =   euler_array[j]  + tmp*/
-                STATIC_EULER_ARRAY[j] = STATIC_EULER_ARRAY[j].add(tmp);
-            }
-        }
-        for (k = 0; k < N; k++) {
-            /* Even Euler numbers (if indexed by even n) are negative */
-            if (k & 0x1) {
-                STATIC_EULER_ARRAY[k].sign = MP_NEG;
-            }
-        }
-        STATIC_EULER_ARRAY_SIZE = N;
-        return MP_OKAY;
-    };
-
-    // works for small values only.
-    // Really small values.
-    if (arguments.length == 0 && this.num.used != 1) {
-        return this.copy().setNaN();
-    }
-    // argument given wins over "this". Should it?
-    if (arguments.length == 0) {
-        n = this.num.dp[0];
-    } else {
-        n = N;
-    }
-
-    /* all odd Euler numbers are zero */
-    if ((n & 0x1) && n != 1) {
-        return new Bigint(0);
-    }
-    if ((e = bheuler(Math.floor(n / 2))) != MP_OKAY) {
-        return e;
-    }
-    k = Math.floor(n / 2);
-    return STATIC_EULER_ARRAY[k];
 };
 
 
