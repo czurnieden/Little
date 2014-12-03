@@ -625,7 +625,7 @@ function compute_factored_factorial(f, f_length, stop) {
 }
 
 
-function compute_signed_factored_factorials(f, f_length, do_division) {
+function compute_signed_factored_factorial(f, f_length, do_division) {
     var start = 0,
         i, count = 0,
         neg_count = 0,
@@ -806,7 +806,7 @@ function negate_factored_factorials(input, l_input){
 
 // multiply two factorials
 function add_factored_factorials( summand_1,l_summand_1,
-                                 summand_2,g l_summand_2){
+                                 summand_2, l_summand_2){
   var k, counter=0,sum, l_sum;
   var max_length = Math.max(l_summand_1,l_summand_2);
   var min_length = Math.min(l_summand_1,l_summand_2);
@@ -1077,7 +1077,7 @@ function risingfactorial(n, k) {
     num = factor_factorial(n + k - 1, 1);
     den = factor_factorial(n - 1, 1);
     quot = subtract_factored_factorials(num, num.length, den, den.length);
-    c = compute_signed_factored_factorials(quot[0], quot[1], true);
+    c = compute_signed_factored_factorial(quot[0], quot[1], true);
     return c;
 }
 
@@ -1342,3 +1342,33 @@ function fibonacci(n) {
     r = a.add(b);
     return r;
 }
+// s(n) = prod(0..n,n!)
+// computes s(100) (6941 dec. digits) in about half a second on my old
+// 1 GHz Duron, iterative multiplication needs about two seconds with the
+// first 50 factorials pre-computed. The mass of pre-computed factorials
+// have less influence in the case of S(200) (33447 dec. dig.) with about
+// 40 seconds and 5 seconds respectively.
+function superfactorial(n) {
+    var t, tl, s, sl, sum;
+    var i, length_t, length_s;
+    var e;
+    if (n < 2) {
+        return new Bigint(1);
+    }
+    if (n == 2) {
+        return new Bigint(2);
+    }
+    s = factor_factorial(2, 0);
+    sl = s.length;
+    for (i = 3; i <= n; i++) {
+        t = factor_factorial(i, 1);
+        sum = add_factored_factorials(s, sl, t, t.length)
+        s = sum[0];
+        sl = sum[1];
+        s.length = sl
+        t = null;
+    }
+    return compute_factored_factorial(s, sl, 0);
+}
+
+
