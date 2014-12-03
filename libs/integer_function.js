@@ -793,24 +793,14 @@ function add_factored_factorials( summand_1,l_summand_1,
   var max_length = Math.max(l_summand_1,l_summand_2);
   var min_length = Math.min(l_summand_1,l_summand_2);
   var s,p, s_1,s_2;
-  /* For more detailed comments see mp_subtract_factored_factorials() */
+  /* For a more detailed comments see subtract_factored_factorials() */
   sum = new Array(max_length+1);
 
   for(k=0;k<min_length;k+=2){
     p = summand_1[k];
-    /* Over/underflow possible! */
     /*s = summand_1[k+1] + summand_2[k+1];*/
     s_1 = summand_1[k+1];
     s_2 = summand_2[k+1];
-
-    if((s_2 > 0) && (s_1 > MP_DIGIT_MAX - s_2)){
-      /* overflow */
-      return MP_VAL;
-    }
-    if((s_2 < 0) && (s_1 < -MP_DIGI_MAX - s_2)){
-      /* underflow */
-      return MP_VAL;
-    }
     s = s_1 + s_2;
     sum[counter]   = p;
     sum[counter+1] = s;
@@ -834,28 +824,14 @@ function add_factored_factorials( summand_1,l_summand_1,
       counter += 2;
     } 
   }
-  l_sum = sum.length;
+  l_sum = counter;
   return [sum, l_sum];
 }
 
 
 
 // divide two factorials (binom. etc.)
-function subtract_factored_factorials( subtrahend,
-                                    l_subtrahend,
-                                     minuend,
-                                     l_minuend
-                                    ){
-  var k, counter=0,difference, l_difference;
-  var max_length = Math.max(l_subtrahend,l_minuend );
-  var min_length = Math.min(l_subtrahend,l_minuend );
-  var d,p,d_1,d_2;
-  /* TODO: check for sizes > 0 here */
-
-  /* Things work a bit different from ordinary arithmetic from now on */
-  difference = new Array(max_length+1);
-
-
+console.log(subtrahend.join(","))
   /* Loop over smaller chunk first */
   for(k=0;k<min_length;k+=2){
     /* both have same length, we can take the value of the prime from any */
@@ -863,18 +839,12 @@ function subtract_factored_factorials( subtrahend,
     /*d = subtrahend[k+1] - minuend[k+1];*/
     d_1 = subtrahend[k+1];
     d_2 = minuend[k+1];
-    /* handle over/underflow */
-    if((d_2 > 0) && (d_1 < MP_DIGIT_MAX + d_2)){
-      return MP_VAL;
-    }
-    if((d_2 < 0) && (d_1 > -MP_DIGI_MAX + d_2)){
-      return MP_VAL;
-    }
     d = d_1 - d_2;
     difference[counter]   = p;
     difference[counter+1] = d;
     counter += 2;
   }
+
   /* We need to find out which one is the smaller array and we have basically
      two ways to approach the problem:
        a) complicated and error-prone pointer juggling
@@ -886,7 +856,7 @@ function subtract_factored_factorials( subtrahend,
     /* We made nothing dirty, so there's nothing to clean up here, let's just
        grab our stuff and run */
     l_difference = counter;
-    return MP_OKAY;
+    return [difference, l_difference];
   }
 
   /* If the subtrahend is bigger we subtract zeros, so simply copy */
@@ -903,18 +873,14 @@ function subtract_factored_factorials( subtrahend,
   else{
     for(k=min_length;k<max_length;k+=2){
       p = minuend[k];
-      /* Yes, even negation can overflow */
       d_1 = minuend[k+1];
-      if(d_1 == MP_DIGI_MAX){
-        return MP_VAL;
-      }
       d = -d_1;
       difference[counter]   = p;
       difference[counter+1] = d;
       counter += 2;
     } 
   }
-  l_difference = difference.length;
+  l_difference = counter;
   return [difference, l_difference]; 
 }
 
@@ -937,17 +903,14 @@ function power_factored_factorials(  input,
     /*prod = input[k+1] * multiplicator;*/
     p_1 = input[k+1];
     temp = p * p_1;
-    if ((temp >= MP_DIGIT_MAX) || (tmp <= -MP_DIGIT_MAX)) {
-      return MP_VAL;
-    }
     prod = temp;
     product[counter]   = p;
     product[counter+1] = prod;
     counter += 2;
   }
 
-  l_product = product.length;
-  return [product,product.length];
+  l_product = counter;
+  return [product,counter];
 }
 // computes catalan(10000) in about 2,5 seconds on my good ol' 1GHz Duron
 // a 6015 decimal digits long number.
@@ -1091,3 +1054,11 @@ function fallingfactorial(n, k) {
     return c;
 }
 
+function risingfactorial(n, k) {
+    var c, num, den, quot;
+    num = factor_factorial(n + k - 1, 1);
+    den = factor_factorial(n - 1, 1);
+    quot = subtract_factored_factorials(num, num.length, den, den.length);
+    c = compute_signed_factored_factorials(quot[0], quot[1], true);
+    return c;
+}
