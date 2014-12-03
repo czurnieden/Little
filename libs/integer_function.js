@@ -1062,3 +1062,30 @@ function risingfactorial(n, k) {
     c = compute_signed_factored_factorials(quot[0], quot[1], true);
     return c;
 }
+
+function subfactorial(n) {
+    var k, temp1, temp2, ret;
+    if (!n.isInt()) return MP_VAL;
+    if (n < 0) {
+        return MP_VAL;
+    }
+    if (n == 0) {
+        return new Bigint(1);
+    }
+    if (n == 1) {
+        return new Bigint(0);
+    }
+    if (n == 2) {
+        return new Bigint(1);
+    }
+    temp1 = new Bigint(0);
+    ret = new Bigint(1);
+    for (k = 3; k <= n; k++) {
+        temp2 = temp1;
+        temp1 = ret;
+        ret = temp1.add(temp2).mulInt(k - 1);
+    }
+    return ret;
+}
+
+
