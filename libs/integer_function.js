@@ -462,7 +462,7 @@ function binomial(n, k) {
         prime = primesieve.nextPrime(prime + 1);
         K += 2;
     } while (prime > 0 && prime <= n);
-    c = compute_factored_factorial(prime_list, prime_list.length, 0)
+    c = compute_factored_factorial(prime_list, K - 1, 0)
     return c;
 }
 // some more general functions to do arithmetic with factored integers
@@ -1088,4 +1088,55 @@ function subfactorial(n) {
     return ret;
 }
 
+var STATIC_STIRLING1_CACHE;
+var STATIC_STIRLING1_CACHE_N = -1;
+var STATIC_STIRLING1_CACHE_M = -1;
 
+function stirling1(n, m) {
+    var i, j, k;
+    if (n < 0) return MP_VAL;
+    if (m < 0) return MP_VAL;
+    if (n < m) return 0;
+    if (n == m) return 1;
+    if (m == 0 || n == 0) return 0;
+    if (STATIC_STIRLING1_CACHE_N >= n && STATIC_STIRLING1_CACHE_M >= m) {
+        return STATIC_STIRLING1_CACHE[n][m];
+    } else {
+        STATIC_STIRLING1_CACHE = new Array(n + 1);
+        for (i = 0; i < n + 1; i++) {
+            STATIC_STIRLING1_CACHE[i] = new Array(m + 1);
+            for (j = 0; j < m + 1; j++) {
+                STATIC_STIRLING1_CACHE[i][j]= new Bigint(0);
+            }
+        }
+        STATIC_STIRLING1_CACHE[0][0] = new Bigint(1);
+        for (i = 1; i <= n; i++) {
+            for (j = 1; j <= m; j++) {
+                if (j <= i) {
+                    STATIC_STIRLING1_CACHE[i][j] =
+                        STATIC_STIRLING1_CACHE[i - 1][j - 1]
+                    .sub(STATIC_STIRLING1_CACHE[i - 1][j].mulInt(i - 1));
+                }
+            }
+        }
+        STATIC_STIRLING1_CACHE_N = n;
+        STATIC_STIRLING1_CACHE_M = m;
+
+        return STATIC_STIRLING1_CACHE[n][m];
+    }
+}
+
+function free stirling1cache(){
+    var i,j,l1,l2;
+    l1 = STATIC_STIRLING1_CACHE.length;
+    l2 = STATIC_STIRLING1_CACHE[0].length;
+    for(i = 0; i< l1; i++){
+        for(j = 0; j< l2; j++){
+            STATIC_STIRLING1_CACHE[i][j].free();
+            STATIC_STIRLING1_CACHE[i][j] = null;
+        }
+    }
+    STATIC_STIRLING1_CACHE = null;
+    STATIC_STIRLING1_CACHE_N = -1;
+    STATIC_STIRLING1_CACHE_M = -1;
+}
