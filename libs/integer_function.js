@@ -456,7 +456,7 @@ function binomial(n, k) {
         }
         prime = primesieve.nextPrime(prime + 1);
     } while (prime > 0 && prime <= n - k);
-    // we might be done now, check (for {k, n-k} = {2,3}) 
+    // we might be done now (for {k, n-k} = {2,3}) 
     if(prime < 0){
         return compute_factored_factorial(prime_list,K -1,0);
     }
@@ -1143,4 +1143,105 @@ function free stirling1cache(){
     STATIC_STIRLING1_CACHE = null;
     STATIC_STIRLING1_CACHE_N = -1;
     STATIC_STIRLING1_CACHE_M = -1;
+}
+
+function stirling2(n, m) {
+    var k, sum, t1, t2, sign;
+    if (n < 0) return MP_VAL;
+    if (m < 0) return MP_VAL;
+    if (n < m) return new Bigint(0);
+    if (n == 0 && n != m) return new Bigint(0);
+    if (n == m) return new Bigint(1);
+    if (m == 0) return new Bigint(0);
+    if (m == 1) return new Bigint(1);
+    if (m == 2) {
+        // 2^(n-1)-1
+        k = new Bigint(1);
+        k.lShiftInplace(n - 1);
+        k.decr();
+        return k;
+    }
+    /*
+      There are different methods to speed up alternating sums.
+      This one does not use any of them.
+     */
+    sum = new Bigint(0);
+    for (k = 0; k <= m; k++) {
+        //sum += (-1)^(m-k)*binomial(m,k)*k^n;
+        sign = ((m - k).isEven()) ? MP_ZPOS : MP_NEG;
+        t1 = k.bigpow(n);
+        t1.sign = sign;
+        t2 = binomial(m, k);
+        t1 = t1.mul(t2);
+        sum = sum.add(t1);
+    }
+    return sum.div(factorial(m))
+}
+
+var STATIC_STIRLING2_CACHE;
+var STATIC_STIRLING2_CACHE_N = -1;
+var STATIC_STIRLING2_CACHE_M = -1;
+
+function stirling2caching(n, m) {
+    var nm, i, j;
+    if (n < 0) return MP_VAL;
+    if (m < 0) return MP_VAL;
+    /* no shortcuts here */
+
+    if (n < m) return new Bigint(0);
+    if (n == 0 && n != m) return new Bigint(0);
+    if (n == m) return new Bigint(1);
+    if (m == 0) return new Bigint(0);
+    if (m == 1) return new Bigint(1);
+    if (m == 2) {
+        // 2^(n-1)-1
+        k = new Bigint(1);
+        k.lShiftInplace(n - 1);
+        k.decr();
+        return k;
+    }
+    nm = n - m;
+
+    if (STATIC_STIRLING2_CACHE_N >= n && STATIC_STIRLING2_CACHE_M >= m) {
+        return STATIC_STIRLING2_CACHE[n][m];
+    } else {
+        STATIC_STIRLING2_CACHE = new Array(n + 1);
+        for (i = 0; i < n + 1; i++) {
+            STATIC_STIRLING2_CACHE[i] = new Array(m + 1);
+            for (j = 0; j < m + 1; j++) {
+                STATIC_STIRLING2_CACHE[i][j] = new Bigint(0);
+            }
+        }
+        STATIC_STIRLING2_CACHE[0][0] = new Bigint(1);
+
+        for (i = 1; i <= n; i++) {
+            for (j = 1; j <= m; j++) {
+                if (j <= i) {
+                    STATIC_STIRLING2_CACHE[i][j] =
+                        STATIC_STIRLING2_CACHE[i - 1][j - 1]
+                        .add(STATIC_STIRLING2_CACHE[i - 1][j].mulInt(j));
+
+                }
+            }
+        }
+    }
+    STATIC_STIRLING2_CACHE_N = n;
+    STATIC_STIRLING2_CACHE_M = m;
+
+    return STATIC_STIRLING2_CACHE[n][m];
+}
+
+function free stirling2cache(){
+    var i,j,l1,l2;
+    l1 = STATIC_STIRLING2_CACHE.length;
+    l2 = STATIC_STIRLING2_CACHE[0].length;
+    for(i = 0; i< l1; i++){
+        for(j = 0; j< l2; j++){
+            STATIC_STIRLING2_CACHE[i][j].free();
+            STATIC_STIRLING2_CACHE[i][j] = null;
+        }
+    }
+    STATIC_STIRLING2_CACHE = null;
+    STATIC_STIRLING2_CACHE_N = -1;
+    STATIC_STIRLING2_CACHE_M = -1;
 }
