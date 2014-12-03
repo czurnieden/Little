@@ -270,7 +270,20 @@ function factorial(n) {
 };
 
 /*
-   Compute Euler numbers
+   Compute Euler (secant, "zig") numbers
+
+   This algorithm computes the signed variant.
+   The (unsigned) zig-zag (up/down) Euler numbers
+   can be computed with
+
+   (-1)^k euler(2k) and a(2k-1) = (-1)^(k-1)2^(2k)(2^(2k)-1)bernoulli(2k)/(2k)
+
+   (From OEIS: A000111 by Ronaldo (aga_new_ac(AT)hotmail.com), Jan 17 2005)
+
+   The author of this program (Hey, that's me!) had no need for them but they
+   can be easily computed from the tangent numbers, too. Just drop a note if
+   you need it.
+
    Algorithm is good but won't run sufficiently fast for
    values above about n = 500.
    Got E_1000 calulated in slightly over 2 minutes on
@@ -1245,4 +1258,87 @@ function free stirling2cache(){
     STATIC_STIRLING2_CACHE = null;
     STATIC_STIRLING2_CACHE_N = -1;
     STATIC_STIRLING2_CACHE_M = -1;
+}
+
+function bell(n) {
+    var sum, s2list, k, A;
+
+    if (!n.isInt()) return MP_VAL;
+    if (n < 0) return MP_VAL;
+    /* place some more shortcuts here?*/
+    if (n <= 15) {
+        var A = [
+            1, 1, 2, 5, 15, 52, 203, 877, 4140, 21147, 115975, 678570,
+            4213597, 27644437, 190899322, 1382958545
+        ];
+        return A[n];
+    }
+    /* Start by generating the list of stirling numbers of the second kind */
+    s2list = stirling2caching(n + 1, n);
+    sum = new Bigint(0);
+    for (k = 1; k <= n; k++) {
+        sum = sum.add(stirling2caching(n, k));
+    }
+    return sum;
+}
+
+// up to f_76
+function smallfibonacci(n) {
+    var i = 1,
+        j = 0,
+        k, l;
+    for (k = 1; k <= n; k++) {
+        l = i + j;
+        i = j;
+        j = l;
+    }
+    return j;
+}
+
+/* matrix expo. */
+function fibonacci(n) {
+    var i = n - 1,
+        r;
+    var a, b, c, d, t, t1, t2, t3;
+    var e;
+
+    if (n <= 76) {
+        return smallfibonacci(n).toBigint();
+    }
+
+    a = new Bigint(1);
+    b = new Bigint(0);
+    c = new Bigint(0);
+    d = new Bigint(1);
+
+    while (i > 0) {
+        if (i & 0x1) {
+            //t = d*(a + b) + c*b;
+            t1 = c.mul(b);
+            t2 = a.add(b);
+            t3 = d.mul(t2);
+            t = t3.add(t1);
+
+            //a = d*b + c*a;
+            t1 = d.mul(b);
+            t2 = c.mul(a);
+            a = t1.add(t2);
+            //b = t;
+            b = t.copy();
+        }
+        //t = d*(2*c + d);
+        t1 = c.lShift(1);
+        t2 = t1.add(d);
+        t = d.mul(t2);
+
+        //c = c*c + d*d;
+        t1 = c.sqr();
+        t2 = d.sqr();
+        c = t1.add(t2);
+        //d = t;
+        d = t.copy();
+        i >>>= 1;
+    }
+    r = a.add(b);
+    return r;
 }
