@@ -1066,6 +1066,11 @@ Bigint.prototype.clamp = function() {
     this.alloc = this.used;
 };
 
+// unify
+Bigint.prototype.sign = function() {
+    return this.sign;
+};
+
 // print all four bytes even if zero (little endian). toString(16) does not
 // do that
 Number.prototype.toHex32 = function(uppercase) {
@@ -4513,6 +4518,57 @@ Bigint.prototype.mask = function(n){
     this.sign = MP_ZPOS;
     return;
 };
+
+Bigint.prototype.jacobi = function(p) {
+    var aprime, k, s, r, pdigit, adigit, pprime;
+    if (this.sign == MP_NEG || p.sign == MP_NEG) {
+        return MP_VAL;
+    }
+    if (p.used == 1 && (p.dp[0] < 3 || p.dp[0].isEven())) {
+        return MP_VAL;
+    }
+    if (this.used == 1) {
+        if (this.dp[0] == 0 || this.dp[0] == 1) {
+            return this.dp[0];
+        }
+    }
+    s = 0;
+    aprime = this.copy();
+    /*
+       Stripping trailing zeros is the same as
+       while(aprime.used > 0 && aprime.dp[0].isEven()){
+           aprime = aprime.divInt(2);
+       }
+       To be even the number must end in a zero bit and the
+       division by two can be replaced by a shift right by one.
+    */
+    k = aprime.lowBit();
+    aprime.rShiftInplace(k);
+    if (k.isEven()) {
+        s = 1;
+    } else {
+        pdigit = p.dp[0]
+        r = pdigit & 7; // equiv. to: r = pdigit % 8;
+        if (r == 1 || r == 7) {
+            s = 1;
+        } else {
+            s = -1;
+        }
+    }
+    pdigit = p.dp[0];
+    adigit = aprime.dp[0];
+    // equiv. to:
+    // if(pdigit % 4 == 3 && adigit % 4 == 3){
+    if (pdigit & 3 == 3 && adigit & 3 == 3) {
+        s = -s;
+    }
+    if (!aprime.isOne()) {
+        pprime = p.rem(aprime);
+        s = s * pprime.jacobi(aprime);
+    }
+    return s;
+};
+
 
 /*
      Modular arithmetic
