@@ -4573,6 +4573,123 @@ Bigint.prototype.jacobi = function(p) {
 /*
      Modular arithmetic
 */
+
+Bigint.prototype.modInv = function(b) {
+    var x, y, u, v, A, B, C, D;
+    if (b.sign == MP_NEG) {
+        return MP_VAL;
+    }
+    if (b.dp[0].isOdd()) {
+        return this.fastModInv(b);
+    }
+    x = this.rem(b);
+    y = b.copy();
+    if (x.isEven() && y.isEven()) {
+        return MP_VAL;
+    }
+    /* 3. u=x, v=y, A=1, B=0, C=0,D=1 */
+    u = x.copy();
+    v = y.copy();
+    A = new Bigint(1);
+    B = new Bigint(0);
+    C = new Bigint(0);
+    D = new Bigint(1);
+    while (!u.isZero()) {
+        while (u.used > 0 && u.isEven()) {
+            u.rShiftInplace(1);
+            if ((A.used > 0 && A.isOdd()) || (B.used > 0 && B.isOdd())) {
+                A = A.add(y);
+                B = B.sub(x);
+            }
+            A.rShiftInplace(1);
+            B.rShiftInplace(1);
+        }
+        while (v.used > 0 && v.isEven()) {
+            v.rShiftInplace(1);
+            if ((C.used > 0 && C.isOdd()) || (D.used > 0 && D.isOdd())) {
+                C = C.add(y);
+                D = D.sub(x);
+            }
+            C.rShiftInplace(1);
+            D.rShiftInplace(1);
+        }
+        if (u.cmp(v) != MP_LT) {
+            u = u.sub(v);
+            A = A.sub(C)
+            B = B.sub(D);
+        } else {
+            v = v.sub(u);
+            C = C.sub(A);
+            D = D.sub(B);
+        }
+    }
+    if (!v.isOne()) {
+        return MP_VAL;
+    }
+    while (C.sign == MP_NEG || C.isZero()) {
+        C = C.add(b);
+    }
+    while (C.cmp(b) != MP_LT) {
+        C = C.sub(b);
+    }
+    return C;
+};
+
+
+Bigint.prototype.fastModInv = function(b) {
+    var x, y, u, v, A, B, C, D;
+    if (b.sign == MP_NEG) {
+        return MP_VAL;
+    }
+    // The author insists on being mean instead of just brutal
+    if (b.dp[0].isEven()) {
+        return this.modInv(b);
+    }
+    y = this.rem(b);
+    x = b.copy();
+    if (y.isEven()) {
+        return MP_VAL;
+    }
+    /* 3. u=x, v=y, A=1, B=0, C=0,D=1 */
+    u = x.copy();
+    v = y.copy();
+    B = new Bigint(0);
+    D = new Bigint(1);
+    while (!u.isZero()) {
+        while (u.used > 0 && u.isEven()) {
+            u.rShiftInplace(1);
+            if ((B.used > 0 && B.isOdd())) {
+                B = B.sub(x);
+            }
+            B.rShiftInplace(1);
+        }
+        while (v.used > 0 && v.isEven()) {
+            v.rShiftInplace(1);
+            if ((D.used > 0 && D.isOdd())) {
+                D = D.sub(x);
+            }
+            D.rShiftInplace(1);
+        }
+        if (u.cmp(v) != MP_LT) {
+            u = u.sub(v);
+            B = B.sub(D);
+        } else {
+            v = v.sub(u);
+            D = D.sub(B);
+        }
+    }
+    if (!v.isOne()) {
+        return MP_VAL;
+    }
+    while (D.sign == MP_NEG || D.isZero()) {
+        D = D.add(b);
+    }
+    D.sign = this.sign;
+    return D;
+};
+
+
+
 // Barrett reduction, slower than division
 Bigint.prototype.barrettreduce = function(bint) {
     var calcmu = function(m, b) {
