@@ -2309,10 +2309,21 @@ Bigint.prototype.mul = function(bi, flag) {
         }
         return ret;
     }
+
+    if(a.used == 1 && b.used == 1){
+        asign = (a.sign != b.sign)?MP_NEG:MP_ZPOS;
+        ret = a.dp[0] * b.dp[0] ;
+        ret = ret.toBigint();
+        ret.sign = asign;
+        return ret;
+    }
+   
     // Check if smaller number is small enough for mulInt()
     if (b.used == 1) {
-        bsign = (b.sign == MP_NEG)?-1:1;
-        return a.mulInt(b.dp[0] * bsign);
+        asign = (a.sign != b.sign)?MP_NEG:MP_ZPOS;
+        ret =  a.mulInt(b.dp[0]);
+        ret.sign = asign;
+        return ret;
     }
 
     // compute with abs. values
