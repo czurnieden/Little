@@ -1896,6 +1896,13 @@ Bigint.prototype.numSetBits = function() {
         return count;
     }
 };
+// returns 1 (one) if this is zero
+Bigint.prototype.digits = function() {
+    var log102 = Math.log(10) / Math.log(2);
+    var log2 = this.highBit();
+    return Math.floor(log2 / log102) + 1;
+};
+
 // TODO: check input!
 // shift left big-digit-wise
 Bigint.prototype.dlShift = function(i) {
