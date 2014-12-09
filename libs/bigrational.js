@@ -777,7 +777,7 @@ Bigrational.prototype.round = function(prec) {
     // second short cut if the actual denominator is already lower
     // Yes, that means raising precision, like in floating point
     // numbers is possible by adding zeros but not needed at all.
-    if (this.den.cmp(prec) != MP_GT) {
+    if (this.den.cmp(bprec) != MP_GT) {
         return this.copy();
     }
     // initialize the two convergents
