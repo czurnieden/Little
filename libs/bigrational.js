@@ -257,58 +257,58 @@ Bigrational.prototype.normalize = function() {
     return MP_OKAY;
 };
 // -1/(2^eps) < 0 < 1/(2^eps)
-Bigrational.prototype.isEpsZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var n, d;
-    if(this.isZero()){
+    if (this.isZero()) {
         return true;
     }
     n = this.num.highBit();
     d = this.den.highBit();
-    if ( (d - n) >= EPS){
+    if ((d - n) >= EPS) {
         return true;
     }
     return false;
 };
 // compares against 0 - 1/(2^eps)
-Bigrational.prototype.isEpsLowerZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsLowerZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var negZero, den, cmp;
-    if(this.isZero()){
+    if (this.isZero()) {
         return false;
     }
-    negZero = new Bigrational(-1,1);
+    negZero = new Bigrational(-1, 1);
     den = new Bigint(1);
     den.lShiftInplace(EPS);
     negZero.den = den;
     cmp = this.cmp(negZero);
-    if(cmp == MP_LT){
+    if (cmp == MP_LT) {
         return true;
     }
     return false;
 };
 // compares against 0 + 1/(2^eps)
-Bigrational.prototype.isEpsGreaterZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsGreaterZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var posZero, den, cmp;
-    if(this.isZero()){
+    if (this.isZero()) {
         return false;
     }
-    posZero = new Bigrational(1,1);
+    posZero = new Bigrational(1, 1);
     den = new Bigint(1);
     den.lShiftInplace(EPS);
     posZero.den = den;
     cmp = this.cmp(posZero);
-    if(cmp == MP_GT){
+    if (cmp == MP_GT) {
         return true;
     }
     return false;
 };
 // might be useful for rationals.
-Bigrational.prototype.isLowerOne = function(){
-    var one = new Bigrational(1,1);
+Bigrational.prototype.isLowerOne = function() {
+    var one = new Bigrational(1, 1);
     var cmp = this.cmp(one);
-    if(cmp == MP_LT){
+    if (cmp == MP_LT) {
         return true;
     }
     return false;
@@ -346,18 +346,18 @@ Bigrational.prototype.add = function(brat) {
     }
 
     var d1 = b.gcd(d);
-    if(d1.isOne()){
+    if (d1.isOne()) {
         ret.num = a.mul(d).add(b.mul(c));
         ret.den = b.mul(d);
         ret.sign = ret.num.sign;
         ret.den.sign = MP_ZPOS;
         return ret;
     }
-    var t = a.mul( d.div(d1) ).add( c.mul( b.div(d1) ) );
+    var t = a.mul(d.div(d1)).add(c.mul(b.div(d1)));
     var d2 = t.gcd(d1);
 
     ret.num = t.div(d2);
-    ret.den = b.div(d1).mul( d.div(d2) );
+    ret.den = b.div(d1).mul(d.div(d2));
 
     ret.sign = ret.num.sign;
     ret.den.sign = MP_ZPOS;
@@ -393,18 +393,18 @@ Bigrational.prototype.sub = function(brat) {
     }
 
     var d1 = b.gcd(d);
-    if(d1.isOne()){
+    if (d1.isOne()) {
         ret.num = a.mul(d).sub(b.mul(c));
         ret.den = b.mul(d);
         ret.sign = ret.num.sign;
         ret.den.sign = MP_ZPOS;
         return ret;
     }
-    var t = a.mul( d.div(d1) ).sub( c.mul( b.div(d1) ) );
+    var t = a.mul(d.div(d1)).sub(c.mul(b.div(d1)));
     var d2 = t.gcd(d1);
 
     ret.num = t.div(d2);
-    ret.den = b.div(d1).mul( d.div(d2) );
+    ret.den = b.div(d1).mul(d.div(d2));
 
     ret.sign = ret.num.sign;
     ret.den.sign = MP_ZPOS;
@@ -434,9 +434,9 @@ Bigrational.prototype.mul = function(brat) {
     var d1 = a.gcd(d);
     var d2 = b.gcd(c);
 
-    ret.num = a.div(d1).mul( c.div(d2) );
-    ret.den = b.div(d2).mul( d.div(d1) );
-    ret.sign = (this.sign != brat.sign)?MP_NEG:MP_ZPOS;
+    ret.num = a.div(d1).mul(c.div(d2));
+    ret.den = b.div(d2).mul(d.div(d1));
+    ret.sign = (this.sign != brat.sign) ? MP_NEG : MP_ZPOS;
     ret.num.sign = ret.sign;
     ret.den.sign = MP_ZPOS;
     return ret;
@@ -468,33 +468,33 @@ Bigrational.prototype.sqr = function() {
 };
 // works on copy
 Bigrational.prototype.reciprocal = function() {
-   var num = this.num.copy();
-   var den = this.den.copy();
-   var ret;
-   den.sign = num.sign;
-   num.sign = MP_ZPOS;
-   ret = new Bigrational(den, num);
-   ret.sign = this.sign;
-   return ret;
+    var num = this.num.copy();
+    var den = this.den.copy();
+    var ret;
+    den.sign = num.sign;
+    num.sign = MP_ZPOS;
+    ret = new Bigrational(den, num);
+    ret.sign = this.sign;
+    return ret;
 };
 // works in-place
 Bigrational.prototype.inverse = function() {
-   var temp = this.num;
-   this.num = this.den;
-   this.den = temp;
-   this.num.sign = this.den.sign;
-   this.den.sign = MP_ZPOS;
+    var temp = this.num;
+    this.num = this.den;
+    this.den = temp;
+    this.num.sign = this.den.sign;
+    this.den.sign = MP_ZPOS;
 };
 
 Bigrational.prototype.div = function(brat) {
     var a = this;
-    if(brat.num.isZero()){
+    if (brat.num.isZero()) {
         return (new Bigrational()).setNaN();
     }
     brat.inverse();
     var ret = a.mul(brat);
     brat.inverse();
-    ret.sign = (this.sign != brat.sign)?MP_NEG:MP_ZPOS;
+    ret.sign = (this.sign != brat.sign) ? MP_NEG : MP_ZPOS;
     ret.num.sign = ret.sign;
     ret.den.sign = MP_ZPOS;
     return ret;
@@ -616,7 +616,7 @@ Bigrational.prototype.toString = function(base) {
     if (this.isNaN()) {
         return "NaN";
     }
-    return  this.num.toString(base) + "/" + this.den.toString(base);
+    return this.num.toString(base) + "/" + this.den.toString(base);
 };
 
 String.prototype.toBigrational = function(base) {
@@ -663,41 +663,44 @@ Number.prototype.toBigrational = function() {
     return fp;
 };
 
-Bigrational.prototype.isBitPrecision = function(){
+Bigrational.prototype.isBitPrecision = function() {
     return this.den.highBit();
 };
 
-Bigrational.prototype.isDecPrecision = function(){
-    return Math.floor( this.den.highBit() / (Math.log(10)/Math.log(2)))+1;
+Bigrational.prototype.isDecPrecision = function() {
+    return Math.floor(this.den.highBit() / (Math.log(10) / Math.log(2))) +
+        1;
 };
 
-Bigrational.prototype.fitsBitPrecision = function(eps){
-    var EPS = (arguments.length == 1)?eps: BIGRATIONAL_PRECISION;
-    if(this.den.highBit() <= EPS){
+Bigrational.prototype.fitsBitPrecision = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
+    if (this.den.highBit() <= EPS) {
         return true;
     }
     return false;
 };
-Bigrational.prototype.fitsDecPrecision = function(eps){
-    var EPS = (arguments.length == 1)?eps: BIGRATIONAL_DECIMAL_PRECISION;
-    var log10den = Math.floor( this.den.highBit() / (Math.log(10)/Math.log(2)))+1;
-    if(log10den <= EPS){
+Bigrational.prototype.fitsDecPrecision = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_DECIMAL_PRECISION;
+    var log10den = Math.floor(this.den.highBit() / (Math.log(10) / Math.log(
+        2))) + 1;
+    if (log10den <= EPS) {
         return true;
     }
     return false;
 };
-function setDecPrecision(eps){
-    var EPS = (arguments.length == 1)?eps: BIGRATIONAL_DECIMAL_PRECISION;
+
+function setDecPrecision(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_DECIMAL_PRECISION;
     BIGRATIONAL_DECIMAL_PRECISION = EPS;
-    EPS = Math.floor(EPS * (Math.log(10)/Math.log(2)));
+    EPS = Math.floor(EPS * (Math.log(10) / Math.log(2)));
     BIGRATIONAL_PRECISION = EPS;
     return EPS;
 }
 
-function setBitPrecision(eps){
-    var EPS = (arguments.length == 1)?eps: BIGRATIONAL_PRECISION;
+function setBitPrecision(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     BIGRATIONAL_PRECISION = EPS;
-    EPS = Math.floor(EPS / (Math.log(10)/Math.log(2))) +1;
+    EPS = Math.floor(EPS / (Math.log(10) / Math.log(2))) + 1;
     BIGRATIONAL_DECIMAL_PRECISION = EPS;
     return EPS;
 }
@@ -741,7 +744,7 @@ Bigrational.prototype.fastround = function(prec) {
         den = t2.sub(t.mul(den));
     }
 
-    ret =  new Bigrational(num1,den1);
+    ret = new Bigrational(num1, den1);
     ret.sign = this.sign;
     ret.num.sign = ret.sign;
     ret.den.sign = MP_ZPOS;
@@ -759,10 +762,11 @@ Bigrational.prototype.fastround = function(prec) {
 Bigrational.prototype.round = function(prec) {
     var num = this.num.copy();
     var den = this.den.copy();
-    var cf,median,num0, den0, num1, den1, den2, lf, uf,t1,t2,bprec, ret;
+    var cf, median, num0, den0, num1, den1, den2, lf, uf, t1, t2, bprec,
+        ret;
     // TODO: checks & balances
     // first shortcut: we don't treat integers
-    if(this.isInt()){
+    if (this.isInt()) {
         return this.copy();
     }
     // the precision is given in bits, we make a number out of it
@@ -773,8 +777,8 @@ Bigrational.prototype.round = function(prec) {
     // second short cut if the actual denominator is already lower
     // Yes, that means raising precision, like in floating point
     // numbers is possible by adding zeros but not needed at all.
-    if(this.den.cmp(prec) != MP_GT){
-         return this.copy();
+    if (this.den.cmp(prec) != MP_GT) {
+        return this.copy();
     }
     // initialize the two convergents
     num0 = new Bigint(0);
@@ -782,13 +786,13 @@ Bigrational.prototype.round = function(prec) {
     num1 = new Bigint(1);
     den1 = new Bigint(0);
 
-    while(true){
+    while (true) {
         // continued fraction entry
         cf = num.div(den);
         // denominator of convergent
         den2 = den0.add(cf.mul(den1));
         // we have the second point
-        if(den2.cmp(bprec) == MP_GT){
+        if (den2.cmp(bprec) == MP_GT) {
             break;
         }
         // a bit of shuffling around
@@ -808,13 +812,13 @@ Bigrational.prototype.round = function(prec) {
     // Build a new denominator: the median.
     median = bprec.sub(den0).div(den1);
     // build lower fraction
-    lf = (new Bigrational(num0.add( num1.mul(median) ),
-                          den0.add( den1.mul(median) ))).reduce();
+    lf = (new Bigrational(num0.add(num1.mul(median)),
+        den0.add(den1.mul(median)))).reduce();
     // upper fraction is the last convergent
     uf = (new Bigrational(num1, den1)).reduce();
     // compute the differences to the original and take the
     // one with the smaller distance.
-    if(uf.sub(this).abs().cmp( lf.sub(this).abs()) != MP_GT ){
+    if (uf.sub(this).abs().cmp(lf.sub(this).abs()) != MP_GT) {
         ret = uf;
     } else {
         ret = lf;
@@ -825,65 +829,65 @@ Bigrational.prototype.round = function(prec) {
     return ret;
 };
 
-Bigrational.prototype.isEpsZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var n, d;
-    if(this.isZero()){
+    if (this.isZero()) {
         return true;
     }
     n = this.num.highBit();
     d = this.den.highBit();
-    if ( (d - n) >= EPS){
+    if ((d - n) >= EPS) {
         return true;
     }
     return false;
 };
 
-Bigrational.prototype.isEpsLowerZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsLowerZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var negZero, den, cmp;
-    if(this.isZero()){
+    if (this.isZero()) {
         return false;
     }
-    negZero = new Bigrational(-1,1);
+    negZero = new Bigrational(-1, 1);
     den = new Bigint(1);
     den.lShiftInplace(EPS);
     negZero.den = den;
     cmp = this.cmp(negZero);
-    if(cmp == MP_LT){
+    if (cmp == MP_LT) {
         return true;
     }
     return false;
 };
 
-Bigrational.prototype.isEpsGreaterZero = function(eps){
-    var EPS = (arguments.length == 1)?eps:BIGRATIONAL_PRECISION;
+Bigrational.prototype.isEpsGreaterZero = function(eps) {
+    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var posZero, den, cmp;
-    if(this.isZero()){
+    if (this.isZero()) {
         return false;
     }
-    posZero = new Bigrational(1,1);
+    posZero = new Bigrational(1, 1);
     den = new Bigint(1);
     den.lShiftInplace(EPS);
     posZero.den = den;
     cmp = this.cmp(posZero);
-    if(cmp == MP_GT){
+    if (cmp == MP_GT) {
         return true;
     }
     return false;
 };
 
-Bigrational.prototype.isLowerOne = function(){
-    var one = new Bigrational(1,1);
+Bigrational.prototype.isLowerOne = function() {
+    var one = new Bigrational(1, 1);
     var cmp = this.cmp(one);
-    if(cmp == MP_LT){
+    if (cmp == MP_LT) {
         return true;
     }
     return false;
 };
 
 // returns integer and fractional parts. The integer part gets the sign
-Bigint.prototype.parts = function(){
+Bigint.prototype.parts = function() {
     var parts = this.num.divmod(this.den);
     var ret = new Bigrational();
     ret.num = parts[1];
@@ -901,7 +905,7 @@ Bigrational.prototype.sqrt = function() {
         return new Bigrational();
     }
     // might come from an unregulated oepration (+,-,*, etc.)
-    if(!this.fitsBitPrecision()){
+    if (!this.fitsBitPrecision()) {
         a = this.fastround(BIGRATIONAL_PRECISION);
     } else {
         a = this;
@@ -927,7 +931,7 @@ Bigrational.prototype.sqrt = function() {
 };
 
 
-Bigrational.prototype.powInt = function(b){
+Bigrational.prototype.powInt = function(b) {
     // TODO: checks and balances
     var num = this.num.pow(b);
     var den = this.den.pow(b);
@@ -1146,7 +1150,7 @@ Bigrational.prototype.bernoulli = function(N) {
         return this.copy().setNaN();
     }
     // argument given wins over "this". Should it?
-    if(arguments.length == 0){
+    if (arguments.length == 0) {
         n = this.num.dp[0];
     } else {
         n = N;
@@ -1187,7 +1191,41 @@ function bernoulli_free(){
 }
 */
 
-
-
-
-
+// Some shortcuts
+Bigrational.prototype.divInt = function(si) {
+    if (si == 0) {
+        return (new Bigrational()).setNaN();
+    }
+    if (si == 1) {
+        return this.copy();
+    }
+    if (this.isZero()) {
+        return new Bigrational(0, 1);
+    }
+    var num = this.num.copy();
+    var den = this.den.mulInt(si);
+    var ret = new Bigrational(num, den);
+    ret.normalize();
+    return ret;
+};
+Bigrational.prototype.mulInt = function(si) {
+    var num = this.num.mulInt(si);
+    var den = this.den.copy();
+    var ret = new Bigrational(num, den);
+    ret.normalize();
+    return ret;
+};
+Bigrational.prototype.addInt = function(si) {
+    if (si == 0) {
+        return this.copy();
+    }
+    var tmp = new Bigrational(si, 1);
+    return this.add(tmp);
+};
+Bigrational.prototype.subInt = function(si) {
+    if (si == 0) {
+        return this.copy();
+    }
+    var tmp = new Bigrational(si, 1);
+    return this.sub(tmp);
+};
