@@ -924,53 +924,78 @@ Number.prototype.modInv = function(m) {
 Number.prototype.abs = function(){
     return Math.abs(this);
 };
-Number.prototype.gcd = function(n){
-  var x,y,g,temp;
-  if(this.abs() > n.abs()){
-    return n.gcd(this);
-  }
-  x = Math.abs(this);
-  y = Math.abs(n);
-  if(x == 0 && y != 0) return y;
-  if(x != 0 && y == 0) return x;
-  if(x == 0 && y == 0) return 0;
-  if(x == y) return x;
-  if(x == 1 || n == 1) return 1;
-  if(x == 2){
-    if(y.isOdd()) return 1;
-    return 2;
-  }
-  g = 1;
-  if(   x > MP_INT_MAX
-     || y > MP_INT_MAX){
-    while(x.isEven() && y.isEven()){
-      x = Math.floor(x/2);
-      y = Math.floor(y/2);
-      g = Math.floor(g*2);
+Number.prototype.gcd = function(n) {
+    var x, y, g, temp;
+    if (this.abs() > n.abs()) {
+        return n.gcd(this);
     }
-    while(x != 0){
-      while(x.isEven())x = Math.floor(x/2);
-      while(y.isEven())y = Math.floor(y/2);
-      temp =   Math.floor(Math.abs(x-y)/2);
-      if(x>=y)x = temp;
-      else y = temp;
+    x = Math.abs(this);
+    y = Math.abs(n);
+    if (x == 0 && y != 0) {
+        return y;
     }
-    return (g*y);    
-  }
-  else{
-    while(!(x&1) && !(y&1)){
-      x = x>>>1;y = y>>>1;
-          g = g<<1;
+    if (x != 0 && y == 0) {
+        return x;
     }
-    while(x != 0){
-      while(!(x&1))x >>>= 1;
-      while(!(y&1))y >>>= 1;
-      temp =   Math.abs(x-y)>>>1;
-      if(x>=y)x = temp;
-      else y = temp;
+    if (x == 0 && y == 0) {
+        return 0;
     }
-    return (g*y);
-  }
+    if (x == y) {
+        return x;
+    }
+    if (x == 1 || n == 1) {
+        return 1;
+    }
+    if (x == 2) {
+        if (y.isOdd()) {
+            return 1;
+        }
+        return 2;
+    }
+    g = 1;
+    if (x > MP_INT_MAX || y > MP_INT_MAX) {
+        while (x.isEven() && y.isEven()) {
+            x = Math.floor(x / 2);
+            y = Math.floor(y / 2);
+            g = Math.floor(g * 2);
+        }
+        while (x != 0) {
+            while (x.isEven()) {
+                x = Math.floor(x / 2);
+            }
+            while (y.isEven()) {
+                y = Math.floor(y / 2);
+            }
+            temp = Math.floor(Math.abs(x - y) / 2);
+            if (x >= y) {
+                x = temp;
+            } else {
+                y = temp;
+            }
+        }
+        return (g * y);
+    } else {
+        while (!(x & 1) && !(y & 1)) {
+            x = x >>> 1;
+            y = y >>> 1;
+            g = g << 1;
+        }
+        while (x != 0) {
+            while (!(x & 1)) {
+                x >>>= 1;
+            }
+            while (!(y & 1)) {
+                y >>>= 1;
+            }
+            temp = Math.abs(x - y) >>> 1;
+            if (x >= y) {
+                x = temp;
+            } else {
+                y = temp;
+            }
+        }
+        return (g * y);
+    }
 };
 
 /*
@@ -2310,18 +2335,18 @@ Bigint.prototype.mul = function(bi, flag) {
         return ret;
     }
 
-    if(a.used == 1 && b.used == 1){
-        asign = (a.sign != b.sign)?MP_NEG:MP_ZPOS;
-        ret = a.dp[0] * b.dp[0] ;
+    if (a.used == 1 && b.used == 1) {
+        asign = (a.sign != b.sign) ? MP_NEG : MP_ZPOS;
+        ret = a.dp[0] * b.dp[0];
         ret = ret.toBigint();
         ret.sign = asign;
         return ret;
     }
-   
+
     // Check if smaller number is small enough for mulInt()
     if (b.used == 1) {
-        asign = (a.sign != b.sign)?MP_NEG:MP_ZPOS;
-        ret =  a.mulInt(b.dp[0]);
+        asign = (a.sign != b.sign) ? MP_NEG : MP_ZPOS;
+        ret = a.mulInt(b.dp[0]);
         ret.sign = asign;
         return ret;
     }
@@ -2335,7 +2360,7 @@ Bigint.prototype.mul = function(bi, flag) {
     // check for absolute cutoff to do multiplier balancing here
     if (arguments.length == 1 &&
         a.used >= b.used + (KARATSUBA_MUL_CUTOFF >>> 1) &&
-        b.used >=  KARATSUBA_MUL_CUTOFF) {
+        b.used >= KARATSUBA_MUL_CUTOFF) {
         ret = mulBalanced(a, b);
     } else {
         // check for cutoffs to do T-C or FFT respectively here
@@ -2892,7 +2917,7 @@ Bigint.prototype.inverse = function(n) {
         return ret.div(this.rShiftRounded(m - n));
     }
     // some rounds of Newton-Raphson
-    giantsteps = computeGiantsteps(MP_DIGIT_BIT>>1, n, 2);
+    giantsteps = computeGiantsteps(MP_DIGIT_BIT >> 1, n, 2);
     steps = giantsteps.length;
     gs = n;
     r = new Bigint(1);
@@ -3118,7 +3143,7 @@ Bigint.prototype.divremInt = function(si) {
         var k = 0,
             t;
         for (var j = m - 1; j >= 0; j--) {
-            k = k * (1<<B);
+            k = k * (1 << B);
             k += u[j];
             // No, this does not work in ECMAScript *hng!*
             //k = (k << B) | u[j];
@@ -4469,11 +4494,11 @@ Bigint.prototype.xor = function(bint) {
 
 Bigint.prototype.not = function() {
     var ret = new Bigint(0);
-    var a,i;
+    var a, i;
     a = this;
     ret.dp = new Array(a.used);
     for (i = 0; i < a.used; i++) {
-        ret.dp[i] = (~a.dp[i])&MP_MASK;
+        ret.dp[i] = (~a.dp[i]) & MP_MASK;
     }
     ret.used = ret.dp.length;
     ret.clamp();
@@ -4484,7 +4509,7 @@ Bigint.prototype.notInplace = function() {
     var i;
     var a = this;
     for (i = 0; i < a.used; i++) {
-        a.dp[i] = (~a.dp[i])&MP_MASK;
+        a.dp[i] = (~a.dp[i]) & MP_MASK;
     }
     this.clamp();
 };
@@ -4565,7 +4590,7 @@ Bigint.prototype.jacobi = function(p) {
     if (k.isEven()) {
         s = 1;
     } else {
-        pdigit = p.dp[0]
+        pdigit = p.dp[0];
         r = pdigit & 7; // equiv. to: r = pdigit % 8;
         if (r == 1 || r == 7) {
             s = 1;
@@ -4633,7 +4658,7 @@ Bigint.prototype.modInv = function(b) {
         }
         if (u.cmp(v) != MP_LT) {
             u = u.sub(v);
-            A = A.sub(C)
+            A = A.sub(C);
             B = B.sub(D);
         } else {
             v = v.sub(u);
