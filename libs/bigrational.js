@@ -887,7 +887,7 @@ Bigrational.prototype.isLowerOne = function() {
 };
 
 // returns integer and fractional parts. The integer part gets the sign
-Bigint.prototype.parts = function() {
+Bigrational.prototype.parts = function() {
     var parts = this.num.divmod(this.den);
     var ret = new Bigrational();
     ret.num = parts[1];
