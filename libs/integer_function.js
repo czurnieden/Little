@@ -849,7 +849,20 @@ function add_factored_factorials( summand_1,l_summand_1,
 
 
 // divide two factorials (binom. etc.)
-console.log(subtrahend.join(","))
+function subtract_factored_factorials( subtrahend,
+                                    l_subtrahend,
+                                     minuend,
+                                     l_minuend
+                                    ){
+  var k, counter=0,difference, l_difference;
+  var max_length = Math.max(l_subtrahend,l_minuend );
+  var min_length = Math.min(l_subtrahend,l_minuend );
+  var d,p,d_1,d_2;
+  /* TODO: check for sizes > 0 here */
+
+  /* Things work a bit different from ordinary arithmetic from now on */
+  difference = new Array(max_length+1);
+
   /* Loop over smaller chunk first */
   for(k=0;k<min_length;k+=2){
     /* both have same length, we can take the value of the prime from any */
