@@ -1157,7 +1157,7 @@ function stirling1(n, m) {
     }
 }
 
-function free stirling1cache(){
+function free_stirling1cache(){
     var i,j,l1,l2;
     l1 = STATIC_STIRLING1_CACHE.length;
     l2 = STATIC_STIRLING1_CACHE[0].length;
