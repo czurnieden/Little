@@ -1225,7 +1225,7 @@ function stirling2caching(n, m) {
         nm = new Bigint(1);
         nm.lShiftInplace(n - 1);
         nm.decr();
-        return k;
+        return nm;
     }
     nm = n - m;
 
