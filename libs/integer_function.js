@@ -1258,7 +1258,7 @@ function stirling2caching(n, m) {
     return STATIC_STIRLING2_CACHE[n][m];
 }
 
-function free stirling2cache(){
+function free_stirling2cache(){
     var i,j,l1,l2;
     l1 = STATIC_STIRLING2_CACHE.length;
     l2 = STATIC_STIRLING2_CACHE[0].length;
