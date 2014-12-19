@@ -6278,7 +6278,7 @@ Bigint.prototype.powmod = function(exp, mod) {
             return new Bigint(0);
         }
     }
-    if (this.isUnity() && (this.sign == MP_NEG || this.isEven())) {
+    if (this.isUnity() && (this.sign == MP_NEG || exp.isEven())) {
         return new Bigint(1);
     }
     if (this.sign == MP_NEG || this.cmp(mod) != MP_LT) {
