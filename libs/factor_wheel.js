@@ -10,12 +10,11 @@ if(typeof Little === 'undefined'){
     Little = {};
 }
 
-Little.factor = function (n0, max_n_factors){
+Little.factor = function (n0){
   var n = n0;
   var d = 0;
   var q = 0;
   var n_factors = 0;
-  var max_n_factors = max_n_factors||32;
   var factors = new Array();
 var wheel = [
 1, 2, 2, 4, 2, 4, 2, 4, 6, 2, 6, 4, 2, 4, 6, 6, 2, 6, 4, 2, 6, 4, 6, 8, 4, 2,
@@ -44,19 +43,15 @@ var wheel = [
   var w = 0;
 
   if (n <= 1){
-    return n_factors;
+    return factors;
   }
   d = 2;
   do{
-    q = n / d >>> 0;
+    q = Math.floor(n / d);
     while (n == (q * d)){
-          if(n_factors > max_n_factors){
-            return undefined;
-          }
           factors.push(d);
-          n_factors++;
-          n = q & 0xffffff;
-          q = n / d >>> 0 ;
+          n = q;
+          q = Math.floor(n / d);
     }
       d += wheel[w++];
       if (w == WHEEL_END)
@@ -64,11 +59,7 @@ var wheel = [
   }while(d <= q);
 
   if(n != 1 || n0 == 1){
-    if(n_factors > max_n_factors){
-      return undefined;
-    }
     factors.push(n);
-    n_factors++;
   }
   return factors;
 };
