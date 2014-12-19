@@ -1859,6 +1859,19 @@ Bigdecimal.prototype.isOne = function() {
     }
     return false;
 };
+/**
+  Checks if <code>this</code> is plus two
+  @memberof Bigdecimal
+  @instance
+  @return {bool}
+*/
+Bigint.prototype.isTwo = function() {
+    if (this.sign == MP_ZPOS && this.used == 1 && this.dp[0] == 2) {
+        return true;
+    }
+    return false;
+};
+
 Bigdecimal.ZERO = new Bigdecimal(0);
 Bigdecimal.ONE = new Bigdecimal(1);
 /**
@@ -6229,3 +6242,67 @@ Bigint.prototype.barrettreduce = function(bint) {
     }
     return ret;
 };
+
+/**
+  Exponentiation modulo a number
+  @memberof Bigint
+  @instance
+  @param {Bigint|number} exp exponent
+  @param {Bigint|number} mod modulus
+  @return {Bigint}
+*/
+Bigint.prototype.powmod = function(exp, mod) {
+    var z1, ret;
+    if (typeof exp === "number") {
+        exp = exp.toBigint();
+    }
+    if (typeof mod === "number") {
+        mod = mod.toBigint();
+    }
+    if (mod.isZero() || mod.sign == MP_NEG) {
+        return (new Bigint()).setNaN();
+    }
+    if (exp.sign == MP_NEG) {
+        return (new Bigint()).setNaN();
+    }
+    if ((this.isZero() && !exp.isZero()) || mod.isOne()) {
+        return new Bigint(0);
+    }
+    if (exp.isZero()) {
+        return new Bigint(1);
+    }
+    if (mod.isTwo()) {
+        if (this.isOdd()) {
+            return new Bigint(1);
+        } else {
+            return new Bigint(0);
+        }
+    }
+    if (this.isUnity() && (this.sign == MP_NEG || this.isEven())) {
+        return new Bigint(1);
+    }
+    if (this.sign == MP_NEG || this.cmp(mod) != MP_LT) {
+        z1 = this.rem(mod);
+    } else {
+        z1 = this.copy();
+    }
+    if (z1.isZero()) {
+        return new Bigint(0);
+    }
+    if (z1.isOne()) {
+        return new Bigint(1);
+    }
+    // TODO: include Montgomery etc.
+
+    var ret = new Bigint(1);
+
+    while (exp.isZero() == MP_NO) {
+        if (exp.isOdd() == MP_YES) {
+            ret = ret.mul(z1).rem(mod);
+        }
+        z1 = z1.sqr().rem(mod);
+        exp.rShiftInplace(1);
+    }
+    return ret;
+};
+
