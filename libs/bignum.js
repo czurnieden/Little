@@ -6244,7 +6244,7 @@ Bigint.prototype.barrettreduce = function(bint) {
 };
 
 /**
-  Exponentiation modulo a number
+  Modular exponentiation
   @memberof Bigint
   @instance
   @param {Bigint|number} exp exponent
@@ -6304,5 +6304,40 @@ Bigint.prototype.powmod = function(exp, mod) {
         exp.rShiftInplace(1);
     }
     return ret;
+};
+/**
+  Modular multiplication
+  @memberof Bigint
+  @instance
+  @param {Bigint|number} bint multiplicant
+  @param {Bigint|number} mod modulus
+  @return {Bigint}
+*/
+Bigint.prototype.mulmod = function(bint, mod){
+    var t1, t2;
+    if (typeof exp === "number") {
+        bint = bint.toBigint();
+    }
+    if (typeof mod === "number") {
+        mod = mod.toBigint();
+    }
+    if(mod.isZero()){
+        return (new Bigint()).setNaN();
+    }
+    if(this.isZero() || bint.isZero()){
+        return new Bigint(0);
+    }
+
+    if(this.isOne()){
+        return bint.rem(mod);
+    }
+    if(bint.isOne()){
+        return this.rem(mod);
+    }
+    // Argument reducing
+    // (a * b) % m = ((a % m) * (b % m)) % m
+    t1 = this.rem(mod);
+    t2 = bint.rem(mod);
+    return t1.mul(t2).rem(mod);
 };
 
