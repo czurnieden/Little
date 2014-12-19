@@ -8,6 +8,12 @@
 
 // makes no use of the Number object, alternatively
 // Number.isBigEndian = function(){...};
+/**
+  Checks if the number is formatted in the big endian way. Some modern
+  processors can switch between little and big endian, some even in software.
+  @function external:number#isBigEndian
+  @return {bool} true if it is big endian
+*/
 Number.prototype.isBigEndian = function() {
     var buffer = new ArrayBuffer(8);
     var i32 = new Int32Array(buffer);
@@ -18,8 +24,12 @@ Number.prototype.isBigEndian = function() {
     }
     return false;
 };
-
-// implementation from scratch, no SunPro code used here
+/**
+  Like the <code>frexp()</code> in the C-library.<br>
+  Implementation from scratch, no SunPro code has been used here
+  @function external:number#frexp
+  @return {array} fractional part and exponent in that order
+*/
 Number.prototype.frexp = function() {
     var fp, exp, dv, high, low, temp, hw, lw;
     if (this.isBigEndian()) {
@@ -74,13 +84,33 @@ Number.prototype.frexp = function() {
 
 // Fraction part of a IEEE-754 double precision number (ECMAScript's native
 // number)
+/**
+  Precision for the case of e.g.: irrational numbers.<br>
+  Precision in bits (53 is the size of the mantissa of the native number)
+  @memberof Bigrational
+  @constant {number}
+  @default
+*/
 var BIGRATIONAL_PRECISION = 53; // in bits
+/**
+  Precision for the case of e.g.: irrational numbers.<br>
+  Precision in decimal digits
+  @memberof Bigrational
+  @constant {number}
+  @default
+*/
 var BIGRATIONAL_DECIMAL_PRECISION = 16; // in decimals
 
-// does not reduce itself!
-// Found more situations where an automatic reducing was superfluous than vice
-// versa
-function Bigrational() {
+/**
+  Bigrational class, constructor.<br>
+  Does not reduce itself!<br>
+  Found more situations where an automatic reducing was superfluous than vice
+  versa
+  @constructor
+  @param {number|Bigint} [a] Numerator
+  @param {number|Bigint} [b] Denominator
+*/
+function Bigrational(a,b) {
     if (arguments.length == 2) {
         // just Bigint and number for now, add Complex later
         if (xtypeof(arguments[0]) == "bigint") {
@@ -124,6 +154,20 @@ function Bigrational() {
         this.sign = MP_ZPOS;
     }
 }
+/**
+  Offer memory to GC.<br>
+  This function empties the <code>Bigrational</code> only, to sacrifice it completely the
+  variable must be set to 'null', too.<br>
+  Example:
+  <pre>
+  tmp = new Bigrational(0,1);
+  // do some stuff with tmp
+  // tmp got large but we'll do a lot of stuff after it in the same
+  // scope and need to get rid of tmp
+  tmp.free();
+  tmp = null;
+  </pre>
+*/
 Bigrational.prototype.free = function() {
     this.num.free();
     this.num = null;
@@ -131,18 +175,28 @@ Bigrational.prototype.free = function() {
     this.den = null;
     this.sign = null;
 };
+/**
+   Sets values of to a <code>Bigint</code> <code>NaN</code>
+*/
 Bigrational.prototype.setNaN = function() {
     this.num = new Bigint(0).setNaN();
     this.den = new Bigint(0).setNaN();
 };
-
+/**
+  Checks if <code>this</code> is <em>not</em> a number
+  @return {bool} true if it is <em>not</em> a number
+*/
 Bigrational.prototype.isNaN = function() {
     if (this.num.isNaN() || this.den.isNaN()) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is zero.<br>
+  Zero is the special value <code>0/1</code>
+  @return {bool} true if it is zero
+*/
 Bigrational.prototype.isZero = function() {
     // sign does not get checked, -0 is also OK
     if (this.num.isZero() && this.den.isOne()) {
@@ -150,49 +204,73 @@ Bigrational.prototype.isZero = function() {
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is plus one.<br>
+  Does not work with unreduced fractions, because it checks for the special
+  value <code>1/1</code>
+  @return {bool} true if it is plus one
+*/
 Bigrational.prototype.isOne = function() {
     if (this.num.isOne() && this.den.isOne() && this.sign == MP_ZPOS) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is plus or minus one.<br>
+  Does not work with unreduced fractions, because it checks for the special
+  values <code>1/1</code> and <code>-1/1</code>
+  @return {bool} true if it is plus or minus one
+*/
 Bigrational.prototype.isUnity = function() {
-    if (this.num.isOne() && this.den.isOne()) {
+    if (this.num.isUnity() && this.den.isOne()) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is an integer.<br>
+  Does not work with unreduced fractions, because it checks for the special
+  values <code>x/1</code> and <code>-x/1</code>
+  @return {bool} true if it is an integer
+*/
 Bigrational.prototype.isInt = function() {
     if (this.den.isOne() && !this.num.isZero()) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is finite.<br>
+  @return {bool} true if it is finite
+*/
 Bigrational.prototype.isFinite = function() {
     if (this.den.isFinite() && this.num.isFinite()) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Checks if <code>this</code> is infinite.<br>
+  @return {bool} true if it is infinite
+*/
 Bigrational.prototype.isInf = function() {
     if (this.den.isInf() || this.num.isInf()) {
         return MP_YES;
     }
     return MP_NO;
 };
-
+/**
+  Sets <code>this</code> to infinity.<br>
+*/
 Bigrational.prototype.setInf = function() {
-    if (this.den.setInf() || this.num.setInf()) {
-        return MP_YES;
-    }
-    return MP_NO;
+    this.den.setInf();
+    this.num.setInf();
 };
-
+/**
+  Copy <code>this</code>
+  @return {Bigrational} a deep copy of <code>this</code>
+*/
 Bigrational.prototype.copy = function() {
     var ret = new Bigrational();
     ret.num = this.num.copy();
@@ -200,14 +278,20 @@ Bigrational.prototype.copy = function() {
     ret.sign = this.sign;
     return ret;
 };
-
+/**
+  Absolute value
+  @return {Bigrational} <code>this</code>
+*/
 Bigrational.prototype.abs = function() {
     var ret = this.copy();
     ret.num.sign = MP_ZPOS;
     ret.sign = ret.num.sign;
     return ret;
 };
-
+/**
+  Change sign of <code>this</code>
+  @return {Bigrational} <code>-this</code>
+*/
 Bigrational.prototype.neg = function() {
     var ret = this.copy();
     ret.num.sign = (this.sign == MP_NEG) ? MP_ZPOS : MP_NEG;
@@ -216,6 +300,10 @@ Bigrational.prototype.neg = function() {
 };
 
 // works on copy
+/**
+  Reduce a fraction.
+  @return {Bigrational} the reduced fraction
+*/
 Bigrational.prototype.reduce = function() {
     var ret = new Bigrational();
     if (this.num.isZero()) {
@@ -237,6 +325,10 @@ Bigrational.prototype.reduce = function() {
     return ret;
 };
 // works in-place
+/**
+  Reduce a fraction.<br>
+  This function does it in-place!
+*/
 Bigrational.prototype.normalize = function() {
     if (this.num.isZero()) {
         return MP_OKAY;
@@ -257,6 +349,11 @@ Bigrational.prototype.normalize = function() {
     return MP_OKAY;
 };
 // -1/(2^eps) < 0 < 1/(2^eps)
+/**
+   <code-1/(2^eps) < 0 < 1/(2^eps)></code><br>
+   Is the magnitude of the fraction inside the above mentioned range?
+   @return {bool} true if it fits
+*/
 Bigrational.prototype.isEpsZero = function(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var n, d;
@@ -271,6 +368,11 @@ Bigrational.prototype.isEpsZero = function(eps) {
     return false;
 };
 // compares against 0 - 1/(2^eps)
+/**
+   Checks if <code>this</code> is below zero plus eps.<br>
+   Compares against <code>0 - 1/(2^eps)</code>
+   @return {bool} true if it fits
+*/
 Bigrational.prototype.isEpsLowerZero = function(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var negZero, den, cmp;
@@ -288,6 +390,11 @@ Bigrational.prototype.isEpsLowerZero = function(eps) {
     return false;
 };
 // compares against 0 + 1/(2^eps)
+/**
+   Checks if <code>this</code> is above zero plus eps.<br>
+   Compares against <code>0 + 1/(2^eps)</code>
+   @return {bool} true if it fits
+*/
 Bigrational.prototype.isEpsGreaterZero = function(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     var posZero, den, cmp;
@@ -305,6 +412,11 @@ Bigrational.prototype.isEpsGreaterZero = function(eps) {
     return false;
 };
 // might be useful for rationals.
+/**
+   Checks if <code>this</code> is smaller than one.<br>
+   Compares against <code>1/1</code>
+   @return {bool} true if it is smaller
+*/
 Bigrational.prototype.isLowerOne = function() {
     var one = new Bigrational(1, 1);
     var cmp = this.cmp(one);
@@ -321,6 +433,11 @@ Bigrational.prototype.isLowerOne = function() {
 // selection of the variable names, but in
 // these times of well under-represented
 // profit margins ...
+/**
+   Addition
+   @param {Bigrational} brat addend
+   @return {Bigrational} the sum
+*/
 Bigrational.prototype.add = function(brat) {
     var a = this.num;
     var b = this.den;
@@ -365,7 +482,11 @@ Bigrational.prototype.add = function(brat) {
     return ret;
 };
 
-
+/**
+   Subtraction
+   @param {Bigrational} brat subtrahend
+   @return {Bigrational} the difference
+*/
 Bigrational.prototype.sub = function(brat) {
     var a = this.num;
     var b = this.den;
@@ -412,7 +533,11 @@ Bigrational.prototype.sub = function(brat) {
     return ret;
 };
 
-
+/**
+   Multiplication
+   @param {Bigrational} brat multiplicator
+   @return {Bigrational} the product
+*/
 Bigrational.prototype.mul = function(brat) {
     var a = this.num;
     var b = this.den;
@@ -441,32 +566,11 @@ Bigrational.prototype.mul = function(brat) {
     ret.den.sign = MP_ZPOS;
     return ret;
 };
-Bigrational.prototype.sqr = function() {
-    var a = this.num;
-    var b = this.den;
-
-    var ret = new Bigrational();
-
-    if (this.isZero()) {
-        return ret;
-    }
-
-    if (this.den.isOne()) {
-        ret.num = this.num.sqr();
-        ret.den = this.den;
-        ret.sign = ret.num.sign;
-        return ret;
-    }
-    ret.num = a.sqr();
-    ret.den = b.sqr();
-
-    ret.sign = MP_ZPOS;
-    ret.num.sign = ret.sign;
-    ret.den.sign = MP_ZPOS;
-
-    return ret;
-};
 // works on copy
+/**
+   Reciprocal of the fraction
+   @return {Bigrational} the reciprocal
+*/
 Bigrational.prototype.reciprocal = function() {
     var num = this.num.copy();
     var den = this.den.copy();
@@ -478,6 +582,10 @@ Bigrational.prototype.reciprocal = function() {
     return ret;
 };
 // works in-place
+/**
+   Reciprocal of the fraction<br>
+   This function works in-place!
+*/
 Bigrational.prototype.inverse = function() {
     var temp = this.num;
     this.num = this.den;
@@ -485,7 +593,11 @@ Bigrational.prototype.inverse = function() {
     this.num.sign = this.den.sign;
     this.den.sign = MP_ZPOS;
 };
-
+/**
+   Division
+   @param {Bigrational} brat divisor
+   @return {Bigrational} quotient
+*/
 Bigrational.prototype.div = function(brat) {
     var a = this;
     if (brat.num.isZero()) {
@@ -501,6 +613,10 @@ Bigrational.prototype.div = function(brat) {
 };
 
 // multiplying with itself might be faster. To be checked
+/**
+   Squaring
+   @return {Bigrational} the square
+*/
 Bigrational.prototype.sqr = function() {
     var a = this.num;
     var b = this.den;
@@ -532,6 +648,11 @@ Bigrational.prototype.sqr = function() {
 
 // TODO: signs handled different from libczrational, adapt this function
 // accordingly
+/**
+  Comparing with another <code>Bigrational</code>
+  @param {Bigrational} brat
+  @return {number}
+*/
 Bigrational.prototype.cmp = function(brat) {
     var a, b;
     var p1, p2;
@@ -604,7 +725,11 @@ Bigrational.prototype.cmp = function(brat) {
     return e;
 };
 
-
+/**
+   Conversion of a <code>Bigrational</code> to a string
+   @param {number} [base=10] the base of the output
+   @return {string}  The format is <i>number</i>"/"<i>number</i>
+*/
 Bigrational.prototype.toString = function(base) {
     var sign = (this.sign == MP_NEG) ? "-" : "";
     if (this.num.isZero()) {
@@ -618,12 +743,20 @@ Bigrational.prototype.toString = function(base) {
     }
     return this.num.toString(base) + "/" + this.den.toString(base);
 };
-
+/**
+   Conversion of a <code>String</code> to a <code>Bigrational</code><br>
+   The input is expected to be of the form <i>number</i>"/"<i>number</i>
+   @function external:String#toBigrational
+   @param {number} [base=10] the base of the input
+   @return {Bigrational}
+*/
 String.prototype.toBigrational = function(base) {
     var ret = new Bigrational();
+    // TODO: replace general regex with one according to given base
+    var s = this.replace(/[^0-9a-zA-Z\/]/g,"");
     var rat;
     // TODO: checks & balances & cleanup
-    rat = this.split("/");
+    rat = s.split("/");
     ret.num = rat[0].toBigint(base);
     ret.den = rat[1].toBigint(base);
     ret.sign = (ret.num.sign == ret.den.sign) ? MP_ZPOS : MP_NEG;
@@ -633,8 +766,20 @@ String.prototype.toBigrational = function(base) {
     ret.normalize();
     return ret;
 };
+/**
+   Conversion of a <code>Bigint</code> to a <code>Bigrational</code><br>
+   @return {Bigrational}
+*/
+Bigint.prototype.toBigrational = function(){
+  return new Bigrational(this,1);
+};
 
 // Assumes standard-conforming Number/IEEE-754-Double
+/**
+  Convert a number to a <code>Bigrational</code>
+  @function external:number#toBigrational
+  @return {Bigrational}
+*/
 Number.prototype.toBigrational = function() {
     var num, den, fp, ep, xp, i;
     if (this.isInt()) {
@@ -660,18 +805,30 @@ Number.prototype.toBigrational = function() {
     }
     fp = new Bigrational(num, den);
     fp.sign = fp.num.sign;
+    fp.normalize();
     return fp;
 };
-
+/**
+   Return current precision in bits
+   @return {number} current precison in bits
+*/
 Bigrational.prototype.isBitPrecision = function() {
     return this.den.highBit();
 };
-
+/**
+   Return current precision in decimal digits
+   @return {number} current precison in decimal digits
+*/
 Bigrational.prototype.isDecPrecision = function() {
     return Math.floor(this.den.highBit() / (Math.log(10) / Math.log(2))) +
         1;
 };
-
+/**
+   Checks if actual precision in bits is smaller than or equal to the given argument or
+   the value of <code>BIGRATIONAL_PRECISION</code> if no argument is given
+   @param {number} [eps=BIGRATIONAL_PRECISION] value to compare against
+   @return {bool} true if the actual precision fits
+*/
 Bigrational.prototype.fitsBitPrecision = function(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     if (this.den.highBit() <= EPS) {
@@ -679,6 +836,12 @@ Bigrational.prototype.fitsBitPrecision = function(eps) {
     }
     return false;
 };
+/**
+   Checks if actual precision in decimal digits is smaller than or equal to the given argument or
+   the value of <code>BIGRATIONAL_DECIMAL_PRECISION</code> if no argument is given
+   @param {number} [eps=BIGRATIONAL_DECIMAL_PRECISION] value to compare against
+   @return {bool} true if the actual precision fits
+*/
 Bigrational.prototype.fitsDecPrecision = function(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_DECIMAL_PRECISION;
     var log10den = Math.floor(this.den.highBit() / (Math.log(10) / Math.log(
@@ -688,7 +851,12 @@ Bigrational.prototype.fitsDecPrecision = function(eps) {
     }
     return false;
 };
-
+/**
+   Set precision in decimal digits
+   @memberof Bigrational
+   @param {number} [eps=BIGRATIONAL_DECIMAL_PRECISION] the wanted precision
+   @return {number} the new precision
+*/
 function setDecPrecision(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_DECIMAL_PRECISION;
     BIGRATIONAL_DECIMAL_PRECISION = EPS;
@@ -696,7 +864,12 @@ function setDecPrecision(eps) {
     BIGRATIONAL_PRECISION = EPS;
     return EPS;
 }
-
+/**
+   Set precision in bits
+   @memberof Bigrational
+   @param {number} [eps=BIGRATIONAL_PRECISION] the wanted precision
+   @return {number} the new precision
+*/
 function setBitPrecision(eps) {
     var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
     BIGRATIONAL_PRECISION = EPS;
@@ -705,7 +878,13 @@ function setBitPrecision(eps) {
     return EPS;
 }
 
-// for e.g. Newton-Raphson or other tamings
+/**
+   Rough but fast rounding for e.g. Newton-Raphson or other tamings. It rounds
+   to a slightly larger value<br>
+   Is a bit sensible to input and might not work with everything.
+   @param {number} prec the wanted precision
+   @return {Bigrational} the rounded result
+*/
 Bigrational.prototype.fastround = function(prec) {
     var num = this.num.copy();
     var den = this.den.copy();
@@ -751,14 +930,18 @@ Bigrational.prototype.fastround = function(prec) {
     return ret;
 };
 
-// exact rounding (vid. e.g.: D. W. Matula "Number theoretic foundations of
-// finite precision arithmetic" in Application of Number Theory to Numerical
-// Analysis, W. Zaremba, ed., Academic Press, New York, 1971
-// and
-// "Fixed slash and floating slash rational arithmetic" by the same author
-// where he describes the median rounding in detail.
-// and D. Knuth, of course, in TAoCP II, 4.5.1. Very short but an example
-// is given)
+/**
+   Exact rounding (vid. e.g.: D. W. Matula "Number theoretic foundations of
+   finite precision arithmetic" in Application of Number Theory to Numerical
+   Analysis, W. Zaremba, ed., Academic Press, New York, 1971<br>
+   and<br>
+   "Fixed slash and floating slash rational arithmetic" by the same author
+   where he describes the median rounding in detail.<br>
+   And D. Knuth, of course, in TAoCP II, 4.5.1. Very short but an example
+   is given)
+   @param {number} prec precision wanted
+   @return {Bigrational} Rounded to median
+*/
 Bigrational.prototype.round = function(prec) {
     var num = this.num.copy();
     var den = this.den.copy();
@@ -843,50 +1026,11 @@ Bigrational.prototype.isEpsZero = function(eps) {
     return false;
 };
 
-Bigrational.prototype.isEpsLowerZero = function(eps) {
-    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
-    var negZero, den, cmp;
-    if (this.isZero()) {
-        return false;
-    }
-    negZero = new Bigrational(-1, 1);
-    den = new Bigint(1);
-    den.lShiftInplace(EPS);
-    negZero.den = den;
-    cmp = this.cmp(negZero);
-    if (cmp == MP_LT) {
-        return true;
-    }
-    return false;
-};
-
-Bigrational.prototype.isEpsGreaterZero = function(eps) {
-    var EPS = (arguments.length == 1) ? eps : BIGRATIONAL_PRECISION;
-    var posZero, den, cmp;
-    if (this.isZero()) {
-        return false;
-    }
-    posZero = new Bigrational(1, 1);
-    den = new Bigint(1);
-    den.lShiftInplace(EPS);
-    posZero.den = den;
-    cmp = this.cmp(posZero);
-    if (cmp == MP_GT) {
-        return true;
-    }
-    return false;
-};
-
-Bigrational.prototype.isLowerOne = function() {
-    var one = new Bigrational(1, 1);
-    var cmp = this.cmp(one);
-    if (cmp == MP_LT) {
-        return true;
-    }
-    return false;
-};
-
-// returns integer and fractional parts. The integer part gets the sign
+/**
+   Returns integer and fractional parts. The integer part gets the sign
+   @return {array} integer part (<code>Bigint</code>) and fractional part
+                   (<code>Bigrational</code>) in that order
+*/
 Bigrational.prototype.parts = function() {
     var parts = this.num.divmod(this.den);
     var ret = new Bigrational();
@@ -895,6 +1039,10 @@ Bigrational.prototype.parts = function() {
     return [parts[0], ret];
 };
 
+/**
+   Square root
+   @return {Bigrationa} square root
+*/
 Bigrational.prototype.sqrt = function() {
     var a, xn, oxn, bnum, bden, two, diff;
 
@@ -904,7 +1052,7 @@ Bigrational.prototype.sqrt = function() {
     if (this.isZero()) {
         return new Bigrational();
     }
-    // might come from an unregulated oepration (+,-,*, etc.)
+    // might come from an unregulated operation (+,-,*, etc.)
     if (!this.fitsBitPrecision()) {
         a = this.fastround(BIGRATIONAL_PRECISION);
     } else {
@@ -930,7 +1078,11 @@ Bigrational.prototype.sqrt = function() {
     return xn.round(BIGRATIONAL_PRECISION);
 };
 
-
+/**
+   Exponentiation with a small positive integer
+   @param {number} b exponent
+   @return {Bigrational}
+*/
 Bigrational.prototype.powInt = function(b) {
     // TODO: checks and balances
     var num = this.num.pow(b);
@@ -939,7 +1091,11 @@ Bigrational.prototype.powInt = function(b) {
     ret.sign = num.sign;
     return ret;
 };
-
+/**
+   N<sup><i>th</i></sup>-root
+   @param {number} b exponent
+   @return {Bigrational}
+*/
 Bigrational.prototype.nthroot = function(b) {
     var t1, t2, t3, a, rb;
     var sign, bsign;
@@ -1030,33 +1186,53 @@ Bigrational.prototype.nthroot = function(b) {
     }
     return t2;
 };
-
-/*
-   Compute Bernoulli numbers
+// keeps B_n != 0 only
+/**
+  Cache holding compute Bernoulli number but only those that are not zero
+  @memberof Bigrational
+  @constant   {array}
+*/
+var STATIC_BERN_ARRAY;
+// for B_n: STATIC_BERN_ARRAY_SIZE = floor(n/2) +1
+// plus one because B_1 = -1/2 and the rest of odd(n) = 0
+/**
+   Current size of Bernoulli cache<br>
+   For B_n: <code>STATIC_BERN_ARRAY_SIZE = floor(n/2) +1</code>
+  @memberof Bigrational
+   @constant  {number}
+   @default
+*/
+var STATIC_BERN_ARRAY_SIZE = 0;
+// for B_max set STATIC_BERN_ARRAY_PREFILL
+/**
+   Minimum amount of Bernoulli numbers in cache
+  @memberof Bigrational
+   @constant  {number}
+   @default
+*/
+var STATIC_BERN_ARRAY_PREFILL = 50;
+/**
+   Compute Bernoulli numbers. B<sub>1</sub> = -1/2<br>
+<p>
    Algorithm is good but won't run sufficiently fast for
    values above about n = 500.
    Got B_1000 calulated in slightly under twenty minutes on
    an old 1GHz AMD-Duron. Not bad for such an old destrier.
-
+</p><p>
    The algorithm using Riemann zeta function is being worked on
    but will most probably need the Bigfloat to work fast enough.
    Although no floating point arithmetic is essential, the
    Bigrational is just too slow for this.
-
-   Brent, Richard P., and David Harvey. "Fast computation of Bernoulli, Tangent
-   and Secant numbers." Computational and Analytical Mathematics. Springer New
+</p>
+   Brent, Richard P., and David Harvey. <i>Fast computation of Bernoulli, Tangent
+   and Secant numbers.<i> Computational and Analytical Mathematics. Springer New
    York, 2013. 127-142.
-
-   Preprint: http://arxiv.org/abs/1108.0286
+<br>
+   Preprint: {@link http://arxiv.org/abs/1108.0286}
+  @todo This should be a normal function, not a prototype
+  @param {number} index of Bernoulli number
+  @return {Bigrational} the Bernoulli number
 */
-// keeps B_n != 0 only
-var STATIC_BERN_ARRAY;
-// for B_n: STATIC_BERN_ARRAY_SIZE = floor(n/2) +1
-// plus one because B_1 = -1/2 and the rest of odd(n) = 0
-var STATIC_BERN_ARRAY_SIZE = 0;
-// for B_max set STATIC_BERN_ARRAY_PREFILL
-var STATIC_BERN_ARRAY_PREFILL = 50;
-// This should be a normal function, not a prototype.
 Bigrational.prototype.bernoulli = function(N) {
 
     var n, e, k;
@@ -1179,7 +1355,10 @@ Bigrational.prototype.bernoulli = function(N) {
     k = Math.floor(n / 2) + 1;
     return STATIC_BERN_ARRAY[k];
 };
-/*
+/**
+   Free Bernoulli cache
+   @memberof Bigrational
+*/
 function bernoulli_free(){
     var i = 0;
     for (; i < bern_array_size; i++) {
@@ -1189,9 +1368,14 @@ function bernoulli_free(){
     STATIC_BERN_ARRAY = null;
     STATIC_BERN_ARRAY_SIZE = 0;
 }
-*/
+
 
 // Some shortcuts
+/**
+   Division by a small integer
+   @param {number} si divisor
+   @return {Bigrational} Quotient
+*/
 Bigrational.prototype.divInt = function(si) {
     if (si == 0) {
         return (new Bigrational()).setNaN();
@@ -1208,6 +1392,11 @@ Bigrational.prototype.divInt = function(si) {
     ret.normalize();
     return ret;
 };
+/**
+   Multiplication with a small integer
+   @param {number} si multiplicant
+   @return {Bigrational} product
+*/
 Bigrational.prototype.mulInt = function(si) {
     var num = this.num.mulInt(si);
     var den = this.den.copy();
@@ -1215,6 +1404,11 @@ Bigrational.prototype.mulInt = function(si) {
     ret.normalize();
     return ret;
 };
+/**
+   Addition of a small integer
+   @param {number} si addend
+   @return {Bigrational} sum
+*/
 Bigrational.prototype.addInt = function(si) {
     if (si == 0) {
         return this.copy();
@@ -1222,6 +1416,11 @@ Bigrational.prototype.addInt = function(si) {
     var tmp = new Bigrational(si, 1);
     return this.add(tmp);
 };
+/**
+   Subtraction of a small integer
+   @param {number} si subtrahend
+   @return {Bigrational} difference
+*/
 Bigrational.prototype.subInt = function(si) {
     if (si == 0) {
         return this.copy();

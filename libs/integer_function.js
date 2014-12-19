@@ -2,20 +2,77 @@
    Some assorted integer functions.
    Needs bignum.js to function properly.
 */
-// Some cutoffs related to factorial computing
-// YMMV, but that's also about the range where the largest
-// multiplications reach Toom-Cook territory
+/**
+  There is no actual namespace, just to avoid cluttering of <code>Global</code>
+  in the documentation. Yes, that means that these <em>are</em> global!<br>
+  But it is planned to do a proper module (several?) instead of this mess.
+  @namespace integerfunctions
+*/
+/**
+   Cutoff related to factorial computing
+   YMMV, but that's also about the range where the largest
+   multiplications reach Toom-Cook territory
+   @memberof integerfunctions
+   @constant {number}
+   @default
+   @private
+*/
 var FACTORIAL_BORW_LOOP_CUTOFF = 500;
+/**
+   Cutoff related to factorial computing
+   YMMV, but that's also about the range where the largest
+   multiplications reach Toom-Cook territory
+   @memberof integerfunctions
+   @constant {number}
+   @default
+   @private
+*/
 var FACTORIAL_BORW_PRIMORIAL_CUTOFF = 500;
+/**
+   Cutoff related to factorial computing
+   YMMV, but that's also about the range where the largest
+   multiplications reach Toom-Cook territory
+   @memberof integerfunctions
+   @constant {number}
+   @default
+   @private
+*/
 var FACTORIAL_BORW_CUTOFF = 500;
 
-// Euler numbers, cache related
+/**
+   Cache for Euler (zig) numbers
+   @memberof integerfunctions
+   @constant {array}
+   @private
+*/
 var STATIC_EULER_ARRAY;
+/**
+   Size of cache for Euler (zig) numbers
+   @memberof integerfunctions
+   @constant {number}
+   @default
+   @private
+*/
 var STATIC_EULER_ARRAY_SIZE = 0;
+/**
+   Prefill cache for Euler (zig) numbers even if Euler number asked for is
+   smaller.
+   @memberof integerfunctions
+   @constant {number}
+   @default
+   @private
+*/
 var STATIC_EULER_ARRAY_PREFILL = 50;
 
 // helper functions   
 // find x in p^x <= n!
+/**
+   find x in p^x <= factorial(n), the prime divisors of factorial(n)
+   @memberof integerfunctions
+   @param {number} n the n in factorial(n)
+   @param {number} p the prime divisor to test for
+   @return {number}
+*/
 function prime_divisors(n, p) {
     var q, m;
     q = n;
@@ -34,6 +91,13 @@ function prime_divisors(n, p) {
 }
 
 // calculated 100000! in about 8 minutes on my 1GHz Duron
+/**
+  Factorial function.<br>
+  The first 50 factorials are precomputed.
+   @memberof integerfunctions
+  @param {number} n the n in factorial(n)
+  @return {Bigint}
+*/
 function factorial(n) {
     // first fifty factorials
     var small_factorials = [
@@ -102,7 +166,7 @@ function factorial(n) {
         ]
     ];
     var ret;
-    // The actual binary splitting algorithm
+    // The actualbinary splitting algorithm
     // A bit more complicated by the lack of factors of two
     var fbinsplit2b = function(n, m) {
             var t1, t2, k;
@@ -269,31 +333,35 @@ function factorial(n) {
     return factorial_borwein(n);
 };
 
-/*
-   Compute Euler (secant, "zig") numbers
+/**
+   Compute Euler (secant, "zig") numbers<br>
 
    This algorithm computes the signed variant.
    The (unsigned) zig-zag (up/down) Euler numbers
    can be computed with
-
+<pre>
    (-1)^k euler(2k) and a(2k-1) = (-1)^(k-1)2^(2k)(2^(2k)-1)bernoulli(2k)/(2k)
-
-   (From OEIS: A000111 by Ronaldo (aga_new_ac(AT)hotmail.com), Jan 17 2005)
-
+</pre>
+   (From OEIS: A000111 by Ronaldo (aga_new_ac(AT)hotmail.com), Jan 17 2005)<br>
+<p>
    The author of this program (Hey, that's me!) had no need for them but they
    can be easily computed from the tangent numbers, too. Just drop a note if
    you need it.
-
-   Algorithm is good but won't run sufficiently fast for
-   values above about n = 500.
+</p>
+<p>
+   The algorithm is good but it won't run sufficiently fast for
+   values above about n = 500.<br>
    Got E_1000 calulated in slightly over 2 minutes on
    an old 1GHz AMD-Duron. Not bad for such an old destrier.
-
-   Brent, Richard P., and David Harvey. "Fast computation of Bernoulli, Tangent
-   and Secant numbers." Computational and Analytical Mathematics. Springer New
+</p>
+   Brent, Richard P., and David Harvey. <i>Fast computation of Bernoulli, Tangent
+   and Secant numbers.</i> Computational and Analytical Mathematics. Springer New
    York, 2013. 127-142.
-
-   Preprint: http://arxiv.org/abs/1108.0286
+<br>
+   Preprint: {@link http://arxiv.org/abs/1108.0286}
+   @memberof integerfunctions
+  @param {number} N index of the Euler number
+  @return {Bigint}
 */
 function euler(N) {
     var n, e, k;
@@ -359,7 +427,14 @@ function euler(N) {
     return STATIC_EULER_ARRAY[k];
 };
 
-
+/**
+   Binomial function, recursive function for small values
+   @memberof integerfunctions
+   @param {number} n
+   @param {number} k
+   @return {number}
+   @private
+*/
 function comb(n, k) {
     var d;
     var q;
@@ -372,7 +447,14 @@ function comb(n, k) {
     q = Math.floor(k / d);
     return (Math.floor(comb(n - 1, k - 1) / q)) * Math.floor(n / d);
 }
-
+/**
+   Binomial function, linear algorithm for larger numbers
+   @memberof integerfunctions
+   @param {number} n
+   @param {number} k
+   @return {Bigint}
+   @private
+*/
 function bigcomb(n, k) {
     var i, c;
     var temp;
@@ -414,7 +496,14 @@ function bigcomb(n, k) {
     }
     return c;
 }
-
+/**
+   Binomial function<br>
+   Calculates with the prime-compositions of n, k for large values
+   @memberof integerfunctions
+   @param {number} n
+   @param {number} k
+   @return {Bigint}
+*/
 function binomial(n, k) {
     /*  Idea shamelessly stolen from Calc.
          Hey, wait, I wrote that calc-script myself!
@@ -484,6 +573,13 @@ function binomial(n, k) {
     return c;
 }
 // some more general functions to do arithmetic with factored integers
+/**
+  Prime factorization of factorial(n)
+   @memberof integerfunctions
+  @param {number} n the n in factorial(n)
+  @param {number} start start at prime <code>start</code>
+  @return {array} an <code>Array</code> with prime,exponent,prime,exponent&hellip;
+*/
 function factor_factorial(n, start) {
     var pix, prime, K, test_before, prime_list;
     var bst;
@@ -542,9 +638,22 @@ function factor_factorial(n, start) {
     return prime_list;
 }
 
-
+/**
+  Cutoff for the multiplcation of the prime-decompositions
+   @memberof integerfunctions
+  @constant {number}
+  @default
+  @private
+*/
 var BN_MP_FACTORED_FACTORIAL_CUTOFF = 0x10000000;
 /* Input is to be sorted as: prime,exponent,prime,exponent,... */
+/**
+   Multiply the prime-decomosition. All exponents must be positive
+   @memberof integerfunctions
+   @param {array} f the prime-decomposition
+   @param {number} f_length length of the prime-decomposition array
+   @param {number} stop at which entry to stop (0 = full length)
+*/
 function compute_factored_factorial(f, f_length, stop) {
     var length, start, i, c;
     var shift = 0;
@@ -624,7 +733,15 @@ function compute_factored_factorial(f, f_length, stop) {
     return c;
 }
 
-
+/**
+   Multiply the prime-decomosition. Sign of exponents matter
+   @memberof integerfunctions
+   @param {array} f the prime-decomposition
+   @param {number} f_length length of the prime-decomposition array
+   @param {number} do_division do a division at the end of not
+   @return {array} numerator and denominator in that order or quotient and
+                  reminder if a final division had been wished for 
+*/
 function compute_signed_factored_factorial(f, f_length, do_division) {
     var start = 0,
         i, count = 0,
@@ -783,7 +900,13 @@ function compute_signed_factored_factorial(f, f_length, do_division) {
     }
 }
 
-// reciprocal of a factorial
+/**
+   Negate all exponents in prime-decomposition. A kind of reciprocal.
+   @memberof integerfunctions
+   @param {array} input the prime-decomposition array
+   @param {number} l_input length of <code>input</code>
+   @return {array} output-array and length of output-array in that order
+*/
 function negate_factored_factorials(input, l_input){
   var k, counter=0;
   var neg;
@@ -805,6 +928,15 @@ function negate_factored_factorials(input, l_input){
 }
 
 // multiply two factorials
+/**
+   Multiply two factorials, that is, add the exponents of the prime decompositions
+   @memberof integerfunctions
+   @param {array} summand_1 first array of the prime-decomposition
+   @param {number} l_summand_1 length of first array of the prime-decomposition
+   @param {array} summand_2 second array of the prime-decomposition
+   @param {number} l_summand_2 second of first array of the prime-decomposition
+   @return {array} sum-array and length of sum-array in that order
+*/
 function add_factored_factorials( summand_1,l_summand_1,
                                  summand_2, l_summand_2){
   var k, counter=0,sum, l_sum;
@@ -845,10 +977,16 @@ function add_factored_factorials( summand_1,l_summand_1,
   l_sum = counter;
   return [sum, l_sum];
 }
-
-
-
 // divide two factorials (binom. etc.)
+/**
+   Divide two factorials, that is, subtract the exponents of the prime decompositions
+   @memberof integerfunctions
+   @param {array} subtrahend first array of the prime-decomposition
+   @param {number} l_subtrahend length of first array of the prime-decomposition
+   @param {array} minuend second array of the prime-decomposition
+   @param {number} l_minuend second of first array of the prime-decomposition
+   @return {array} difference-array and length of difference-array in that order
+*/
 function subtract_factored_factorials( subtrahend,
                                     l_subtrahend,
                                      minuend,
@@ -915,7 +1053,16 @@ function subtract_factored_factorials( subtrahend,
   return [difference, l_difference]; 
 }
 
-// exponentiate a factorial by an integer 
+// exponentiate a factorial by an integer
+/**
+   Exponentiate a factorial by a small positive integer, that is, multiply
+   every exponent of the prime-decomposition with the exponent.
+   @memberof integerfunctions
+   @param {array} input prime-decomposition array
+   @param {number} l_input length of the prime-decomposition array
+   @param {number} multiplicator exponent
+   @return {array} product-array and length of product-array in that order
+*/
 function power_factored_factorials(  input,
                                     l_input,
                                   multiplicator){
@@ -945,6 +1092,14 @@ function power_factored_factorials(  input,
 }
 // computes catalan(10000) in about 2,5 seconds on my good ol' 1GHz Duron
 // a 6015 decimal digits long number.
+/**
+  Catalan number<br>
+  Computes catalan(10000) in about 2,5 seconds on my good ol' 1GHz Duron, that
+  is a 6015 decimal digits long number.
+   @memberof integerfunctions
+  @param {number} n Index of Catalan number
+  @return {Bigint}
+*/
 function catalan(n) {
     var temp, c;
     if (n == 0 || n == 1) {
@@ -966,6 +1121,12 @@ function catalan(n) {
     return c;
 }
 // timing is about the same as for the factorial
+/**
+   Double-factorial
+   @memberof integerfunctions
+   @param {number} n the index of the double-factorial
+   @return {Bigint}
+*/
 function doublefactorial(n) {
     var prime_list, c;
     var pix = 0,
@@ -1040,6 +1201,13 @@ function doublefactorial(n) {
         return c;
     }
 }
+/**
+   Falling-factorial
+   @memberof integerfunctions
+   @param {number} n the base of the falling factorial
+   @param {number} k the index of the falling-factorial
+   @return {Bigint}
+*/
 function fallingfactorial(n, k) {
     var prime_list, c;
     var pix = 0,
@@ -1084,7 +1252,13 @@ function fallingfactorial(n, k) {
     c = compute_factored_factorial(prime_list, K - 1, 0);
     return c;
 }
-
+/**
+   Rising-factorial
+   @memberof integerfunctions
+   @param {number} n the base of the rising factorial
+   @param {number} k the index of the rising-factorial
+   @return {Bigint}
+*/
 function risingfactorial(n, k) {
     var c, num, den, quot;
     num = factor_factorial(n + k - 1, 1);
@@ -1093,7 +1267,12 @@ function risingfactorial(n, k) {
     c = compute_signed_factored_factorial(quot[0], quot[1], true);
     return c;
 }
-
+/**
+   Sub-factorial
+   @memberof integerfunctions
+   @param {number} n the index of the sub-factorial
+   @return {Bigint}
+*/
 function subfactorial(n) {
     var k, temp1, temp2, ret;
     if (!n.isInt()) return MP_VAL;
@@ -1118,11 +1297,36 @@ function subfactorial(n) {
     }
     return ret;
 }
-
+/**
+  Cache for the Stirling numbers of the first kind
+   @memberof integerfunctions
+  @constant {array}
+  @private
+*/
 var STATIC_STIRLING1_CACHE;
+/**
+  Cache for the Stirling numbers of the first kind, number of entries for n
+   @memberof integerfunctions
+  @constant {number}
+  @default
+  @private
+*/
 var STATIC_STIRLING1_CACHE_N = -1;
+/**
+  Cache for the Stirling numbers of the first kind, number of entries for n
+   @memberof integerfunctions
+  @constant {number}
+  @default
+  @private
+*/
 var STATIC_STIRLING1_CACHE_M = -1;
-
+/**
+  Stirling numbers of the first kind
+   @memberof integerfunctions
+  @param {number} n
+  @param {number} m
+  @return {Bigint}
+*/
 function stirling1(n, m) {
     var i, j, k;
     if (n < 0) return MP_VAL;
@@ -1156,7 +1360,11 @@ function stirling1(n, m) {
         return STATIC_STIRLING1_CACHE[n][m];
     }
 }
-
+/**
+  Free the cache of the Stirling numbers of the first kind, that is, give the
+  GC a chance to clean up.
+   @memberof integerfunctions
+*/
 function free_stirling1cache(){
     var i,j,l1,l2;
     l1 = STATIC_STIRLING1_CACHE.length;
@@ -1171,7 +1379,13 @@ function free_stirling1cache(){
     STATIC_STIRLING1_CACHE_N = -1;
     STATIC_STIRLING1_CACHE_M = -1;
 }
-
+/**
+  Stirling numbers of the second kind, slow but memory saving series evaluation
+   @memberof integerfunctions
+  @param {number} n
+  @param {number} m
+  @return {Bigint}
+*/
 function stirling2(n, m) {
     var k, sum, t1, t2, sign;
     if (n < 0) return MP_VAL;
@@ -1204,11 +1418,35 @@ function stirling2(n, m) {
     }
     return sum.div(factorial(m))
 }
-
+/**
+  Cache for the Stirling numbers of the second kind
+   @memberof integerfunctions
+  @private
+*/
 var STATIC_STIRLING2_CACHE;
+/**
+  Cache for the Stirling numbers of the second kind, number of entries for n
+   @memberof integerfunctions
+  @constant  {number}
+  @default
+  @private
+*/
 var STATIC_STIRLING2_CACHE_N = -1;
+/**
+  Cache for the Stirling numbers of the second kind, number of entries for m
+   @memberof integerfunctions
+  @constant {number}
+  @default
+  @private
+*/
 var STATIC_STIRLING2_CACHE_M = -1;
-
+/**
+  Stirling numbers of the second kind, fast but memory hogging version
+   @memberof integerfunctions
+  @param {number} n
+  @param {number} m
+  @return {Bigint}
+*/
 function stirling2caching(n, m) {
     var nm, i, j;
     if (n < 0) return MP_VAL;
@@ -1257,7 +1495,11 @@ function stirling2caching(n, m) {
 
     return STATIC_STIRLING2_CACHE[n][m];
 }
-
+/**
+  Free the cache of the Stirling numbers of the second kind, that is, give the
+  GC a chance to clean up.
+   @memberof integerfunctions
+*/
 function free_stirling2cache(){
     var i,j,l1,l2;
     l1 = STATIC_STIRLING2_CACHE.length;
@@ -1272,7 +1514,12 @@ function free_stirling2cache(){
     STATIC_STIRLING2_CACHE_N = -1;
     STATIC_STIRLING2_CACHE_M = -1;
 }
-
+/**
+  Bell numbers
+   @memberof integerfunctions
+  @param {number} n index of Bell number
+  @return {Bigint}
+*/
 function bell(n) {
     var sum, s2list, k, A;
 
@@ -1296,6 +1543,13 @@ function bell(n) {
 }
 
 // up to f_76
+/**
+  Fibonacci numbers for small values up to f<sub>76</sub>
+   @memberof integerfunctions
+  @param {number} n index of Fibonacci number
+  @return {number}
+  @private
+*/
 function smallfibonacci(n) {
     var i = 1,
         j = 0,
@@ -1309,6 +1563,13 @@ function smallfibonacci(n) {
 }
 
 /* matrix expo. */
+/**
+  Fibonacci numbers.<br>
+  Fast algorithm using matrix exponentiation
+   @memberof integerfunctions
+  @param {number} n index of Fibonacci number
+  @return {Bigint}
+*/
 function fibonacci(n) {
     var i = n - 1,
         r;
@@ -1355,12 +1616,17 @@ function fibonacci(n) {
     r = a.add(b);
     return r;
 }
-// s(n) = prod(0..n,n!)
-// computes s(100) (6941 dec. digits) in about half a second on my old
-// 1 GHz Duron, iterative multiplication needs about two seconds with the
-// first 50 factorials pre-computed. The mass of pre-computed factorials
-// have less influence in the case of S(200) (33447 dec. dig.) with about
-// 40 seconds and 5 seconds respectively.
+/**
+  Superfactorial <code>s(n) = prod(0..n,n!)</code><br>
+  computes s(100) (6941 dec. digits) in about half a second on my old
+  1 GHz Duron, iterative multiplication needs about two seconds with the
+  first 50 factorials pre-computed. The mass of pre-computed factorials
+  have less influence in the case of S(200) (33447 dec. dig.) with about
+  40 seconds and 5 seconds respectively.
+   @memberof integerfunctions
+  @param {number} n index of superfactorial
+  @return {bigint}
+*/
 function superfactorial(n) {
     var t, tl, s, sl, sum;
     var i, length_t, length_s;
