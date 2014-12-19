@@ -6295,13 +6295,13 @@ Bigint.prototype.powmod = function(exp, mod) {
     // TODO: include Montgomery etc.
 
     var ret = new Bigint(1);
-
-    while (exp.isZero() == MP_NO) {
-        if (exp.isOdd() == MP_YES) {
+    var e = exp.copy();
+    while (e.isZero() == MP_NO) {
+        if (e.isOdd() == MP_YES) {
             ret = ret.mul(z1).rem(mod);
         }
         z1 = z1.sqr().rem(mod);
-        exp.rShiftInplace(1);
+        e.rShiftInplace(1);
     }
     return ret;
 };
