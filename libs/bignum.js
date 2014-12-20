@@ -6056,7 +6056,7 @@ Bigint.prototype.jacobi = function(p) {
         r = pdigit & 7; // equiv. to: r = pdigit % 8;
         if (r == 1 || r == 7) {
             s = 1;
-        } else {
+        } else if(r == 3 || r == 5){
             s = -1;
         }
     }
