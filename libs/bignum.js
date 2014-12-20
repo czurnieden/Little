@@ -2324,7 +2324,7 @@ String.prototype.toBigint = function(radix) {
     }
 
     // much faster version, needs Bigdecimal and some testing
-    if (radix == 10 && strlen > 70) {
+    if (radix == 1000 && strlen > 70) {
         var i, j, k, tmp, astr;
         var rem = strlen % BIGDECIMAL_LOG10_BASE;
         for (i = 0; i < str.length - (rem + 1); i += BIGDECIMAL_LOG10_BASE) {
