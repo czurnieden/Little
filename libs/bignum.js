@@ -6023,22 +6023,21 @@ Bigint.prototype.mask = function(n) {
   @memberof Bigint
   @instance
   @param {Bigint} p positive odd integer
-  @return {number}
+  @return {number} {-1,0,1} or <code>MP_VAL</code> in case of error
 */
 Bigint.prototype.jacobi = function(p) {
     var f, b, ret;
     if (p.sign == MP_NEG || p.isZero()) {
         return MP_VAL;
     }
-    if (this.isZero()) {
-        if (p.isOne()) {
-            return 1;
-        } else {
-            return 0;
-        }
+    if(p.isOne()){
+        return 1;
     }
-    if (p.used == 1 && (p.dp[0] < 3 || p.dp[0].isEven())) {
+    if (p.isEven()) {
         return MP_VAL;
+    }
+    if (this.isZero()) {
+        return 0;
     }
     if (this.sign == MP_NEG) {
         // (-1)^((b-1)/2)
@@ -6046,6 +6045,9 @@ Bigint.prototype.jacobi = function(p) {
         b.decr();
         b.rShiftInplace(1);
         f = (b.isOdd()) ? -1 : 1;
+        if (this.isUnity()){
+            return f;
+        }
         ret = this.abs().kjacobi(p);
         ret *= f;
         return ret;
