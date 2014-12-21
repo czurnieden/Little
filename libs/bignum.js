@@ -6018,20 +6018,51 @@ Bigint.prototype.mask = function(n) {
     return;
 };
 /**
-  Jacobi function
+  Jacobi function.<br>
+  First argument can be negative, too.
   @memberof Bigint
   @instance
-  @param {Bigint} p the prime
+  @param {Bigint} p positive odd integer
   @return {number}
 */
 Bigint.prototype.jacobi = function(p) {
-    var aprime, k, s, r, pdigit, adigit, pprime;
-    if (this.sign == MP_NEG || p.sign == MP_NEG) {
+    var f, b, ret;
+    if (p.sign == MP_NEG || p.isZero()) {
         return MP_VAL;
+    }
+    if (this.isZero()) {
+        if (p.isOne()) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
     if (p.used == 1 && (p.dp[0] < 3 || p.dp[0].isEven())) {
         return MP_VAL;
     }
+    if (this.sign == MP_NEG) {
+        // (-1)^((b-1)/2)
+        b = p.copy();
+        b.decr();
+        b.rShiftInplace(1);
+        f = (b.isOdd()) ? -1 : 1;
+        ret = this.abs().kjacobi(p);
+        ret *= f;
+        return ret;
+    } else {
+        return this.kjacobi(p);
+    }
+};
+/**
+  Unsigned Jacobi-symbol (internal)
+  @memberof Bigint
+  @instance
+  @param {Bigint} p positive odd integer
+  @return {number}
+  @private
+*/
+Bigint.prototype.kjacobi = function(p) {
+    var aprime, k, s, r, pdigit, adigit, pprime;
     if (this.used == 1) {
         if (this.dp[0] == 0 || this.dp[0] == 1) {
             return this.dp[0];
@@ -6039,14 +6070,6 @@ Bigint.prototype.jacobi = function(p) {
     }
     s = 0;
     aprime = this.copy();
-    /*
-       Stripping trailing zeros is the same as
-       while(aprime.used > 0 && aprime.dp[0].isEven()){
-           aprime = aprime.divInt(2);
-       }
-       To be even the number must end in a zero bit and the
-       division by two can be replaced by a shift right by one.
-    */
     k = aprime.lowBit();
     aprime.rShiftInplace(k);
     if (k.isEven()) {
@@ -6056,7 +6079,7 @@ Bigint.prototype.jacobi = function(p) {
         r = pdigit & 7; // equiv. to: r = pdigit % 8;
         if (r == 1 || r == 7) {
             s = 1;
-        } else if(r == 3 || r == 5){
+        } else if (r == 3 || r == 5) {
             s = -1;
         }
     }
@@ -6064,16 +6087,17 @@ Bigint.prototype.jacobi = function(p) {
     adigit = aprime.dp[0];
     // equiv. to:
     // if(pdigit % 4 == 3 && adigit % 4 == 3){
-    if ( ((pdigit & 3) == 3) && ((adigit & 3) == 3)) {
+    if (((pdigit & 3) == 3) && ((adigit & 3) == 3)) {
         s = -s;
     }
-    if (!aprime.isOne()) {
+    if (aprime.isOne()) {
+        return s;
+    } else {
         pprime = p.rem(aprime);
-        s = s * pprime.jacobi(aprime);
+        s = s * pprime.kjacobi(aprime);
     }
     return s;
 };
-
 
 /*
      Modular arithmetic
