@@ -6064,7 +6064,7 @@ Bigint.prototype.jacobi = function(p) {
     adigit = aprime.dp[0];
     // equiv. to:
     // if(pdigit % 4 == 3 && adigit % 4 == 3){
-    if (pdigit & 3 == 3 && adigit & 3 == 3) {
+    if ( ((pdigit & 3) == 3) && ((adigit & 3) == 3)) {
         s = -s;
     }
     if (!aprime.isOne()) {
