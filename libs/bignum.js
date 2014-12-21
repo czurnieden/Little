@@ -6027,6 +6027,8 @@ Bigint.prototype.mask = function(n) {
 */
 Bigint.prototype.jacobi = function(p) {
     var f, b, ret;
+    // Mathematica (wolframalpha.com actually) returns zero for p=0
+    // but 0 is even!?
     if (p.sign == MP_NEG || p.isZero()) {
         return MP_VAL;
     }
@@ -6041,9 +6043,11 @@ Bigint.prototype.jacobi = function(p) {
     }
     if (this.sign == MP_NEG) {
         // (-1)^((b-1)/2)
-        b = p.copy();
+        /*b = p.copy();
         b.decr();
-        b.rShiftInplace(1);
+        b.rShiftInplace(1);*/
+        b = p.dp[0] - 1;
+        b >>>= 1;
         f = (b.isOdd()) ? -1 : 1;
         if (this.isUnity()){
             return f;
