@@ -6017,6 +6017,11 @@ Bigint.prototype.mask = function(n) {
     this.sign = MP_ZPOS;
     return;
 };
+
+/*
+     Modular arithmetic and other number theoretical functions
+*/
+
 /**
   Jacobi function.<br>
   First argument can be negative, too.
@@ -6105,9 +6110,7 @@ Bigint.prototype.kjacobi = function(p) {
     return s;
 };
 
-/*
-     Modular arithmetic
-*/
+
 /**
   Modular inverse
   @memberof Bigint
@@ -6369,5 +6372,232 @@ Bigint.prototype.mulmod = function(bint, mod){
     t1 = this.rem(mod);
     t2 = bint.rem(mod);
     return t1.mul(t2).rem(mod);
+};
+
+/*
+   Prime testing and factorization
+*/
+
+/**
+  Test if <code>this</code> is a perfect square.<br>
+  A little bit faster than computing a square root alone. Does not accept
+  negative input. Takes 0 (zero) and 1 (one) as perfect squares, too.
+  @memberof Bigint
+  @instance
+  @return {bool} or <code>MP_VAL</code> in case of an error
+*/
+Bigint.prototype.isPerfectSquare = function() {
+    var sqrtn, lastsix, lasthex;
+
+    // The last six bits of a perfect square must be one of these numbers
+    lastsix = [0x00, 0x01, 0x04, 0x09, 0x10, 0x11, 0x19, 0x21, 0x24, 0x29,
+        0x31, 0x39
+    ];
+    lasthex = this.dp[0] & 0x3f;
+
+    if (this.sign == MP_NEG) {
+        return MP_VAL;
+    }
+    if (this.isZero() || this.isOne()) {
+        return MP_YES;
+    }
+    if (lastsix.indexOf(lasthex) < 0) {
+        return MP_NO;
+    }
+
+    sqrtn = this.sqrt();
+    if (sqrtn.sqr().cmp(this) == MP_EQ) {
+        return MP_YES;
+    } else {
+        return MP_NO;
+    }
+};
+
+/**
+  Test if <code>this</code> is a small prime.<br>
+  Numbers up to <code>34,155,071,728,320</code> are accepted.
+  @memberof Bigint
+  @instance
+  @return {bool} or <code>MP_VAL</code> in case of an error
+*/
+Bigint.prototype.isSmallPrime = function() {
+    var n, k, sqrtn, primes;
+    if (this.isEven()) {
+        return MP_NO;
+    }
+    if (this.used > 1) {
+        if (this.cmp((34155071728321).toBigint()) == MP_LT) {
+            return this.isPseudoprime();
+        } else {
+            return MP_VAL;
+        }
+    }
+    n = this.dp[0];
+    sqrtn = Math.floor(Math.sqrt(n));
+    if (sqrtn * sqrtn == n) {
+        return MP_NO;
+    }
+    // sqrt(2^26) = 8192 and pi(8192) = 1028
+    primes = primesieve.primeRange(0, sqrtn);
+    for (k = 0; k < primes.length; k++) {
+        if (Math.floor(n / primes[k]) == (n / primes[k] * 1.0)) {
+            return MP_NO;
+        }
+    }
+    return MP_YES;
+};
+
+/**
+  Test if <code>this</code> is divisible by <code>d</code> without remainder
+  @memberof Bigint
+  @instance
+  @param {Bigint|number} d divisor
+  @return {bool}
+*/
+Bigint.prototype.divisible = function(d) {
+    var r;
+    if (typeof d === "number") {
+        d = d.toBigint();
+    }
+    r = this.rem(d);
+    if (!r.isZero()) {
+        return MP_NO;
+    }
+    return MP_YES;
+};
+
+/**
+  Miller-Rabin test
+  @memberof Bigint
+  @instance
+  @param {number} base Miller-Rabin base
+  @return {bool}
+  @private
+*/
+Bigint.prototype.rabinMiller = function(base) {
+    var zbase, zNm1, zd, zrem, s, k;
+
+    zbase = base.toBigint();
+    zNm1 = this.subInt(1);
+    s = this.lowBit();
+
+    zd = zNm1.rShift(s);
+    zrem = zbase.powmod(zd, this);
+
+    if (zrem.isOne()) {
+        return MP_YES;
+    }
+
+    if (zrem.cmp(zNm1) == MP_EQ) {
+        return MP_YES;
+    }
+    for (k = 1; k < s; k++) {
+        zrem = zrem.mulmod(zrem);
+        if (zrem.cmp(zNm1) == MP_EQ) {
+            return MP_YES;
+        }
+    }
+    return MP_NO;
+};
+
+/**
+  Test if <code>this</code> is a pseudo prime.<br>
+  Primes up to <code>34,155,071,728,247</code> are certified primes.<br>
+  Timing for 2^200 + 235, 61 decimal digits: ~2,5 sec. on an old 1 GHz Duron
+  @memberof Bigint
+  @instance
+  @return {bool} or <code>MP_VAL</code> in case of an error
+*/
+Bigint.prototype.isPseudoprime = function() {
+    var sqrtN, qmax, primes, k;
+
+    // Step 1: simple cases
+    if (this.isEven()) {
+        return MP_NO;
+    }
+    if (this.used == 1) {
+        return this.isSmallPrime();
+    }
+
+    // Step 2: trial division
+    qmax = this.highBit() + 1;
+    if (qmax < 36) {
+        qmax = 36;
+    }
+    primes = primesieve.primeRange(0, qmax);
+    for (k = 0; k < primes.length; k++) {
+        if (this.cmp(primes[k].toBigint()) == MP_EQ) {
+            return MP_YES;
+        }
+        if (this.divisible(primes[k].toBigint()) == MP_YES) {
+            return MP_NO;
+        }
+    }
+    // Step 2a: see if we did an already exhaustive test
+    sqrtN = this.sqrt();
+    if (sqrtN.cmp(qmax.toBigint()) != MP_GT) {
+        return MP_YES;
+    }
+
+    // Step 3a: check if we have a perfect square
+    if (sqrtN.sqr().cmp(this) == MP_EQ) {
+        return MP_NO;
+    }
+
+    // Step 3b: some rounds of Miller-Rabin (bases 2, 3, 5, 7, 11, 13 and 17)
+    for (k = 0; k < 8; k++) {
+        // Miller-Rabin does not return false positives
+        if (this.rabinMiller(primes[k]) == MP_NO) {
+            return MP_NO;
+        }
+    }
+    // Step 4: all primes below 34155071728321 are surely prime now
+    if (this.cmp((34155071728321).toBigint()) == MP_LT) {
+        return MP_YES;
+    }
+    /* TODO:
+       // Step 5: Lucas-Selfridge test
+       if(this.lucasSelfridge() == MP_NO){
+          return MP_NO;
+       }
+       
+       // Step 6: strong Lucas-Selfridge test
+       return this.strongLucasSelfridge();
+    */
+    return MP_YES;
+};
+
+/**
+  Miller-Rabin test
+  @memberof Bigint
+  @instance
+  @param {number} base Miller-Rabin base
+  @return {bool}
+  @private
+*/
+Bigint.prototype.rabinMiller = function(base) {
+    var zbase, zNm1, zd, zrem, s, k;
+
+    zbase = base.toBigint();
+    zNm1 = this.subInt(1);
+    s = this.lowBit();
+
+    zd = zNm1.rShift(s);
+    zrem = zbase.powmod(zd, this);
+
+    if (zrem.isOne()) {
+        return MP_YES;
+    }
+
+    if (zrem.cmp(zNm1) == MP_EQ) {
+        return MP_YES;
+    }
+    for (k = 1; k < s; k++) {
+        zrem = zrem.mulmod(zrem);
+        if (zrem.cmp(zNm1) == MP_EQ) {
+            return MP_YES;
+        }
+    }
+    return MP_NO;
 };
 
