@@ -1093,8 +1093,8 @@ Bigfloat.prototype.inv = function() {
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    // xn.sign = this.sign
-    // xn-mantissa.sign = this.sign
+    xn.sign = this.sign
+    xn.mantissa.sign = this.sign
     return xn;
 };
 
