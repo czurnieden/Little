@@ -28,6 +28,7 @@
 var MPF_PRECISION = MP_DIGIT_BIT*4;
 // it is also the minimum
 var MPF_PRECISION_MIN = MP_DIGIT_BIT*4;
+var MPF_DECIMAL_PRECISION_MIN = 31;
 // this is an arbitrary maximum, just a safe guard and free to change
 var MPF_PRECISION_MAX = 4294967296; // 2^32 bits, 165,191,050 big-digits
 
@@ -77,7 +78,16 @@ function getPrecision(){
 
 Bigfloat.prototype.getDecimalPrecision = function(){
   var log210 = parseFloat("3.321928094887362347870319429489390175865");
-  return Math.ceil( this.precision / log210) ;
+  return Math.floor( this.precision / log210) ;
+};
+
+Bigfloat.prototype.setDecimalPrecision = function(prec){
+  var log210 = parseFloat("3.321928094887362347870319429489390175865");
+  if(!prec || !prec.isInt() || prec < MPF_DECIMAL_PRECISION_MIN){
+      return MP_NO;
+  }
+  this.precision = Math.ceil(prec * log210) + 1;
+  return true;
 };
 
 function mpfegetround(){
@@ -675,35 +685,35 @@ String.prototype.toBigfloat = function(numbase) {
 Bigfloat.prototype.toString = function(numbase) {
     var ret, quot;
     var log210 = parseFloat("3.321928094887362347870319429489390175865");
-    var sign = (bigfloat.sign == MP_NEG) ? "-" : "";
-    var decprec = bigfloat.getDecimalPrecision();
-    var exponent = bigfloat.exponent;
-    var signexpo = (bigfloat.exponent < 0) ? "-" : "";
+    var sign = (this.sign == MP_NEG) ? "-" : "";
+    var decprec = this.getDecimalPrecision();
+    var exponent = this.exponent;
+    var signexpo = (this.exponent < 0) ? "-" : "";
     var decexpo;
     var ten = new Bigint(10);
     var one = new Bigint(1);
 
-    if (bigfloat.isZero()) {
+    if (this.isZero()) {
         return sign + "0.0E0";
     }
 
     // we could use the sign of the mantissa directly but that might
     // not be the correct one.
-    ret = bigfloat.mantissa.abs();
+    ret = this.mantissa.abs();
 
     // if exponent >= 0 shift left by exponent
     if (exponent >= 0) {
         // lShiftInplace() does nothing if exponent is zero;
         ret.lShiftInplace(exponent);
-        decexpo = Math.floor((bigfloat.exponent + bigfloat.precision) /
+        decexpo = Math.floor((this.exponent + this.precision) /
             log210);
         signexpo = "";
     } else {
         // multiply by 10^(toDec(this.precision)) and divide by 2^exponent
-        // the decimal point is at 10^(toDec(this.precision)) now
+        // the decimal point is at 10^(toDec(this.precision)) now.
         // don't check for a proper integer; it can't be known, could be just a
         // fraction rounded to an integer
-        decexpo = Math.ceil((Math.abs(bigfloat.exponent) - bigfloat.precision) /
+        decexpo = Math.ceil((Math.abs(this.exponent) - this.precision) /
             log210);
         ret = ret.mul(ten.pow(decprec + decexpo));
         one.lShiftInplace(Math.abs(exponent));
@@ -720,8 +730,7 @@ Bigfloat.prototype.toString = function(numbase) {
                 ret = ret.addInt(10 - mod10);
             }
         }
-        console.log("ret = " + ret)
-        if (Math.abs(bigfloat.exponent) < bigfloat.precision) {
+        if (Math.abs(this.exponent) < this.precision) {
             signexpo = "";
         }
     }
@@ -730,7 +739,7 @@ Bigfloat.prototype.toString = function(numbase) {
     } else {
         ret = ret.toString();
     }
-    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec - 1) + "E" +
+    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "E" +
         signexpo + Math.abs(decexpo).toString();
     return ret;
 };
@@ -1043,10 +1052,8 @@ Bigfloat.prototype.inv = function() {
 
     // compute initial value x0 = 1/A
     inval = this.toNumber();
-    console.log("inval = " + inval)
     inval = Math.abs(inval);
     inval = 1 / inval;
-     console.log("inval = " + inval)
     // start with basic precision which is 2*double precision
     oldprec = this.precision;
     prec = 15;
@@ -1060,10 +1067,8 @@ Bigfloat.prototype.inv = function() {
     nloop = 3//Math.ceil(Math.log(oldprec) / Math.log(2)) - 7; // 7 = ceil(log_2(104)
 
     xn = inval.toBigfloat();
-    console.log("x0 = " + xn)
     // x0 = xn.copy();
     one = new Bigfloat(1);
-   // one.setSmall(1);
     // low starting precision: low cost
     A = this.abs();
     // xn = 2*xn-A*xn^2 normally but here we do something different:
@@ -1086,8 +1091,8 @@ Bigfloat.prototype.inv = function() {
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    // xn.sign = this.sign
-    // xn-mantissa.sign = this.sign
+    xn.sign = this.sign
+    xn.mantissa.sign = this.sign
     return xn;
 };
 
