@@ -674,7 +674,7 @@ var primesieve = (function() {
         };
     }
     /**
-       30*log(113)/113 see alsoe {@link http://oeis.org/A209883 }
+       30*log(113)/113 see also {@link http://oeis.org/A209883 }
        @memberof primesieve
        @private
     */
@@ -6504,6 +6504,7 @@ Bigint.prototype.rabinMiller = function(base) {
   Test if <code>this</code> is a pseudo prime.<br>
   Primes up to <code>34,155,071,728,247</code> are certified primes.<br>
   Timing for 2^200 + 235, 61 decimal digits: ~2,5 sec. on an old 1 GHz Duron
+  Timing for 2^200 - 75,  61 decimal digits: ~3.8 sec.
   @memberof Bigint
   @instance
   @return {bool} or <code>MP_VAL</code> in case of an error
