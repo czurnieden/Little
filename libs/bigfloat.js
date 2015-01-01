@@ -1020,12 +1020,13 @@ Bigfloat.prototype.sub = function(bf){
 
 
 Bigfloat.prototype.mul = function(bf){
-   var ret;
+   var ret = new Bigfloat();
 
-   ret = this.mantissa.mul(bf.mantissa);
+   ret.mantissa = this.mantissa.mul(bf.mantissa);
    ret.exponent = this.exponent + bf.exponent;
    ret.sign = ret.mantissa.sign;
    ret.normalize();
+   return ret;
 };
 
 Bigfloat.prototype.div = function(bf){
@@ -1046,14 +1047,15 @@ Bigfloat.prototype.div = function(bf){
    return ret;
 };
 
-
 Bigfloat.prototype.inv = function() {
-    var init, ret, x0, xn, hn, A, inval, prec, oldprec, one, nloop;
+    var init, ret, x0, xn, hn, A, inval, prec, oldprec, one, nloops;
 
     // compute initial value x0 = 1/A
     inval = this.toNumber();
+    console.log("inval = " + inval)
     inval = Math.abs(inval);
     inval = 1 / inval;
+     console.log("inval = " + inval)
     // start with basic precision which is 2*double precision
     oldprec = this.precision;
     prec = 15;
@@ -1064,8 +1066,8 @@ Bigfloat.prototype.inv = function() {
     // number of loops:
     // quadratic, so every round doubles the number of correct digits 
     // such a limit is necessary because the loop condition might never be true
-    nloop = 3//Math.ceil(Math.log(oldprec) / Math.log(2)) - 7; // 7 = ceil(log_2(104)
-
+    var precarr = computeGiantsteps(prec, oldprec, 2);
+    nloops = 0;
     xn = inval.toBigfloat();
     // x0 = xn.copy();
     one = new Bigfloat(1);
@@ -1080,23 +1082,21 @@ Bigfloat.prototype.inv = function() {
         hn = one.sub(A.mul(xn));
         // we can check for hn being close enough to zero ( <eps ) here
         xn = xn.add(xn.mul(hn));
-        nloop--;
-        if (nloop == 0) {
+        prec = precarr[nloops];
+        nloops++;
+        if (nloops == precarr.length) {
             break;
         }
-        prec *= 2;
     } while (x0.cmp(xn) != MP_EQ);
 
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    xn.sign = this.sign
-    xn.mantissa.sign = this.sign
+    // xn.sign = this.sign
+    // xn-mantissa.sign = this.sign
     return xn;
 };
-
-
 
 
 
