@@ -65,7 +65,7 @@ function Bigfloat(n){
 }
 
 function setPrecision(n){
-  if(n != null && n.isInt() && n > MPF_PRECISION_MIN){
+  if(arguments.length > 0 && n.isInt() && n > MPF_PRECISION_MIN){
     MPF_PRECISION = n;
   } else {
     MPF_PRECISION = MPF_PRECISION_MIN;
@@ -224,7 +224,7 @@ Number.prototype.toBigfloat = function(){
 
 // both function assume MP_DIGIT_BIT == 26
 Bigfloat.prototype.toNumber = function(){
-    var high, mid, low, ret, buf, tmp, exponent;
+    var high, mid, low, ret, buf, tmp, exponent, newthis, oldprec;
     if(this.exponent < -1022){
         return -Infinity;
     } else if(this.exponent > 1023){
@@ -234,24 +234,31 @@ Bigfloat.prototype.toNumber = function(){
     } else  if(this.isZero()){
         return (this.sign < 0)? -0 : 0;
     }
-
+    // just reduce precision and put it into a JavaScript Number
+    // A kind of ldexp
+    oldprec = this.precision
+    setPrecision(53);
+    newthis = this.copy();
+    newthis.normalize();
+    this.precision = oldprec;
+    setPrecision(oldprec);
     // we have at least one big-digit
-    high = this.mantissa.dp[this.mantissa.used -1];
+    high = newthis.mantissa.dp[newthis.mantissa.used -1];
     mid = 0;
     low = 0;
     // TODO: check for subnormals here
-    if(this.mantissa.used >= 2){
-        mid = this.mantissa.dp[this.mantissa.used -2];
+    if(newthis.mantissa.used >= 2){
+        mid = newthis.mantissa.dp[newthis.mantissa.used -2];
     }
     if(this.mantissa.used >= 3){
-         low = this.mantissa.dp[this.mantissa.used -3] >>> (MP_DIGIT_BIT -1);
+         low = newthis.mantissa.dp[newthis.mantissa.used -3] >>> (MP_DIGIT_BIT -1);
     }
     // build a 64 bit ECMAScript Number (IEEE-754 double precision)
     buf = new DataView(new ArrayBuffer(8));
     // MSB of the high word is the sign
-    tmp = (this.sign < 0)?0x80000000:0;
+    tmp = (newthis.sign < 0)?0x80000000:0;
     // add bias to exponent
-    exponent = this.exponent + 1022;
+    exponent = newthis.exponent + 1022;
     // add exponent to high word
     tmp |= exponent << 20;
     // IEEE double has an implicit first bit, we have it explicit.
@@ -272,7 +279,7 @@ Bigfloat.prototype.toNumber = function(){
     }
     buf.setUint32(4,tmp);
     ret = buf.getFloat64(0);
-    tmp = Math.pow(2,this.precision);
+    tmp = Math.pow(2,newthis.precision);
     ret *= tmp;
     return ret;
 };
@@ -739,6 +746,9 @@ Bigfloat.prototype.toString = function(numbase) {
     } else {
         ret = ret.toString();
     }
+    if(decexpo == 0){
+       signexpo = "";
+    }
     ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "E" +
         signexpo + Math.abs(decexpo).toString();
     return ret;
@@ -1029,6 +1039,16 @@ Bigfloat.prototype.mul = function(bf){
    return ret;
 };
 
+Bigfloat.prototype.sqr = function(){
+   var ret = new Bigfloat();
+
+   ret.mantissa = this.mantissa.sqr();
+   ret.exponent = 2 * this.exponent;
+   ret.sign = ret.mantissa.sign;
+   ret.normalize();
+   return ret;
+};
+
 Bigfloat.prototype.div = function(bf){
    var tmp;
    var ret;
@@ -1054,9 +1074,9 @@ Bigfloat.prototype.inv = function() {
     inval = this.toNumber();
     inval = Math.abs(inval);
     inval = 1 / inval;
-    // start with basic precision which is 2*double precision
     oldprec = this.precision;
-    prec = 15;
+    // bits in a 64-bit double minus angst-allowance
+    prec = 50;
     // oldprec must be equal or higher or there is a nasty bug somewhere
     if (oldprec != prec) {
         this.precision = prec;
@@ -1079,6 +1099,9 @@ Bigfloat.prototype.inv = function() {
         x0 = xn.copy();
         hn = one.sub(A.mul(xn));
         // we can check for hn being close enough to zero ( <eps ) here
+        if (hn.isZero()) {
+            break;
+        }
         xn = xn.add(xn.mul(hn));
         prec = precarr[nloops];
         nloops++;
@@ -1096,7 +1119,58 @@ Bigfloat.prototype.inv = function() {
     return xn;
 };
 
+Bigfloat.prototype.sqrt = function() {
+    var init, ret, x0, xn, hn, A, sqrtval, prec, oldprec, one, two, nloops;
 
+    if (this.sign == MP_NEG) {
+        return (new Bigfloat()).setNaN();
+    }
+    // compute initial value x0 = 1/sqrt(A)
+    sqrtval = this.toNumber();
+    sqrtval = 1 / Math.sqrt(sqrtval);
+    oldprec = this.precision;
+    // bits in a 64-bit double minus angst-allowance
+    prec = 50;
+    // oldprec must be equal or higher or there is a nasty bug somewhere
+    if (oldprec != prec) {
+        this.precision = prec;
+    }
+    // number of loops:
+    // quadratic, so every round doubles the number of correct digits 
+    // such a limit is necessary because the loop condition might never be true
+    var precarr = computeGiantsteps(prec, oldprec, 2);
+    nloops = 0;
+    xn = sqrtval.toBigfloat();
+    // x0 = xn.copy();
+    one = new Bigfloat(1);
+    two = (new Bigfloat(2)).inv();
+    // low starting precision: low cost
+    A = this.abs();
+    // inverse sqrt
+    // hn = 1-A*xn^2
+    // x(n+1) = xn + xn/2 * hn.
+    do {
+        setPrecision(prec);
+        x0 = xn.copy();
+        hn = one.sub(A.mul(xn.sqr()));
+        // we can check for hn being close enough to zero ( <eps ) here
+        if (hn.isZero()) {
+            break;
+        }
+        xn = xn.add(xn.mul(two).mul(hn));
+        prec = precarr[nloops];
+        nloops++;
+        if (nloops == precarr.length) {
+            break;
+        }
+    } while (x0.cmp(xn) != MP_EQ);
+    // we are probably (hopefuly) too high
+    setPrecision(oldprec);
+    xn.normalize();
+    // sqrt(A) = 1/sqrt(A) * A
+    xn = xn.mul(A);
+    return xn;
+};
 
 
 
