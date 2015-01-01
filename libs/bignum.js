@@ -2955,6 +2955,7 @@ Bigint.prototype.dlShift = function(i) {
     }
     ret.dp = tmp.concat(ret.dp);
     ret.used = ret.dp.length;
+    ret.clamp();
     return ret;
 };
 /**
@@ -2979,6 +2980,7 @@ Bigint.prototype.dlShiftInplace = function(i) {
     }
     this.dp = tmp.concat(this.dp);
     this.used = this.dp.length;
+    this.clamp();
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
 /**
@@ -3013,6 +3015,7 @@ Bigint.prototype.drShift = function(i) {
     ret.dp = this.dp.slice(i, this.used);
     ret.used = ret.dp.length;
     ret.sign = this.sign;
+    ret.clamp();
     return ret;
 };
 // shift right big-digit-wise
@@ -3040,6 +3043,7 @@ Bigint.prototype.drShiftInplace = function(i) {
 
     this.dp = this.dp.slice(i, this.used);
     this.used = this.dp.length;
+    this.clamp();
 };
 // shift left bit-wise
 /**
