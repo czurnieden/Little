@@ -1052,10 +1052,8 @@ Bigfloat.prototype.inv = function() {
 
     // compute initial value x0 = 1/A
     inval = this.toNumber();
-    console.log("inval = " + inval)
     inval = Math.abs(inval);
     inval = 1 / inval;
-     console.log("inval = " + inval)
     // start with basic precision which is 2*double precision
     oldprec = this.precision;
     prec = 15;
