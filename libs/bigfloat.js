@@ -25,86 +25,88 @@
 */
 
 // in bits, default is 104 bits (not a double-double that would be more)
-var MPF_PRECISION = MP_DIGIT_BIT*4;
+var MPF_PRECISION = MP_DIGIT_BIT * 4;
 // it is also the minimum
-var MPF_PRECISION_MIN = MP_DIGIT_BIT*4;
+var MPF_PRECISION_MIN = MP_DIGIT_BIT * 4;
 var MPF_DECIMAL_PRECISION_MIN = 31;
 // this is an arbitrary maximum, just a safe guard and free to change
 var MPF_PRECISION_MAX = 4294967296; // 2^32 bits, 165,191,050 big-digits
 
 // exception handling
-var MPFE_DIVBYZERO  = 1;
-var MPFE_INEXACT    = 2;
-var MPFE_INVALID    = 4;
-var MPFE_OVERFLOW   = 8;
-var MPFE_UNDERFLOW  = 16;
+var MPFE_DIVBYZERO = 1;
+var MPFE_INEXACT = 2;
+var MPFE_INVALID = 4;
+var MPFE_OVERFLOW = 8;
+var MPFE_UNDERFLOW = 16;
 
 var MPFE_ALL_EXCEPT = MPFE_DIVBYZERO | MPFE_INEXACT | MPFE_INVALID;
 
 // Rounding modes
-var MPFE_TONEAREST   = 1; // default
-var MPFE_UPWARD      = 2;
-var MPFE_DOWNWARD    = 4;
-var MPFE_TOWARDZERO  = 8;
+var MPFE_TONEAREST = 1; // default
+var MPFE_UPWARD = 2;
+var MPFE_DOWNWARD = 4;
+var MPFE_TOWARDZERO = 8;
 
-var MPFLT_ROUNDS     = 1;
+var MPFLT_ROUNDS = 1;
 
-function Bigfloat(n){
-  // keep an extra sign and save some typing
-  this.sign = MP_ZPOS;
-  this.mantissa = new Bigint(0);
-  this.exponent = 1;
-  this.precision = MPF_PRECISION;
-  if(arguments.length == 1 && n.isInt() && Math.abs(n) < MP_INT_MAX){
-    this.mantissa = Math.abs(n).toBigint();
-    this.mantissa.lShiftInplace(MPF_PRECISION - Math.abs(n).highBit() - 1);
-    this.mantissa.sign = (n < 0)?MP_NEG:MP_ZPOS;
-    this.sign = this.mantissa.sign;
-    this.exponent = -this.precision + Math.abs(n).highBit() + 1;
-  }
+function Bigfloat(n) {
+    // keep an extra sign and save some typing
+    this.sign = MP_ZPOS;
+    this.mantissa = new Bigint(0);
+    this.exponent = 1;
+    this.precision = MPF_PRECISION;
+    if (arguments.length == 1 && n.isInt() && Math.abs(n) < MP_INT_MAX) {
+        this.mantissa = Math.abs(n).toBigint();
+        this.mantissa.lShiftInplace(MPF_PRECISION - Math.abs(n).highBit() -
+            1);
+        this.mantissa.sign = (n < 0) ? MP_NEG : MP_ZPOS;
+        this.sign = this.mantissa.sign;
+        this.exponent = -this.precision + Math.abs(n).highBit() + 1;
+    }
 }
 
-function setPrecision(n){
-  if(arguments.length > 0 && n.isInt() && n > MPF_PRECISION_MIN){
-    MPF_PRECISION = n;
-  } else {
-    MPF_PRECISION = MPF_PRECISION_MIN;
-  }
+function setPrecision(n) {
+    if (arguments.length > 0 && n.isInt() && n > MPF_PRECISION_MIN) {
+        MPF_PRECISION = n;
+    } else {
+        MPF_PRECISION = MPF_PRECISION_MIN;
+    }
 }
 
-function getPrecision(){
+function getPrecision() {
     return MPF_PRECISION;
 }
 
-Bigfloat.prototype.getDecimalPrecision = function(){
-  var log210 = parseFloat("3.321928094887362347870319429489390175865");
-  return Math.floor( this.precision / log210) ;
+Bigfloat.prototype.getDecimalPrecision = function() {
+    var log210 = parseFloat("3.321928094887362347870319429489390175865");
+    return Math.floor(this.precision / log210);
 };
 
-Bigfloat.prototype.setDecimalPrecision = function(prec){
-  var log210 = parseFloat("3.321928094887362347870319429489390175865");
-  if(!prec || !prec.isInt() || prec < MPF_DECIMAL_PRECISION_MIN){
-      return MP_NO;
-  }
-  this.precision = Math.ceil(prec * log210) + 1;
-  return true;
+Bigfloat.prototype.setDecimalPrecision = function(prec) {
+    var log210 = parseFloat("3.321928094887362347870319429489390175865");
+    if (!prec || !prec.isInt() || prec < MPF_DECIMAL_PRECISION_MIN) {
+        return MP_NO;
+    }
+    this.precision = Math.ceil(prec * log210) + 1;
+    return true;
 };
 
-function mpfegetround(){
+function mpfegetround() {
     return MPFLT_ROUNDS;
 }
-function mpfesetround(n){
-    if(!n.isInt() || n < 0 || n > 3){
+
+function mpfesetround(n) {
+    if (!n.isInt() || n < 0 || n > 3) {
         MPFLT_ROUNDS = -1;
     } else {
         MPFLT_ROUNDS = n;
     }
 }
 
-Number.prototype.toBigfloat = function(){
+Number.prototype.toBigfloat = function() {
     var exponent;
     var sign;
-    var ret,low,high,high_mant, digit,tmp,correction=0;
+    var ret, low, high, high_mant, digit, tmp, correction = 0;
 
     /*
        ECMAScript Numbers are 64 bit doubles, hopefuly. From ECMAScript 5.1:
@@ -133,34 +135,34 @@ Number.prototype.toBigfloat = function(){
     sign = (high & 0x80000000) >>> 31;
 
     // get the exponent (11 bits) and catch errors
-    exponent =  0x7fffffff & high;
-    if (exponent == 0x7ff00000 ) {
+    exponent = 0x7fffffff & high;
+    if (exponent == 0x7ff00000) {
         // infinity
-        if(low == 0){
+        if (low == 0) {
             ret = new Bigfloat();
             ret.setInf();
-            if(sign < 0){
-              ret.sign = MP_NEG;
-              ret.mantissa.sign = MP_NEG;
+            if (sign < 0) {
+                ret.sign = MP_NEG;
+                ret.mantissa.sign = MP_NEG;
             }
             return ret;
         } else {
-             ret = new Bigfloat();
-             ret.setNaN();
-             return ret;
+            ret = new Bigfloat();
+            ret.setNaN();
+            return ret;
         }
     }
     // NaN
-    if (exponent > 0x7ff00000 ) {
+    if (exponent > 0x7ff00000) {
         ret = new Bigfloat();
         ret.setNaN();
         return ret;
     }
     // signed zero;
-    if ((exponent >>> 20) == 0 ) {
+    if ((exponent >>> 20) == 0) {
         ret = new Bigfloat();
         ret.exponent = 1;
-        if(sign == 1){
+        if (sign == 1) {
             ret.sign = MP_NEG;
             ret.mantissa.sign = MP_NEG;
         }
@@ -169,7 +171,7 @@ Number.prototype.toBigfloat = function(){
     // subnormals
     if (exponent < 0x00100000) {
         tmp = buf.getFloat64(0);
-        tmp *= 18014398509481984.0;    // 2^54
+        tmp *= 18014398509481984.0; // 2^54
         buf.setFloat64(0, tmp);
         high = buf.getUint32(4);
         exponent = high & 0x7fffffff;
@@ -187,8 +189,8 @@ Number.prototype.toBigfloat = function(){
        Bigfloat mantissa in chunks.
        FIXME: generalize
     */
-    if (MP_DIGIT_BIT != 26){
-       return (new Bigfloat()).setNaN();
+    if (MP_DIGIT_BIT != 26) {
+        return (new Bigfloat()).setNaN();
     }
 
     ret = new Bigfloat();
@@ -201,8 +203,8 @@ Number.prototype.toBigfloat = function(){
     // fill up high_mant with the upper bits of low. For 26 bit big-digits we
     // need five more to fill a big-digit
 
-    high_mant = (high_mant << (MP_DIGIT_BIT-20)) 
-              | ( low >>> (32-(MP_DIGIT_BIT-20)) );
+    high_mant = (high_mant << (MP_DIGIT_BIT - 20)) | (low >>> (32 - (
+        MP_DIGIT_BIT - 20)));
 
     ret.mantissa.dp[0] = high_mant;
 
@@ -212,9 +214,9 @@ Number.prototype.toBigfloat = function(){
     // Sometimes the programmer has some undeserved luck: 32 - (26-20) = 26
     // But the choice of 26 bits for a big-digit was made because 2x26 = 52
     // so it has nothing to do with luck.
-    ret.mantissa.dp[0] =low & MP_MASK;
+    ret.mantissa.dp[0] = low & MP_MASK;
     ret.mantissa.used = ret.mantissa.dp.length;
-    ret.mantissa.sign = (sign == 1)?MP_NEG:MP_ZPOS;
+    ret.mantissa.sign = (sign == 1) ? MP_NEG : MP_ZPOS;
     ret.mantissa.clamp();
     ret.sign = ret.mantissa.sign;
     ret.exponent = -ret.precision + exponent;
@@ -223,85 +225,86 @@ Number.prototype.toBigfloat = function(){
 };
 
 // both function assume MP_DIGIT_BIT == 26
-Bigfloat.prototype.toNumber = function(){
+Bigfloat.prototype.toNumber = function() {
     var high, mid, low, ret, buf, tmp, exponent, newthis, oldprec;
     // just reduce precision and put it into a JavaScript Number
     // A kind of ldexp
-    oldprec = this.precision
+    oldprec = this.precision;
     setPrecision(53);
     newthis = this.copy();
     newthis.normalize();
-    if(newthis.exponent < -1022){
+    if (newthis.exponent < -1022) {
         return -Infinity;
-    } else if(newthis.exponent > 1023){
-        return  Infinity;
-    } else  if(newthis.mantissa.isNaN()){
-        return  Number.NaN;
-    } else  if(newthis.isZero()){
-        return (newthis.sign < 0)? -0 : 0;
-    }   
+    } else if (newthis.exponent > 1023) {
+        return Infinity;
+    } else if (newthis.mantissa.isNaN()) {
+        return Number.NaN;
+    } else if (newthis.isZero()) {
+        return (newthis.sign < 0) ? -0 : 0;
+    }
     this.precision = oldprec;
     setPrecision(oldprec);
     // we have at least one big-digit
-    high = newthis.mantissa.dp[newthis.mantissa.used -1];
+    high = newthis.mantissa.dp[newthis.mantissa.used - 1];
     mid = 0;
     low = 0;
     // TODO: check for subnormals here
-    if(newthis.mantissa.used >= 2){
-        mid = newthis.mantissa.dp[newthis.mantissa.used -2];
+    if (newthis.mantissa.used >= 2) {
+        mid = newthis.mantissa.dp[newthis.mantissa.used - 2];
     }
-    if(this.mantissa.used >= 3){
-         low = newthis.mantissa.dp[newthis.mantissa.used -3] >>> (MP_DIGIT_BIT -1);
+    if (this.mantissa.used >= 3) {
+        low = newthis.mantissa.dp[newthis.mantissa.used - 3] >>> (
+            MP_DIGIT_BIT - 1);
     }
     // build a 64 bit ECMAScript Number (IEEE-754 double precision)
     buf = new DataView(new ArrayBuffer(8));
     // MSB of the high word is the sign
-    tmp = (newthis.sign < 0)?0x80000000:0;
+    tmp = (newthis.sign < 0) ? 0x80000000 : 0;
     // add bias to exponent
     exponent = newthis.exponent + 1022;
     // add exponent to high word
     tmp |= exponent << 20;
     // IEEE double has an implicit first bit, we have it explicit.
-    high = high & ( (1 << (MP_DIGIT_BIT -1) ) -1 );
+    high = high & ((1 << (MP_DIGIT_BIT - 1)) - 1);
     // add the higher 20 bits to the high word
     tmp |= high >>> 5;
     // set high word
-    buf.setUint32(0,tmp);
+    buf.setUint32(0, tmp);
     // carry (lsb side five bits of highest big-digit)
     tmp = (high & 0x1f) << 27;
-    if(mid != 0){
-         // if we have some bits here, fill up low word
-         tmp |= mid << 1;
+    if (mid != 0) {
+        // if we have some bits here, fill up low word
+        tmp |= mid << 1;
     }
-    if(low != 0){
-         // we are not allowed to waste even a single bit!
-         tmp |= low & 0x1;
+    if (low != 0) {
+        // we are not allowed to waste even a single bit!
+        tmp |= low & 0x1;
     }
-    buf.setUint32(4,tmp);
+    buf.setUint32(4, tmp);
     ret = buf.getFloat64(0);
-    tmp = Math.pow(2,newthis.precision);
+    tmp = Math.pow(2, newthis.precision);
     ret *= tmp;
     return ret;
 };
 
 
-Bigint.prototype.toBigfloat = function(){
-   var ret = new Bigfloat();
-   if(this.isNaN()){
-      return ret.setNaN();
-   }
-   if(this.isInf()){
-      return ret.setInf();
-   }
-   if(this.isZero()){
-      return ret;
-   }
-   ret.mantissa = this.copy();
+Bigint.prototype.toBigfloat = function() {
+    var ret = new Bigfloat();
+    if (this.isNaN()) {
+        return ret.setNaN();
+    }
+    if (this.isInf()) {
+        return ret.setInf();
+    }
+    if (this.isZero()) {
+        return ret;
+    }
+    ret.mantissa = this.copy();
 
-   ret.sign = ret.mantissa.sign;
-   ret.exponent = 0;
-   ret.normalize();
-   return ret;
+    ret.sign = ret.mantissa.sign;
+    ret.exponent = 0;
+    ret.normalize();
+    return ret;
 };
 
 
@@ -328,12 +331,14 @@ String.prototype.toBigfloat = function(numbase) {
         }
 
         // Case should not matter but kept short for legibility
-        if (s.charAt(k) == "I" && s.charAt(k + 1) == "n" && s.charAt(k + 1) ==
+        if (s.charAt(k) == "I" && s.charAt(k + 1) == "n" && s.charAt(k +
+                1) ==
             "f") {
             return sign + "Infinity";
         }
 
-        if (s.charAt(k) == "N" && s.charAt(k + 1) == "a" && s.charAt(k + 1) ==
+        if (s.charAt(k) == "N" && s.charAt(k + 1) == "a" && s.charAt(k +
+                1) ==
             "N") {
             return sign + "NaN";
         }
@@ -349,7 +354,8 @@ String.prototype.toBigfloat = function(numbase) {
             }
             // no leading zeros allowed for octal numbers, except the first
             // to make things simpler
-            else if (s.charAt(k + 1) && s.charAt(k + 1) != "0" && s.charAt(k + 1) !=
+            else if (s.charAt(k + 1) && s.charAt(k + 1) != "0" && s.charAt(
+                    k + 1) !=
                 ".") {
                 base = 8;
                 k += 1;
@@ -674,7 +680,6 @@ String.prototype.toBigfloat = function(numbase) {
             exponent -= fract_part.length;
             if (exponent >= 0) {
                 return handleInteger(exponent);
-                return the_number;
             }
             // convert number string to integer (Bigint), that
             // will be the numerator
@@ -751,7 +756,7 @@ Bigfloat.prototype.toString = function(numbase) {
         // real one
         // What can be done is checking the remainder in the division below--
         // if it is zero it is an integer for all intent and purposes
-        decexpo = Math.floor( Math.abs(this.exponent) / log210);
+        decexpo = Math.floor(Math.abs(this.exponent) / log210);
         // scale
         ret = ret.mul(ten.pow(decexpo));
         // convert
@@ -777,333 +782,367 @@ Bigfloat.prototype.toString = function(numbase) {
         ret = ret.toString();
         // rounding might have added a digit (e.g.: 0.999... <> 1.000...)
         // so calculate the decimal exponent accordingly
-        if(ret.length > decprec){
-           decexpo = decprec - decexpo ;
+        if (ret.length > decprec) {
+            decexpo = decprec - decexpo;
         } else {
-           decexpo = decprec - decexpo -1;
+            decexpo = decprec - decexpo - 1;
         }
         if (Math.abs(this.exponent) < this.precision) {
             signexpo = "";
         }
     }
 
-    if(decexpo == 0){
-       signexpo = "";
+    if (decexpo == 0) {
+        signexpo = "";
     }
     ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "e" +
         signexpo + Math.abs(decexpo).toString();
     return ret;
 };
 
-Bigfloat.prototype.setNaN = function(){
+Bigfloat.prototype.setNaN = function() {
     this.mantissa.setNaN();
 };
-Bigfloat.prototype.isNaN = function(){
+Bigfloat.prototype.isNaN = function() {
     this.mantissa.isNaN();
 };
 
-Bigfloat.prototype.setInf = function(){
+Bigfloat.prototype.setInf = function() {
     this.mantissa.setInf();
 };
-Bigfloat.prototype.isInf = function(){
+Bigfloat.prototype.isInf = function() {
     this.mantissa.isInf();
 };
 
-Bigfloat.prototype.isZero = function(){
-  if( this.mantissa.isZero() == MP_YES &&
-      this.exponent == 1 ){
-      return MP_YES;
-  }
-  return MP_NO;
+Bigfloat.prototype.isZero = function() {
+    if (this.mantissa.isZero() == MP_YES &&
+        this.exponent == 1) {
+        return MP_YES;
+    }
+    return MP_NO;
 };
 
 // eps = 1e-EPS
-Bigfloat.prototype.isEPSZero = function(eps){
-  if( this.mantissa.isZero() == MP_YES &&
-      this.exponent == 1 ){
-      return MP_YES;
-  }
+Bigfloat.prototype.isEPSZero = function(eps) {
+    if (this.mantissa.isZero() == MP_YES &&
+        this.exponent == 1) {
+        return MP_YES;
+    }
 
-  // get precision
+    // get precision
 
-  // compare with exponent by de-biasing
+    // compare with exponent by de-biasing
 
- /*
-      eps = 1e-80  (1e-80 = 1*2^(-80))
-      precision = 100
+    /*
+         eps = 1e-80  (1e-80 = 1*2^(-80))
+         precision = 100
 
-      exponent = -170 -> no
-      de-biased = -170 + 100 = 70 and 70 < 80 (bigger actually, bec. of neg. val.)
+         exponent = -170 -> no
+         de-biased = -170 + 100 = 70 and 70 < 80 (bigger actually, bec. of neg. val.)
 
-      exponent = -181 -> yes
-      de-biased = -181 + 100 = 81 and 81 > 80
+         exponent = -181 -> yes
+         de-biased = -181 + 100 = 81 and 81 > 80
 
-      problem with equality, need to check the whole number than:
-      exponent = -180 -> y?
-      de-biased = -180 + 100 = 80 and 80 == 80
+         problem with equality, need to check the whole number than:
+         exponent = -180 -> y?
+         de-biased = -180 + 100 = 80 and 80 == 80
 
-  */
+     */
 
 
-  return MP_NO;
+    return MP_NO;
 };
 // calls normalize() at the end, usable to change prec. temporary
-Bigfloat.prototype.copy = function(){
-  var ret = new Bigfloat();
-  ret.sign = this.sign;
-  ret.exponent = this.exponent;
-  ret.precision = this.precision;
-  ret.mantissa = this.mantissa.copy();
-  ret.normalize();
-  return ret;
+Bigfloat.prototype.copy = function() {
+    var ret = new Bigfloat();
+    ret.sign = this.sign;
+    ret.exponent = this.exponent;
+    ret.precision = this.precision;
+    ret.mantissa = this.mantissa.copy();
+    ret.normalize();
+    return ret;
 };
 
-Bigfloat.prototype.dup = function(){
-  return this.copy();
+Bigfloat.prototype.dup = function() {
+    return this.copy();
 };
 
-Bigfloat.prototype.abs = function(){
-  var ret = this.copy();
-  ret.sign = MP_ZPOS;
-  ret.mantissa.sign =  MP_ZPOS;
-  return ret;
+Bigfloat.prototype.abs = function() {
+    var ret = this.copy();
+    ret.sign = MP_ZPOS;
+    ret.mantissa.sign = MP_ZPOS;
+    return ret;
 };
 
-Bigfloat.prototype.neg = function(){
-  var ret = this.copy();
-  ret.sign = (this.sign == MP_ZPOS)?MP_NEG:MP_ZPOS;
-  ret.mantissa.sign = ret.sign;
-  return ret;
+Bigfloat.prototype.neg = function() {
+    var ret = this.copy();
+    ret.sign = (this.sign == MP_ZPOS) ? MP_NEG : MP_ZPOS;
+    ret.mantissa.sign = ret.sign;
+    return ret;
 };
 
-Bigfloat.prototype.exch = function(bf){
-  // of not much use here
-  return this.copy();
+Bigfloat.prototype.exch = function(bf) {
+    // of not much use here
+    return this.copy();
 };
 
-
-Bigfloat.prototype.normalize = function(){
-  var cb, diff;
-  var err;
-  var c;
-
-  // So one can set precision by way of normalizing
-  if(this.precision != MPF_PRECISION && this.precision >= MPF_PRECISION_MIN){
-    this.precision = MPF_PRECISION;
-  } else {
-    this.precision = MPF_PRECISION_MIN;
-  }
-
-  if(this.isZero()){
-      return MP_OKAY;
-  }
-
-  cb = this.mantissa.highBit() + 1;
-
-  if(cb > this.precision){
-      diff    = cb - this.precision;
-      this.exponent += diff;  
-      if(!this.exponent.isInt()){
-          this.setInf();
-          this.sign = MP_ZPOS;
-          return MPFE_OVERFLOW;
-      }
-      /* round it, add 1 after shift if diff-1'th bit is 1 */
-      c = this.mantissa.dp[Math.floor(diff/MP_DIGIT_BIT)] & (1<<(diff%MP_DIGIT_BIT));
-      this.mantissa.rShiftInplace(diff);
-
-      if (c != 0) {
-         this.mantissa.incr();
-         return MP_OKAY;
-      } else {
-         return MP_OKAY;
-      }
-   } else if (cb < this.precision) {
-      if (this.mantissa.isZero() == MP_YES) {
-         this.exponent = 1;
-         return MP_OKAY;
-      } else {
-         diff    = this.precision - cb;
-         this.exponent -= diff;
-         if(!this.exponent.isInt()){
-             this.setInf();
-             this.sign = MP_NEG;
-             return MPFE_UNDERFLOW;
-         }
-         this.mantissa.lShiftInplace(diff);
-         return MP_OKAY;
-      }
-   }
-   return MP_OKAY;
+Bigfloat.prototype.floor = function() {
+    var qr, q, r, one, ret;
+    // integer
+    if (this.exponent > 0) {
+        return this.copy();
+    }
+    // fraction, return zero
+    if (this.exponent < -this.precision) {
+        return new Bigfloat();
+    }
+    //mixed/integer
+    one = new Bigint(1);
+    one.lShiftInplace(Math.abs(this.exponent));
+    qr = this.mantissa.divrem(one);
+    q = qr[0];
+    r = qr[1];
+    // No remainder means no fraction part
+    if (r.isZero()) {
+        return this.copy();
+    }
+    // return integer part
+    ret = new Bigfloat();
+    ret.mantissa = q.copy();
+    ret.exponent = 0;
+    ret.normalize();
+    return ret;
 };
 
-
-Bigfloat.prototype.cmp = function(bf){
-   var za, zb, sa, sb;
-
-   /* if one is zero than we early out */
-   za = this.mantissa.isZero();
-   sa = this.mantissa.sign;
-   zb = bf.mantissa.isZero();
-   sb = bf.mantissa.sign;
-
-   if (za == MP_YES && zb == MP_NO) {
-      /* result depends on b */
-      if (sb == MP_NEG) {
-         return MP_GT;
-      } else {
-         return MP_LT;
-      }
-   } else if (za == MP_NO && zb == MP_YES) {
-      /* result depends on a */
-      if (sa == MP_NEG) {
-         return MP_LT;
-      } else {
-         return MP_GT;
-      }
-   }
-
-   /* compare the signs */
-   if (sa == MP_NEG && sb == MP_ZPOS) {
-      return MP_LT;
-   } else if (sa == MP_ZPOS && sb == MP_NEG) {
-      return MP_GT;
-   }
-
-   /* they're both non-zero, the same sign and normalized, compare the exponents */
-   if (this.exponent > bf.exponent) {
-      return (sa == MP_NEG) ? MP_LT : MP_GT;
-   } else if (this.exponent < bf.exponent) {
-      return (sa == MP_NEG) ? MP_GT : MP_LT;
-   }
-
-   /* same exponent and sign, compare mantissa */
-   return this.mantissa.cmp(bf.mantissa);
+Bigfloat.prototype.ceil = function() {
+    var one = new Bigfloat(1);
+    return this.floor().add(one);
 };
 
-Bigfloat.prototype.add = function(bf){
-   var tmp, other;
-   var diff;
-   var ret;
-  if(this.isZero()){
-    tmp = bf.copy();
-    tmp.normalize();
-    return tmp;
-  }
-  if(bf.isZero()){
-    tmp = this.copy();
-    tmp.normalize();
-    return tmp;
-  }
-   if (this.exponent < bf.exponent) {
-      /* tmp == a normalize to b's exp */
-      tmp = this.copy();
+Bigfloat.prototype.normalize = function() {
+    var cb, diff;
+    var err;
+    var c;
 
-      /* now make tmp.exp == b.exp by dividing tmp by 2^(b.exp - tmp.exp) */
-      diff = bf.exponent - tmp.exponent;
-      tmp.exponent = bf.exponent;
-      tmp.mantissa.rShiftInplace(diff);
-      /* other arg */
-      other = bf;
-   } else {
-      /* tmp == b normalize to a's radix */
-      tmp = bf.copy();
+    // So one can set precision by way of normalizing
+    if (this.precision != MPF_PRECISION && this.precision >=
+        MPF_PRECISION_MIN) {
+        this.precision = MPF_PRECISION;
+    } else {
+        this.precision = MPF_PRECISION_MIN;
+    }
 
-      /* now make tmp.exp == a.exp by dividing tmp by 2^(a.exp - tmp.exp) */
-      diff = this.exponent - tmp.exponent;
-      tmp.exponent = this.exponent;
-      tmp.mantissa.rShiftInplace(diff);
-      other = this;
-   }
+    if (this.isZero()) {
+        return MP_OKAY;
+    }
 
-   /* perform addition, set the exponent and then normalize */
+    cb = this.mantissa.highBit() + 1;
 
-   ret = new Bigfloat();
-   ret.mantissa = tmp.mantissa.add(other.mantissa);
-   ret.exponent = other.exponent;
-   ret.sign = ret.mantissa.sign;
-   ret.normalize();
-   return ret;
-};
+    if (cb > this.precision) {
+        diff = cb - this.precision;
+        this.exponent += diff;
+        if (!this.exponent.isInt()) {
+            this.setInf();
+            this.sign = MP_ZPOS;
+            return MPFE_OVERFLOW;
+        }
+        /* round it, add 1 after shift if diff-1'th bit is 1 */
+        c = this.mantissa.dp[Math.floor(diff / MP_DIGIT_BIT)] & (1 << (diff %
+            MP_DIGIT_BIT));
+        this.mantissa.rShiftInplace(diff);
 
-Bigfloat.prototype.sub = function(bf){
-   var err;
-   var tmp;
-   var diff;
-   var ret = new Bigfloat();
-
-  if(this.isZero()){
-    tmp = bf.neg();
-    tmp.normalize();
-    return tmp;
-  }
-  if(bf.isZero()){
-    tmp = this.copy();
-    tmp.normalize();
-    return tmp;
-  }
-   if (this.exponent < bf.exponent) {
-      /* tmp == a normalize to b's exp */
-      tmp = this.copy();
-      /* now make tmp.exp == b.exp by dividing tmp by 2^(b.exp - tmp.exp) */
-      diff = bf.exponent - tmp.exponent;
-      tmp.exp = bf.exponent;
-      tmp.mantissa.rShiftInplace(diff);
-      ret.mantissa = tmp.mantissa.sub(bf.mantissa);
-      ret.exponent = bf.exponent;
-   } else {
-      /* tmp == b normalize to a's radix */
-      tmp = bf.copy();
-      diff = this.exponent - tmp.exponent;
-      tmp.exp = this.exponent;
-      /* now make tmp.exp == a.exp by dividing tmp by 2^(a.exp - tmp.exp) */
-      tmp.mantissa.rShiftInplace(diff);
-      ret.mantissa = this.mantissa.sub(tmp.mantissa);
-      ret.exponent = this.exponent;
-   }
-
-   ret.sign = ret.mantissa.sign;
-   ret.normalize();
-   return ret;
+        if (c != 0) {
+            this.mantissa.incr();
+            return MP_OKAY;
+        } else {
+            return MP_OKAY;
+        }
+    } else if (cb < this.precision) {
+        if (this.mantissa.isZero() == MP_YES) {
+            this.exponent = 1;
+            return MP_OKAY;
+        } else {
+            diff = this.precision - cb;
+            this.exponent -= diff;
+            if (!this.exponent.isInt()) {
+                this.setInf();
+                this.sign = MP_NEG;
+                return MPFE_UNDERFLOW;
+            }
+            this.mantissa.lShiftInplace(diff);
+            return MP_OKAY;
+        }
+    }
+    return MP_OKAY;
 };
 
 
-Bigfloat.prototype.mul = function(bf){
-   var ret = new Bigfloat();
+Bigfloat.prototype.cmp = function(bf) {
+    var za, zb, sa, sb;
 
-   ret.mantissa = this.mantissa.mul(bf.mantissa);
-   ret.exponent = this.exponent + bf.exponent;
-   ret.sign = ret.mantissa.sign;
-   ret.normalize();
-   return ret;
+    /* if one is zero than we early out */
+    za = this.mantissa.isZero();
+    sa = this.mantissa.sign;
+    zb = bf.mantissa.isZero();
+    sb = bf.mantissa.sign;
+
+    if (za == MP_YES && zb == MP_NO) {
+        /* result depends on b */
+        if (sb == MP_NEG) {
+            return MP_GT;
+        } else {
+            return MP_LT;
+        }
+    } else if (za == MP_NO && zb == MP_YES) {
+        /* result depends on a */
+        if (sa == MP_NEG) {
+            return MP_LT;
+        } else {
+            return MP_GT;
+        }
+    }
+
+    /* compare the signs */
+    if (sa == MP_NEG && sb == MP_ZPOS) {
+        return MP_LT;
+    } else if (sa == MP_ZPOS && sb == MP_NEG) {
+        return MP_GT;
+    }
+
+    /* they're both non-zero, the same sign and normalized, compare the exponents */
+    if (this.exponent > bf.exponent) {
+        return (sa == MP_NEG) ? MP_LT : MP_GT;
+    } else if (this.exponent < bf.exponent) {
+        return (sa == MP_NEG) ? MP_GT : MP_LT;
+    }
+
+    /* same exponent and sign, compare mantissa */
+    return this.mantissa.cmp(bf.mantissa);
 };
 
-Bigfloat.prototype.sqr = function(){
-   var ret = new Bigfloat();
+Bigfloat.prototype.add = function(bf) {
+    var tmp, other;
+    var diff;
+    var ret;
+    if (this.isZero()) {
+        tmp = bf.copy();
+        tmp.normalize();
+        return tmp;
+    }
+    if (bf.isZero()) {
+        tmp = this.copy();
+        tmp.normalize();
+        return tmp;
+    }
+    if (this.exponent < bf.exponent) {
+        /* tmp == a normalize to b's exp */
+        tmp = this.copy();
 
-   ret.mantissa = this.mantissa.sqr();
-   ret.exponent = 2 * this.exponent;
-   ret.sign = ret.mantissa.sign;
-   ret.normalize();
-   return ret;
+        /* now make tmp.exp == b.exp by dividing tmp by 2^(b.exp - tmp.exp) */
+        diff = bf.exponent - tmp.exponent;
+        tmp.exponent = bf.exponent;
+        tmp.mantissa.rShiftInplace(diff);
+        /* other arg */
+        other = bf;
+    } else {
+        /* tmp == b normalize to a's radix */
+        tmp = bf.copy();
+
+        /* now make tmp.exp == a.exp by dividing tmp by 2^(a.exp - tmp.exp) */
+        diff = this.exponent - tmp.exponent;
+        tmp.exponent = this.exponent;
+        tmp.mantissa.rShiftInplace(diff);
+        other = this;
+    }
+
+    /* perform addition, set the exponent and then normalize */
+
+    ret = new Bigfloat();
+    ret.mantissa = tmp.mantissa.add(other.mantissa);
+    ret.exponent = other.exponent;
+    ret.sign = ret.mantissa.sign;
+    ret.normalize();
+    return ret;
 };
 
-Bigfloat.prototype.div = function(bf){
-   var tmp;
-   var ret;
+Bigfloat.prototype.sub = function(bf) {
+    var err;
+    var tmp;
+    var diff;
+    var ret = new Bigfloat();
 
-   /* ensure b is not zero */
-   if(bf.mantissa.isZero() == MP_YES){
-      return MP_VAL;
-   }
-   // TODO: the rest of the IEEE-754 exceptions
+    if (this.isZero()) {
+        tmp = bf.neg();
+        tmp.normalize();
+        return tmp;
+    }
+    if (bf.isZero()) {
+        tmp = this.copy();
+        tmp.normalize();
+        return tmp;
+    }
+    if (this.exponent < bf.exponent) {
+        /* tmp == a normalize to b's exp */
+        tmp = this.copy();
+        /* now make tmp.exp == b.exp by dividing tmp by 2^(b.exp - tmp.exp) */
+        diff = bf.exponent - tmp.exponent;
+        tmp.exp = bf.exponent;
+        tmp.mantissa.rShiftInplace(diff);
+        ret.mantissa = tmp.mantissa.sub(bf.mantissa);
+        ret.exponent = bf.exponent;
+    } else {
+        /* tmp == b normalize to a's radix */
+        tmp = bf.copy();
+        diff = this.exponent - tmp.exponent;
+        tmp.exp = this.exponent;
+        /* now make tmp.exp == a.exp by dividing tmp by 2^(a.exp - tmp.exp) */
+        tmp.mantissa.rShiftInplace(diff);
+        ret.mantissa = this.mantissa.sub(tmp.mantissa);
+        ret.exponent = this.exponent;
+    }
 
-   /* find 1/b */
-   tmp = bf.inv();
+    ret.sign = ret.mantissa.sign;
+    ret.normalize();
+    return ret;
+};
 
-   /* now multiply */
-   ret = this.mul(tmp);
-   return ret;
+
+Bigfloat.prototype.mul = function(bf) {
+    var ret = new Bigfloat();
+
+    ret.mantissa = this.mantissa.mul(bf.mantissa);
+    ret.exponent = this.exponent + bf.exponent;
+    ret.sign = ret.mantissa.sign;
+    ret.normalize();
+    return ret;
+};
+
+Bigfloat.prototype.sqr = function() {
+    var ret = new Bigfloat();
+
+    ret.mantissa = this.mantissa.sqr();
+    ret.exponent = 2 * this.exponent;
+    ret.sign = ret.mantissa.sign;
+    ret.normalize();
+    return ret;
+};
+
+Bigfloat.prototype.div = function(bf) {
+    var tmp;
+    var ret;
+
+    /* ensure b is not zero */
+    if (bf.mantissa.isZero() == MP_YES) {
+        return MP_VAL;
+    }
+    // TODO: the rest of the IEEE-754 exceptions
+
+    /* find 1/b */
+    tmp = bf.inv();
+
+    /* now multiply */
+    ret = this.mul(tmp);
+    return ret;
 };
 
 Bigfloat.prototype.inv = function() {
@@ -1116,7 +1155,7 @@ Bigfloat.prototype.inv = function() {
     // bits in a 64-bit double minus angst-allowance
     prec = 50;
     // number of loops:
-    // quadratic, so every round doubles the number of correct digits 
+    // quadratic, so every round doubles the number of correct digits
     // TODO: this is the function for decimal digits, need a different one here
     // NOTE: maximum #rounds is log_2(precision)
     var precarr = computeGiantsteps(prec, oldprec, 2);
@@ -1152,8 +1191,8 @@ Bigfloat.prototype.inv = function() {
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    xn.sign = this.sign
-    xn.mantissa.sign = this.sign
+    xn.sign = this.sign;
+    xn.mantissa.sign = this.sign;
     return xn;
 };
 
