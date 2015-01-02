@@ -5442,6 +5442,7 @@ Number.prototype.bigpow = function(si) {
 */
 Bigint.prototype.ilogb = function(base) {
     var low, bracket_low, high, bracket_high, mid, bracket_mid;
+    var ONE = new Bigint(1);
     // log(-x)/log(y) = log(x)/log(y) + (k*pi *i)/log(y)
     if (this.isNeg()) {
         return this.copy().setNaN();
@@ -5469,7 +5470,7 @@ Bigint.prototype.ilogb = function(base) {
         high.lShiftInplace(1);
         bracket_high = bracket_high.sqr();
     }
-    while (high.sub(low).cmp(Bigint.ONE) == MP_GT) {
+    while (high.sub(low).cmp(ONE) == MP_GT) {
 
         mid = (low.add(high)).rShift(1);
         bracket_mid = bracket_low.mul(base.kpow(mid.sub(low)));
