@@ -285,6 +285,25 @@ Bigfloat.prototype.toNumber = function(){
 };
 
 
+Bigint.prototype.toBigfloat = function(){
+   var ret = new Bigfloat();
+   if(this.isNaN()){
+      return ret.setNaN();
+   }
+   if(this.isInf()){
+      return ret.setInf();
+   }
+   if(this.isZero()){
+      return ret;
+   }
+   ret.mantissa = this.copy();
+
+   ret.sign = ret.mantissa.sign;
+   ret.exponent = 0;
+   ret.normalize();
+   return ret;
+};
+
 
 String.prototype.toBigfloat = function(numbase) {
     var parseNumber = function(s) {
@@ -300,34 +319,37 @@ String.prototype.toBigfloat = function(numbase) {
         var i;
         var k = 0;
 
-        // Case should not matter, just for legibility
-        if (s.charAt(0) == "I" && s.charAt(1) == "n" && s.charAt(1) ==
-            "f") {
-            return "Infinity";
-        }
-
-        if (s.charAt(0) == "N" && s.charAt(1) == "a" && s.charAt(1) ==
-            "N") {
-            return "NaN";
-        }
+        // NOTE: strip leading (and trailing) whitespace?
 
         // unitary minus/plus comes before base marks (e.g.: "0x")
-        if (s.charAt(0) == "-" || s.charAt(0) == "+") {
+        if (s.charAt(k) == "-" || s.charAt(k) == "+") {
             sign = s.charAt(0);
-            k = 1;
+            k += 1;
         }
 
+        // Case should not matter but kept short for legibility
+        if (s.charAt(k) == "I" && s.charAt(k + 1) == "n" && s.charAt(k + 1) ==
+            "f") {
+            return sign + "Infinity";
+        }
+
+        if (s.charAt(k) == "N" && s.charAt(k + 1) == "a" && s.charAt(k + 1) ==
+            "N") {
+            return sign + "NaN";
+        }
+
+
         if (s.charAt(k) == "0") {
-            if (s.charAt(1) == "x") {
+            if (s.charAt(k + 1) == "x") {
                 base = 16;
                 k += 2;
-            } else if (s.charAt(1) == "b") {
+            } else if (s.charAt(k + 1) == "b") {
                 base = 2;
                 k += 2;
             }
-            // no leading zeros allowed for octal numbers
+            // no leading zeros allowed for octal numbers, except the first
             // to make things simpler
-            else if (s.charAt(1) && s.charAt(1) != "0" && s.charAt(1) !=
+            else if (s.charAt(k + 1) && s.charAt(k + 1) != "0" && s.charAt(k + 1) !=
                 ".") {
                 base = 8;
                 k += 1;
@@ -451,7 +473,10 @@ String.prototype.toBigfloat = function(numbase) {
             }
         }
         if (str_number.length == 0) {
-            return "Parse error: number has no digits";
+            // No error, just return zero instead, for simplicity
+            // Maybe raise a warning, for debugging purposes
+            // console.log("Parse error: number has no digits?");
+            return [base, sign, "0", decimal_point, 1];
         }
         if (is_expo_part == true) {
             exponent_part = parseInt(expo_sign + exponent_part);
@@ -710,19 +735,26 @@ Bigfloat.prototype.toString = function(numbase) {
 
     // if exponent >= 0 shift left by exponent
     if (exponent >= 0) {
-        // lShiftInplace() does nothing if exponent is zero;
+        // lShiftInplace() does nothing if exponent is zero, no check needed.
         ret.lShiftInplace(exponent);
-        decexpo = Math.floor((this.exponent + this.precision) /
-            log210);
+        if (ret.isZero()) {
+            ret = "00";
+        } else {
+            ret = ret.toString();
+        }
+        decexpo = ret.length - 1;
         signexpo = "";
     } else {
         // multiply by 10^(toDec(this.precision)) and divide by 2^exponent
-        // the decimal point is at 10^(toDec(this.precision)) now.
-        // don't check for a proper integer; it can't be known, could be just a
-        // fraction rounded to an integer
-        decexpo = Math.floor((Math.abs(this.exponent) - this.precision) /
-            log210) + 1;
-        ret = ret.mul(ten.pow(decprec + decexpo));
+        // the decimal point is at 10^(toDec(this.precision)).
+        // don't check for a proper integer; it can't be known if it is a
+        // real one
+        // What can be done is checking the remainder in the division below--
+        // if it is zero it is an integer for all intent and purposes
+        decexpo = Math.floor( Math.abs(this.exponent) / log210);
+        // scale
+        ret = ret.mul(ten.pow(decexpo));
+        // convert
         one.lShiftInplace(Math.abs(exponent));
         ret = ret.div(one);
         // TODO: needs some rounding here, too, or some guard digits in general
@@ -737,24 +769,31 @@ Bigfloat.prototype.toString = function(numbase) {
                 ret = ret.addInt(10 - mod10);
             }
         }
+        if (ret.isZero()) {
+            ret = "00";
+        } else {
+            ret = ret.toString();
+        }
+        ret = ret.toString();
+        // rounding might have added a digit (e.g.: 0.999... <> 1.000...)
+        // so calculate the decimal exponent accordingly
+        if(ret.length > decprec){
+           decexpo = decprec - decexpo ;
+        } else {
+           decexpo = decprec - decexpo -1;
+        }
         if (Math.abs(this.exponent) < this.precision) {
             signexpo = "";
         }
     }
-    if (ret.isZero()) {
-        ret = "00";
-    } else {
-        ret = ret.toString();
-    }
+
     if(decexpo == 0){
        signexpo = "";
     }
-    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "E" +
+    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "e" +
         signexpo + Math.abs(decexpo).toString();
     return ret;
 };
-
-
 
 Bigfloat.prototype.setNaN = function(){
     this.mantissa.setNaN();
