@@ -225,21 +225,21 @@ Number.prototype.toBigfloat = function(){
 // both function assume MP_DIGIT_BIT == 26
 Bigfloat.prototype.toNumber = function(){
     var high, mid, low, ret, buf, tmp, exponent, newthis, oldprec;
-    if(this.exponent < -1022){
-        return -Infinity;
-    } else if(this.exponent > 1023){
-        return  Infinity;
-    } else  if(this.mantissa.isNaN()){
-        return  Number.NaN;
-    } else  if(this.isZero()){
-        return (this.sign < 0)? -0 : 0;
-    }
     // just reduce precision and put it into a JavaScript Number
     // A kind of ldexp
     oldprec = this.precision
     setPrecision(53);
     newthis = this.copy();
     newthis.normalize();
+    if(newthis.exponent < -1022){
+        return -Infinity;
+    } else if(newthis.exponent > 1023){
+        return  Infinity;
+    } else  if(newthis.mantissa.isNaN()){
+        return  Number.NaN;
+    } else  if(newthis.isZero()){
+        return (newthis.sign < 0)? -0 : 0;
+    }   
     this.precision = oldprec;
     setPrecision(oldprec);
     // we have at least one big-digit
@@ -720,8 +720,8 @@ Bigfloat.prototype.toString = function(numbase) {
         // the decimal point is at 10^(toDec(this.precision)) now.
         // don't check for a proper integer; it can't be known, could be just a
         // fraction rounded to an integer
-        decexpo = Math.ceil((Math.abs(this.exponent) - this.precision) /
-            log210);
+        decexpo = Math.floor((Math.abs(this.exponent) - this.precision) /
+            log210) + 1;
         ret = ret.mul(ten.pow(decprec + decexpo));
         one.lShiftInplace(Math.abs(exponent));
         ret = ret.div(one);
@@ -1069,7 +1069,6 @@ Bigfloat.prototype.div = function(bf){
 
 Bigfloat.prototype.inv = function() {
     var init, ret, x0, xn, hn, A, inval, prec, oldprec, one, nloops;
-
     // compute initial value x0 = 1/A
     inval = this.toNumber();
     inval = Math.abs(inval);
@@ -1077,13 +1076,10 @@ Bigfloat.prototype.inv = function() {
     oldprec = this.precision;
     // bits in a 64-bit double minus angst-allowance
     prec = 50;
-    // oldprec must be equal or higher or there is a nasty bug somewhere
-    if (oldprec != prec) {
-        this.precision = prec;
-    }
     // number of loops:
     // quadratic, so every round doubles the number of correct digits 
-    // such a limit is necessary because the loop condition might never be true
+    // TODO: this is the function for decimal digits, need a different one here
+    // NOTE: maximum #rounds is log_2(precision)
     var precarr = computeGiantsteps(prec, oldprec, 2);
     nloops = 0;
     xn = inval.toBigfloat();
@@ -1098,18 +1094,21 @@ Bigfloat.prototype.inv = function() {
         setPrecision(prec);
         x0 = xn.copy();
         hn = one.sub(A.mul(xn));
-        // we can check for hn being close enough to zero ( <eps ) here
+        // we can check for hn being close enough to zero ( <eps ) here.
+        // Checking for exact zero may need one round too much
         if (hn.isZero()) {
             break;
         }
         xn = xn.add(xn.mul(hn));
-        prec = precarr[nloops];
         nloops++;
-        if (nloops == precarr.length) {
-            break;
+        // do some rounds with work precision if necessary
+        if (nloops >= precarr.length) {
+            prec = getPrecision();
+        } else {
+            prec = precarr[nloops];
         }
-    } while (x0.cmp(xn) != MP_EQ);
-
+    } while (true);
+    // console.log("1/nloops = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
@@ -1133,17 +1132,16 @@ Bigfloat.prototype.sqrt = function() {
     prec = 50;
     // oldprec must be equal or higher or there is a nasty bug somewhere
     if (oldprec != prec) {
-        this.precision = prec;
+        //this.precision = prec;
     }
-    // number of loops:
-    // quadratic, so every round doubles the number of correct digits 
-    // such a limit is necessary because the loop condition might never be true
+    // see Bigfloat.inv() for problems with this approach
     var precarr = computeGiantsteps(prec, oldprec, 2);
     nloops = 0;
     xn = sqrtval.toBigfloat();
     // x0 = xn.copy();
     one = new Bigfloat(1);
-    two = (new Bigfloat(2)).inv();
+    two = new Bigfloat(2);
+    two = two.inv();
     // low starting precision: low cost
     A = this.abs();
     // inverse sqrt
@@ -1158,12 +1156,15 @@ Bigfloat.prototype.sqrt = function() {
             break;
         }
         xn = xn.add(xn.mul(two).mul(hn));
-        prec = precarr[nloops];
         nloops++;
-        if (nloops == precarr.length) {
-            break;
+        // do some rounds with work precision if necessary
+        if (nloops >= precarr.length) {
+            prec = getPrecision();
+        } else {
+            prec = precarr[nloops];
         }
-    } while (x0.cmp(xn) != MP_EQ);
+    } while (true);
+    // console.log("nloops^2 = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
@@ -1171,46 +1172,3 @@ Bigfloat.prototype.sqrt = function() {
     xn = xn.mul(A);
     return xn;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
