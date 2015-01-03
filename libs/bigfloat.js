@@ -893,7 +893,7 @@ Bigfloat.prototype.floor = function() {
         return this.copy();
     }
     // fraction, return zero
-    if (this.exponent < -this.precision) {
+    if (this.exponent <= -this.precision) {
         return new Bigfloat();
     }
     //mixed/integer
@@ -911,6 +911,53 @@ Bigfloat.prototype.floor = function() {
     ret.mantissa = q.copy();
     ret.exponent = 0;
     ret.normalize();
+    // round to -infinity, e.g.: floor(-1.9) = -2
+    if(this.sign == MP_NEG){
+       one = new Bigfloat(1);
+       return ret.sub(one);
+    }
+    return ret;
+};
+
+Bigfloat.prototype.round = function() {
+    var qr, q, r, one, two, ret, cmp;
+    if (this.isNaN() || this.isInf()) {
+        return this.copy();
+    }
+    if (this.isZero()) {
+        return this.copy();
+    }
+    // integer
+    if (this.exponent > 0) {
+        return this.copy();
+    }
+    one = new Bigfloat(1);
+    two = new Bigfloat(2);
+    two = two.inv();
+    // fraction
+    if (this.exponent <= -this.precision) {
+        ret = this.abs();
+        cmp = ret.cmp(two);
+        // >= .5 round up
+        if (cmp != MP_LT) {
+            if(cmp == MP_EQ){
+               // -.5 rounds up to zero
+               if(this.sign == MP_NEG){
+                  return new Bigfloat();
+               }
+            }
+            if (this.sign == MP_NEG) {
+                one.sign = MP_NEG;
+                one.mantissa.sign = MP_NEG;
+            }
+            return one;
+        } else {
+            return new Bigfloat();
+        }
+    }
+    // mixed/integer
+    // just add .5 for now, other rounding methods come later
+    ret = this.add(two).floor();
     return ret;
 };
 
