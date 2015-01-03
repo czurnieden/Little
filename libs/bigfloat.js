@@ -1298,5 +1298,73 @@ Bigfloat.prototype.sqrt = function() {
     return xn;
 };
 
+Bigfloat.prototype.exp = function() {
+    var n, to, t, tx, ret, x0, one, two, m, nt, i, oldprec, sign = MP_ZPOS;
+    // TODO: checks & balances
+
+    if (this.isZero()) {
+        return new Bigfloat(1);
+    }
+    // TODO: check if size of input is too large
+
+    if (this.sign == MP_NEG) {
+        sign = MP_NEG;
+        nt = this.abs();
+    } else {
+        nt = this.copy();
+    }
+
+    oldprec = getPrecision();
+    // TODO: compute number of guard digits more precisely
+    setPrecision(getPrecision() + 33);
+    ret = new Bigfloat(1);
+    to = new Bigfloat(1);
+    tx = new Bigfloat(1);
+    n = 1;
+
+    // NOTE: calculate a bit more precisely
+    i = Math.floor(this.precision / 3.32) + 1;
+    // argument reduction by 1/2^m
+    one = new Bigint(1);
+    two = new Bigfloat(2);
+    // TODO: calculate according to size of input
+    // High is good for large input size bit if the input
+    // is already small it is quite a waste
+    m = 32;
+    one.lShiftInplace(m);
+    one = one.toBigfloat();
+    one = one.inv();
+    nt = nt.mul(one);
+    do {
+        x0 = ret.copy();
+        t = new Bigfloat(n++);
+        t = t.inv();
+        to = t.mul(to);
+        tx = tx.mul(nt);
+        t = to.mul(tx);
+        ret = t.add(ret);
+        if (i-- == 0) {
+            break;
+        }
+    } while (x0.cmp(ret) != MP_EQ);
+    // we used the standard series to compute exp(z/2^m) + 1
+    one = new Bigfloat(1);
+    ret = ret.sub(one);
+    // reverse argument reduction
+    for (i = 0; i < m; i++) {
+        t = two.mul(ret);
+        to = ret.mul(ret);
+        ret = t.add(to);
+    }
+    // we have exp(z) - 1 now, add one unit
+    ret = ret.add(one);
+    // exp(-z) = 1/exp(z)
+    if (sign == MP_NEG) {
+        ret = ret.inv();
+    }
+    setPrecision(oldprec);
+    ret.normalize();
+    return ret;
+};
 
 
