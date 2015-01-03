@@ -1195,6 +1195,10 @@ Bigfloat.prototype.div = function(bf) {
 Bigfloat.prototype.inv = function() {
     var init, ret, x0, xn, hn, A, inval, prec, oldprec, one, nloops;
     // compute initial value x0 = 1/A
+    // This uses the build-in Number object which is a 64-bit double
+    // which restricts the absolute size of the number to be
+    // around 2e-308 < x < 1e308
+    // TODO: see above
     inval = this.toNumber();
     inval = Math.abs(inval);
     inval = 1 / inval;
@@ -1250,15 +1254,15 @@ Bigfloat.prototype.sqrt = function() {
         return (new Bigfloat()).setNaN();
     }
     // compute initial value x0 = 1/sqrt(A)
+    // This uses the build-in Number object which is a 64-bit double
+    // which restricts the absolute size of the number to be
+    // around 2e-308 < x < 1e308
+    // TODO: see above
     sqrtval = this.toNumber();
     sqrtval = 1 / Math.sqrt(sqrtval);
     oldprec = this.precision;
     // bits in a 64-bit double minus angst-allowance
     prec = 50;
-    // oldprec must be equal or higher or there is a nasty bug somewhere
-    if (oldprec != prec) {
-        //this.precision = prec;
-    }
     // see Bigfloat.inv() for problems with this approach
     var precarr = computeGiantsteps(prec, oldprec, 2);
     nloops = 0;
@@ -1367,4 +1371,57 @@ Bigfloat.prototype.exp = function() {
     return ret;
 };
 
+Bigfloat.prototype.log = function() {
+    var init, ret, x0, xn, t, A, logval, prec, oldprec, one, two, nloops;
 
+    if (this.sign == MP_NEG) {
+        return (new Bigfloat()).setNaN();
+    }
+    if (this.isZero()) {
+        return (new Bigfloat()).setInf();
+    }
+    // compute initial value x0 = log(A)
+    // This uses the build-in Number object which is a 64-bit double
+    // which restricts the absolute size of the number to be
+    // around 2e-308 < x < 1e308
+    // TODO: see above
+    logval = this.toNumber();
+    logval = Math.log(logval);
+    oldprec = this.precision;
+    // bits in a 64-bit double minus angst-allowance
+    prec = 50;
+    // see Bigfloat.inv() for problems with this approach
+    var precarr = computeGiantsteps(prec, oldprec, 2);
+    var maxloops = oldprec.highBit() + 1;
+    nloops = 0;
+    xn = logval.toBigfloat();
+    one = new Bigfloat(1);
+    // low starting precision: low cost
+    A = this.abs();
+    // logarithm
+    // x(n+1) = xn - 1 + A/exp(xn).
+    do {
+        setPrecision(prec);
+        x0 = xn.copy();
+        xn = xn.sub(one);
+        t = A.div(x0.exp());
+        xn = xn.add(t);
+        if(xn.sub(x0).abs().isZero()){
+           break;
+        }
+        nloops++;
+        // do some rounds with work precision if necessary
+        if (nloops >= precarr.length) {
+            prec = getPrecision();
+        } else {
+            prec = precarr[nloops];
+        }
+        if(nloops >= maxloops){
+           break;
+        }
+    } while (true);
+    // we are probably (hopefuly) too high
+    setPrecision(oldprec);
+    xn.normalize();
+    return xn;
+};
