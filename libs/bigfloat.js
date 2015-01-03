@@ -665,7 +665,7 @@ String.prototype.toBigfloat = function(numbase) {
             return the_number;
         }
 
-        if (decimal_point < 0) {
+        if (decimal_point < 0  && exponent >= 0) {
             return handleInteger(exponent);
         }
 
@@ -1204,7 +1204,7 @@ Bigfloat.prototype.inv = function() {
     // number of loops:
     // quadratic, so every round doubles the number of correct digits
     // TODO: this is the function for decimal digits, need a different one here
-    // NOTE: maximum #rounds is log_2(precision)
+    // NOTE: maximum #rounds is about log_2(precision)
     var precarr = computeGiantsteps(prec, oldprec, 2);
     nloops = 0;
     xn = inval.toBigfloat();
@@ -1297,3 +1297,6 @@ Bigfloat.prototype.sqrt = function() {
     xn = xn.mul(A);
     return xn;
 };
+
+
+
