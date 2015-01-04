@@ -1448,6 +1448,9 @@ Bigfloat.prototype.lShift = function(n) {
     if (n == 0) {
         return this.copy();
     }
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
     if (n < 0) {
         return this.rShift(-n);
     }
@@ -1463,6 +1466,9 @@ Bigfloat.prototype.lShiftInplace = function(n) {
         return;
     }
     if (n == 0) {
+        return;
+    }
+    if (this.isZero()) {
         return;
     }
     if (n < 0) {
@@ -1481,6 +1487,9 @@ Bigfloat.prototype.rShift = function(n) {
     if (n == 0) {
         return this.copy();
     }
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
     if (n < 0) {
         return this.lShift(-n);
     }
@@ -1496,6 +1505,9 @@ Bigfloat.prototype.rShiftInplace = function(n) {
         return;
     }
     if (n == 0) {
+        return;
+    }
+    if (this.isZero()) {
         return;
     }
     if (n < 0) {
