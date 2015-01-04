@@ -1216,6 +1216,10 @@ Bigfloat.prototype.inv = function() {
     // TODO: see above
     inval = this.toNumber();
     inval = Math.abs(inval);
+    // to avoid division by zero in the calculation of the seed value
+    if(inval == 0){
+        inval = 0.000000000000001;
+    }
     inval = 1 / inval;
     oldprec = this.precision;
     // bits in a 64-bit double minus angst-allowance
@@ -1274,6 +1278,14 @@ Bigfloat.prototype.sqrt = function() {
     // around 2e-308 < x < 1e308
     // TODO: see above
     sqrtval = this.toNumber();
+    // This algorithms "hangs" with a seed of one
+    if(sqrtval == 1){
+        if(Math.abs(this.exponent) >= 104 ){
+            sqrtval = 1.00000000000001;
+        } else {
+            sqrtval = 0.99999999999999;
+        }
+    }
     sqrtval = 1 / Math.sqrt(sqrtval);
     oldprec = this.precision;
     // bits in a 64-bit double minus angst-allowance
