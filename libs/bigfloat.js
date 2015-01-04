@@ -1356,9 +1356,9 @@ Bigfloat.prototype.exp = function() {
     ret = ret.sub(one);
     // reverse argument reduction
     for (i = 0; i < m; i++) {
-        t = two.mul(ret);
-        to = ret.mul(ret);
-        ret = t.add(to);
+        to = ret.sqr();
+        ret.lShiftInplace(1);
+        ret = ret.add(to);
     }
     // we have exp(z) - 1 now, add one unit
     ret = ret.add(one);
