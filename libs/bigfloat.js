@@ -1425,3 +1425,67 @@ Bigfloat.prototype.log = function() {
     xn.normalize();
     return xn;
 };
+Bigfloat.prototype.lShift = function(n) {
+    var ret;
+    if (!n.isInt()) {
+        return (new Bigfloat()).setNaN();
+    }
+    if (n == 0) {
+        return this.copy();
+    }
+    if (n < 0) {
+        return this.rShift(-n);
+    }
+    ret = this.copy();
+    ret.exponent += n;
+    return ret;
+};
+
+Bigfloat.prototype.lShiftInplace = function(n) {
+    var ret;
+    if (!n.isInt()) {
+        this.mantissa.setNaN();
+        return;
+    }
+    if (n == 0) {
+        return;
+    }
+    if (n < 0) {
+        this.rShiftInplace(-n);
+        return;
+    }
+    this.exponent += n;
+};
+
+
+Bigfloat.prototype.rShift = function(n) {
+    var ret;
+    if (!n.isInt()) {
+        return (new Bigfloat()).setNaN();
+    }
+    if (n == 0) {
+        return this.copy();
+    }
+    if (n < 0) {
+        return this.lShift(-n);
+    }
+    ret = this.copy();
+    ret.exponent -= n;
+    return ret;
+};
+
+Bigfloat.prototype.rShiftInplace = function(n) {
+    var ret;
+    if (!n.isInt()) {
+        this.mantissa.setNaN();
+        return;
+    }
+    if (n == 0) {
+        return;
+    }
+    if (n < 0) {
+        this.lShiftInplace(-n);
+        return;
+    }
+    this.exponent -= n;
+};
