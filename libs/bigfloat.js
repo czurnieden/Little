@@ -103,6 +103,21 @@ function mpfesetround(n) {
     }
 }
 
+var BIGFLOAT_EPS_PRECISION = -1;
+// Don't use directly, use Bigfloat.EPS() instead
+var BIGFLOAT_EPS = -1;
+Bigfloat.prototype.EPS = function() {
+    var ret;
+    if (BIGFLOAT_EPS_PRECISION != MPF_PRECISION) {
+        BIGFLOAT_EPS_PRECISION = MPF_PRECISION;
+        ret = new Bigfloat(1);
+        ret.exponent = -(2 * this.precision);
+        BIGFLOAT_EPS = ret;
+    }
+    return BIGFLOAT_EPS;
+};
+
+
 Number.prototype.toBigfloat = function() {
     var exponent;
     var sign;
