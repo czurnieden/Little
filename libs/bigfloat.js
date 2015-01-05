@@ -117,7 +117,61 @@ Bigfloat.prototype.EPS = function() {
     return BIGFLOAT_EPS;
 };
 
+/*
+   Compute constants
+   As a reminder: don't use the variables directly, use the
+   functions instead.
+*/
+var BIGFLOAT_PI = -1;
+var BIGFLOAT_PI_PRECISION = -1;
 
+// Pi by the AGM (Brent-Salamin)
+// This algorithm is shamelessly stolen from
+// http://numbers.computation.free.fr/Constants/Pi/piAGM.html
+// Webpage by Xavier Gourdon and Pascal Sebah
+// It is not recommended to compute a million digits of pi with
+// this function (1,000 digits needs a couple of seconds)--but
+// you could.
+Bigfloat.prototype.pi = function() {
+    var a, b, d, s, t, p, two, twoinv, k;
+    var eps = this.EPS();
+    var oldprec = this.precision;
+    // five percent plus 3 bit angst-allowance
+    // TODO: compute correct value
+    var extra = Math.floor(oldprec / 100) * 5 + 3;
+    if (BIGFLOAT_PI_PRECISION == MPF_PRECISION) {
+        return BIGFLOAT_PI;
+    } else {
+        setPrecision(oldprec + extra);
+
+        a = new Bigfloat(1);
+        two = new Bigfloat(2);
+        twoinv = two.inv();
+        b = two.sqrt().inv();
+        t = twoinv.copy();
+        k = 1;
+
+        do {
+            s = a.add(b).mul(twoinv);
+            d = a.sub(s);
+            d = d.sqr();
+            a = s.copy();
+            s = s.sqr();
+            t = t.sub(d.lShift(k));
+            b = s.sub(d).sqrt();
+            k++;
+        } while (a.sub(b).abs().cmp(eps) != MP_LT);
+
+        t.lShiftInplace(1);
+        t = t.inv();
+        p = a.add(b).sqr().mul(t);
+        setPrecision(oldprec);
+        p.normalize();
+    }
+    BIGFLOAT_PI = p;
+    BIGFLOAT_PI_PRECISION = this.precision;
+    return p;
+};
 Number.prototype.toBigfloat = function() {
     var exponent;
     var sign;
