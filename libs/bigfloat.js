@@ -1261,119 +1261,102 @@ Bigfloat.prototype.div = function(bf) {
     return ret;
 };
 
+
 Bigfloat.prototype.inv = function() {
-    var init, ret, x0, xn, hn, A, inval, prec, oldprec, one, nloops;
+    var ret, x0, xn, hn, A, inval, oldprec, one, nloops, eps,diff;
     // compute initial value x0 = 1/A
-    // This uses the build-in Number object which is a 64-bit double
-    // which restricts the absolute size of the number to be
-    // around 2e-308 < x < 1e308
-    // TODO: see above
     inval = this.toNumber();
     inval = Math.abs(inval);
-    // to avoid division by zero in the calculation of the seed value
     if(inval == 0){
-        inval = 0.000000000000001;
+       inval = 0.000000000000001;
     }
     inval = 1 / inval;
     oldprec = this.precision;
-    // bits in a 64-bit double minus angst-allowance
-    prec = 50;
+    eps = this.EPS();
     // number of loops:
-    // quadratic, so every round doubles the number of correct digits
+    // quadratic, so every round doubles the number of correct digits 
     // TODO: this is the function for decimal digits, need a different one here
-    // NOTE: maximum #rounds is about log_2(precision)
-    var precarr = computeGiantsteps(prec, oldprec, 2);
+    // NOTE: maximum #rounds is log_2(precision)
+    var maxrounds = oldprec.highBit() + 1;
     nloops = 0;
+    setPrecision(oldprec + 3);
     xn = inval.toBigfloat();
     // x0 = xn.copy();
     one = new Bigfloat(1);
-    // low starting precision: low cost
     A = this.abs();
     // xn = 2*xn-A*xn^2 normally but here we do something different:
     // hn =  1-A*xn
     // x(n+1) = xn + xn*hn.
     do {
-        setPrecision(prec);
         x0 = xn.copy();
         hn = one.sub(A.mul(xn));
-        // we can check for hn being close enough to zero ( <eps ) here.
-        // Checking for exact zero may need one round too much
-        if (hn.isZero()) {
-            break;
-        }
         xn = xn.add(xn.mul(hn));
         nloops++;
-        // do some rounds with work precision if necessary
-        if (nloops >= precarr.length) {
-            prec = getPrecision();
-        } else {
-            prec = precarr[nloops];
+        if(nloops >= maxrounds){
+           break;
         }
-    } while (true);
+        diff = x0.sub(xn).abs();
+        if(diff.isZero()){
+           break;
+        }
+    }while(diff.cmp(eps) == MP_GT);
     // console.log("1/nloops = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    xn.sign = this.sign;
-    xn.mantissa.sign = this.sign;
+    xn.sign = this.sign
+    xn.mantissa.sign = this.sign
     return xn;
 };
 
 Bigfloat.prototype.sqrt = function() {
-    var init, ret, x0, xn, hn, A, sqrtval, prec, oldprec, one, two, nloops;
-
-    if (this.sign == MP_NEG) {
+    var ret, x0, xn, hn, A, sqrtval, oldprec, one, two, nloops,diff;
+    var eps;
+    if(this.sign == MP_NEG){
         return (new Bigfloat()).setNaN();
     }
     // compute initial value x0 = 1/sqrt(A)
-    // This uses the build-in Number object which is a 64-bit double
-    // which restricts the absolute size of the number to be
-    // around 2e-308 < x < 1e308
-    // TODO: see above
     sqrtval = this.toNumber();
-    // This algorithms "hangs" with a seed of one
+    //console.log("sqrtval = " + sqrtval);
     if(sqrtval == 1){
-        if(Math.abs(this.exponent) >= 104 ){
-            sqrtval = 1.00000000000001;
-        } else {
-            sqrtval = 0.99999999999999;
-        }
+      if(Math.abs(this.exponent) >= 104 ){
+         sqrtval = 1.00000000000001;
+      } else {
+         sqrtval = 0.99999999999999;
+      }
     }
-    sqrtval = 1 / Math.sqrt(sqrtval);
+    sqrtval = 1/Math.sqrt(sqrtval);
+    //console.log("sqrtval = " + sqrtval);
     oldprec = this.precision;
-    // bits in a 64-bit double minus angst-allowance
-    prec = 50;
+    eps = this.EPS();
     // see Bigfloat.inv() for problems with this approach
-    var precarr = computeGiantsteps(prec, oldprec, 2);
+    var maxrounds = oldprec.highBit() + 1;
     nloops = 0;
+    setPrecision(oldprec + 3);
     xn = sqrtval.toBigfloat();
     // x0 = xn.copy();
     one = new Bigfloat(1);
     two = new Bigfloat(2);
     two = two.inv();
-    // low starting precision: low cost
     A = this.abs();
     // inverse sqrt
     // hn = 1-A*xn^2
     // x(n+1) = xn + xn/2 * hn.
     do {
-        setPrecision(prec);
         x0 = xn.copy();
         hn = one.sub(A.mul(xn.sqr()));
-        // we can check for hn being close enough to zero ( <eps ) here
-        if (hn.isZero()) {
-            break;
-        }
         xn = xn.add(xn.mul(two).mul(hn));
         nloops++;
-        // do some rounds with work precision if necessary
-        if (nloops >= precarr.length) {
-            prec = getPrecision();
-        } else {
-            prec = precarr[nloops];
+        if(nloops >= maxrounds){
+           break;
         }
-    } while (true);
+        diff = x0.sub(xn).abs();
+        if(diff.isZero()){
+           break;
+        }
+    } while(diff.cmp(eps) == MP_GT);
+   
     // console.log("nloops^2 = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
@@ -1383,8 +1366,9 @@ Bigfloat.prototype.sqrt = function() {
     return xn;
 };
 
+
 Bigfloat.prototype.exp = function() {
-    var n, to, t, tx, ret, x0, one, two, m, nt, i, oldprec, sign = MP_ZPOS;
+    var n, to, t, tx, ret, x0, one, two, m, nt, i, oldprec, sign = MP_ZPOS,diff;
     // TODO: checks & balances
 
     if (this.isZero()) {
@@ -1400,15 +1384,17 @@ Bigfloat.prototype.exp = function() {
     }
 
     oldprec = getPrecision();
+    var eps = this.EPS();
+    var extra = Math.floor(oldprec / 100) * 5  + 3;
     // TODO: compute number of guard digits more precisely
-    setPrecision(getPrecision() + 33);
+    setPrecision(oldprec + extra );
     ret = new Bigfloat(1);
     to = new Bigfloat(1);
     tx = new Bigfloat(1);
     n = 1;
 
     // NOTE: calculate a bit more precisely
-    i = Math.floor(this.precision / 3.32) + 1;
+    i = Math.floor(this.precision / 3.32) + 10;
     // argument reduction by 1/2^m
     one = new Bigint(1);
     two = new Bigfloat(2);
@@ -1431,7 +1417,11 @@ Bigfloat.prototype.exp = function() {
         if (i-- == 0) {
             break;
         }
-    } while (x0.cmp(ret) != MP_EQ);
+        diff = x0.sub(ret).abs();
+        if(diff.isZero()){
+           break;
+        }
+    } while (diff.cmp(eps) == MP_GT);
     // we used the standard series to compute exp(z/2^m) + 1
     one = new Bigfloat(1);
     ret = ret.sub(one);
@@ -1452,8 +1442,9 @@ Bigfloat.prototype.exp = function() {
     return ret;
 };
 
+
 Bigfloat.prototype.log = function() {
-    var init, ret, x0, xn, t, A, logval, prec, oldprec, one, two, nloops;
+    var init, ret, x0, xn, t, A, logval, prec, oldprec, one, two, nloops, diff,eps;
 
     if (this.sign == MP_NEG) {
         return (new Bigfloat()).setNaN();
@@ -1461,46 +1452,36 @@ Bigfloat.prototype.log = function() {
     if (this.isZero()) {
         return (new Bigfloat()).setInf();
     }
-    // compute initial value x0 = log(A)
-    // This uses the build-in Number object which is a 64-bit double
-    // which restricts the absolute size of the number to be
-    // around 2e-308 < x < 1e308
-    // TODO: see above
+    // compute initial value x0 = 1/sqrt(A)
     logval = this.toNumber();
     logval = Math.log(logval);
     oldprec = this.precision;
-    // bits in a 64-bit double minus angst-allowance
-    prec = 50;
+    eps = this.EPS();
     // see Bigfloat.inv() for problems with this approach
-    var precarr = computeGiantsteps(prec, oldprec, 2);
-    var maxloops = oldprec.highBit() + 1;
+    var maxloops = oldprec.highBit()  + 1;
     nloops = 0;
+    var extra = Math.floor(oldprec / 100) * 5  + 3;
+    setPrecision(oldprec + extra);
     xn = logval.toBigfloat();
     one = new Bigfloat(1);
-    // low starting precision: low cost
     A = this.abs();
     // logarithm
     // x(n+1) = xn - 1 + A/exp(xn).
     do {
-        setPrecision(prec);
         x0 = xn.copy();
         xn = xn.sub(one);
         t = A.div(x0.exp());
         xn = xn.add(t);
-        if(xn.sub(x0).abs().isZero()){
-           break;
-        }
+        diff = xn.sub(x0).abs();
+
         nloops++;
-        // do some rounds with work precision if necessary
-        if (nloops >= precarr.length) {
-            prec = getPrecision();
-        } else {
-            prec = precarr[nloops];
-        }
         if(nloops >= maxloops){
            break;
         }
-    } while (true);
+        if(diff.isZero()){
+           break;
+        }
+    } while (diff.cmp(eps) == MP_GT);
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
