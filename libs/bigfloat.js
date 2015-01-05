@@ -139,7 +139,10 @@ Bigfloat.prototype.pi = function() {
     // five percent plus 3 bit angst-allowance
     // TODO: compute correct value
     var extra = Math.floor(oldprec / 100) * 5 + 3;
-    if (BIGFLOAT_PI_PRECISION == MPF_PRECISION) {
+    if (BIGFLOAT_PI_PRECISION >= MPF_PRECISION) {
+        if(BIGFLOAT_PI_PRECISION > MPF_PRECISION){
+           BIGFLOAT_PI.normalize();
+        }
         return BIGFLOAT_PI;
     } else {
         setPrecision(oldprec + extra);
@@ -1318,7 +1321,6 @@ Bigfloat.prototype.sqrt = function() {
     }
     // compute initial value x0 = 1/sqrt(A)
     sqrtval = this.toNumber();
-    //console.log("sqrtval = " + sqrtval);
     if(sqrtval == 1){
       if(Math.abs(this.exponent) >= 104 ){
          sqrtval = 1.00000000000001;
@@ -1327,7 +1329,6 @@ Bigfloat.prototype.sqrt = function() {
       }
     }
     sqrtval = 1/Math.sqrt(sqrtval);
-    //console.log("sqrtval = " + sqrtval);
     oldprec = this.precision;
     eps = this.EPS();
     // see Bigfloat.inv() for problems with this approach
@@ -1356,8 +1357,6 @@ Bigfloat.prototype.sqrt = function() {
            break;
         }
     } while(diff.cmp(eps) == MP_GT);
-   
-    // console.log("nloops^2 = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
