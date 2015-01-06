@@ -412,6 +412,51 @@ Bigfloat.prototype.toBigint = function() {
     return ret;
 };
 
+if (typeof Bigrational !== "undefined") {
+    Bigrational.prototype.toBigfloat = function() {
+        var ret;
+        if (this.isZero()) {
+            return new Bigfloat();
+        }
+        if (this.isNaN()) {
+            return (new Bigfloat()).setNaN();
+        }
+        if (this.isInf()) {
+            return (new Bigfloat()).setInf();
+        }
+        if (this.den.isOne()) {
+            return this.num.toBigfloat();
+        }
+        // just divide
+        ret = this.num.div(this.den).toBigfloat();
+        ret.sign = this.sign;
+        return ret;
+    };
+
+    Bigfloat.prototype.toBigrational = function() {
+        var ret, num, den;
+        // either just divide the mantissa by the exponent (man/2^abs(exponent))
+        // (check, if it is an integer (positive exponent) first!)
+        // or do a very costly CF decomposition. CF decomposition is the best but
+        // simply putting mantissa and 2^-exponent into numerator and denominator
+        // respectively is easy and, even including the necessary reducing of the
+        // fraction, computationally way cheaper.
+        if (this.exponent >= 0) {
+            ret = this.toBigint();
+            ret.sign = this.sign;
+            return new Bigrational(ret, 1);
+        }
+        num = this.mantissa.copy();
+        num.sign = this.sign;
+        den = (new Bigint(1)).lShift(Math.abs(this.exponent));
+        ret = new Bigrational(num, den);
+        ret.normalize();
+        return ret;
+    };
+}
+
+
+
 String.prototype.toBigfloat = function(numbase) {
     var parseNumber = function(s) {
         var slen = s.length;
