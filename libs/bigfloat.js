@@ -379,6 +379,38 @@ Bigint.prototype.toBigfloat = function() {
     return ret;
 };
 
+Bigfloat.prototype.toBigint = function() {
+    var ret, one;
+    if (this.isNaN()) {
+        return (new Bigint()).setNaN();
+    }
+    if (this.isInf()) {
+        return (new Bigint()).setInf();
+    }
+    if (this.isZero()) {
+        return new Bigint();
+    }
+    // check if it has an integer part otherwise return zero
+    if (this.exponent <= -this.precision) {
+        // set sign?
+        return new Bigint();
+    }
+    // if the exponent is larger then zero shift mantissa by exponent
+    // end return a copy of the mantissa
+    if (this.exponent >= 0) {
+        ret = this.mantissa.lShift(this.exponent);
+        ret.sign = this.sign;
+        return ret;
+    }
+    // strip fraction part with floor() or round()?
+    ret = this.floor();
+    // divide mantissa by 2^-exponent
+    one = (new Bigint(1)).lShift(Math.abs(this.exponent));
+    ret = ret.mantissa.div(one);
+    ret.sign = this.sign;
+    // return result
+    return ret;
+};
 
 String.prototype.toBigfloat = function(numbase) {
     var parseNumber = function(s) {
