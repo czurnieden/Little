@@ -103,6 +103,32 @@ function mpfesetround(n) {
     }
 }
 
+// Measures size of integer part in bits
+// for rough estimates only, e.g.: to find the needed precision of pi in
+// argument reducing for trigonometric functions
+// floor(abs(log_2(this)))
+Bigfloat.prototype.absBitSize = function() {
+    var prec = this.precision;
+    var exp = this.exponent;
+    prec = prec + exp;
+    if (prec < 0) {
+        return 0;
+    } else {
+        return prec;
+    }
+};
+// Measures size of integer part in decimal
+// for rough estimates only, e.g.: to find the needed precision of pi in
+// argument reducing for trigonometric functions
+// floor(abs(log_10(this)))
+Bigfloat.prototype.absDecimalSize = function() {
+    var prec = this.absBitSize();
+    if (prec != 0) {
+        floor(Math.log(prec) / Math.log(10));
+    }
+    return prec;
+};
+
 var BIGFLOAT_EPS_PRECISION = -1;
 // Don't use directly, use Bigfloat.EPS() instead
 var BIGFLOAT_EPS = -1;
@@ -1341,6 +1367,19 @@ Bigfloat.prototype.div = function(bf) {
     return ret;
 };
 
+Bigfloat.prototype.rem = function(bf) {
+    var r;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    if (bf.isZero()) {
+        // raise divisionByZero
+        return (new Bigfloat()).setNaN();
+    }
+    // r = b - floor(a/b)*a
+    r = bf.sub(this.div(bf).floor().mul(this));
+    return r;
+};
 
 Bigfloat.prototype.inv = function() {
     var ret, x0, xn, hn, A, inval, oldprec, one, nloops, eps,diff;
@@ -1354,7 +1393,7 @@ Bigfloat.prototype.inv = function() {
     oldprec = this.precision;
     eps = this.EPS();
     // number of loops:
-    // quadratic, so every round doubles the number of correct digits 
+    // quadratic, so every round doubles the number of correct digits
     // TODO: this is the function for decimal digits, need a different one here
     // NOTE: maximum #rounds is log_2(precision)
     var maxrounds = oldprec.highBit() + 1;
@@ -1380,32 +1419,30 @@ Bigfloat.prototype.inv = function() {
            break;
         }
     }while(diff.cmp(eps) == MP_GT);
-    // console.log("1/nloops = " + nloops)
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
     // set sign
-    xn.sign = this.sign
-    xn.mantissa.sign = this.sign
+    xn.sign = this.sign;
+    xn.mantissa.sign = this.sign;
     return xn;
 };
-
 Bigfloat.prototype.sqrt = function() {
-    var ret, x0, xn, hn, A, sqrtval, oldprec, one, two, nloops,diff;
+    var ret, x0, xn, hn, A, sqrtval, oldprec, one, two, nloops, diff;
     var eps;
-    if(this.sign == MP_NEG){
+    if (this.sign == MP_NEG) {
         return (new Bigfloat()).setNaN();
     }
     // compute initial value x0 = 1/sqrt(A)
     sqrtval = this.toNumber();
-    if(sqrtval == 1){
-      if(Math.abs(this.exponent) >= 104 ){
-         sqrtval = 1.00000000000001;
-      } else {
-         sqrtval = 0.99999999999999;
-      }
+    if (sqrtval == 1) {
+        if (Math.abs(this.exponent) >= 104) {
+            sqrtval = 1.00000000000001;
+        } else {
+            sqrtval = 0.99999999999999;
+        }
     }
-    sqrtval = 1/Math.sqrt(sqrtval);
+    sqrtval = 1 / Math.sqrt(sqrtval);
     oldprec = this.precision;
     eps = this.EPS();
     // see Bigfloat.inv() for problems with this approach
@@ -1426,14 +1463,14 @@ Bigfloat.prototype.sqrt = function() {
         hn = one.sub(A.mul(xn.sqr()));
         xn = xn.add(xn.mul(two).mul(hn));
         nloops++;
-        if(nloops >= maxrounds){
-           break;
+        if (nloops >= maxrounds) {
+            break;
         }
         diff = x0.sub(xn).abs();
-        if(diff.isZero()){
-           break;
+        if (diff.isZero()) {
+            break;
         }
-    } while(diff.cmp(eps) == MP_GT);
+    } while (diff.cmp(eps) == MP_GT);
     // we are probably (hopefuly) too high
     setPrecision(oldprec);
     xn.normalize();
@@ -1441,7 +1478,6 @@ Bigfloat.prototype.sqrt = function() {
     xn = xn.mul(A);
     return xn;
 };
-
 
 Bigfloat.prototype.exp = function() {
     var n, to, t, tx, ret, x0, one, two, m, nt, i, oldprec, sign = MP_ZPOS,diff;
@@ -1639,3 +1675,5 @@ Bigfloat.prototype.rShiftInplace = function(n) {
     }
     this.exponent -= n;
 };
+
+
