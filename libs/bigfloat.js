@@ -479,8 +479,61 @@ if (typeof Bigrational !== "undefined") {
         ret.normalize();
         return ret;
     };
-}
 
+
+    Bigfloat.prototype.bestApprox = function(precision, contFrac) {
+        var prec, i, p, q, cf, x, fx, eps, sign, diff, decprec;
+        var log210 = parseFloat("3.321928094887362347870319429489390175865");
+        decprec = this.getDecimalPrecision();
+        if (arguments.length > 0) {
+            if (!precision.isInt()) {
+                return (new Bigrational()).setNaN();
+            }
+            if (precision < decprec) {
+                prec = precision;
+            }
+        } else {
+            prec = decprec;
+        }
+        if (this.isZero()) {
+            return new Bigrational();
+        }
+        eps = this.EPS();
+        cf = [];
+        if (arguments.length > 1) {
+            if (contFrac instanceof Array) {
+                cf = contFrac;
+            } else {
+                return (new Bigrational()).setNaN();
+            }
+        }
+        sign = this.sign;
+        x = this.abs();
+
+        p = [];
+        q = [];
+        p[0] = new Bigint(0);
+        q[0] = new Bigint(1);
+        p[1] = new Bigint(1);
+        q[1] = new Bigint(0);
+
+        i = 2;
+        do {
+            fx = x.floor();
+            cf[i - 2] = fx.toBigint();;
+            p[i] = cf[i - 2].mul(p[i - 1]).add(p[i - 2]);
+            q[i] = cf[i - 2].mul(q[i - 1]).add(q[i - 2]);
+            diff = x.sub(fx);
+            if (diff.cmp(eps) == MP_LT) break;
+            x = diff.inv();
+            i++;
+        } while (i < prec);
+
+        return new Bigrational(p[i - 1], q[i - 1]);
+    };
+
+
+}
 
 
 String.prototype.toBigfloat = function(numbase) {
