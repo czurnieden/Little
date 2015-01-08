@@ -1676,4 +1676,478 @@ Bigfloat.prototype.rShiftInplace = function(n) {
     this.exponent -= n;
 };
 
+/* Basic trigonometric functions */
 
+// Computes sine and cosine with |x| < 1
+//http://en.wikipedia.org/wiki/Taylor_series
+Bigfloat.prototype.kcossin = function(cosine, tan, hyper) {
+    var sin, cos, tmp, n, eps;
+    eps = this.EPS();
+    sin = this.copy();
+    cos = new Bigfloat(1);
+    tmp = this.copy();
+    n = 2;
+    do {
+        // sin/cos have alternating sums, the hyperbolic functions don't,
+        // vice versa with the tangent
+        if (hyper == true) {
+            tmp = tmp.mul(this).div(new Bigfloat(n));
+        } else {
+            tmp = tmp.mul(this).div(new Bigfloat(-n));
+        }
+        if (cosine == true || tan == true) {
+            cos = cos.add(tmp);
+        }
+        n++;
+        tmp = tmp.mul(this).div(new Bigfloat(n));
+        if (cosine == false || tan == true) {
+            sin = sin.add(tmp);
+        }
+        n++;
+    } while (tmp.abs().cmp(eps) != MP_LT);
+    if (tan == true) {
+        return sin.div(cos);
+    } else if (cosine == true) {
+        return cos;
+    } else {
+        return sin;
+    }
+};
+
+
+// Reduce sin/cos argument |x| to <= Pi/4
+Bigfloat.prototype.reduceTrigArg = function() {
+    var pi, pihalf, piquart, k, r, x, sign, size, oldprec, newprec,
+        eps, three, one;
+
+    if (this.isZero()) {
+        return this.copy();
+    }
+    x = this.abs();
+    three = new Bigfloat(3);
+    pi = this.pi();
+    pihalf = pi.rShift(1);
+    piquart = pi.rShift(2);
+    // nothing to do if it is already small enough
+    if (x.cmp(piquart) != MP_GT) {
+        return [this.copy(), 0];
+    }
+
+    // it starts to get tricky for x < 3pi/4 especially around pi/2
+    // but not for the reduction part
+    three = three.mul(piquart);
+    if (x.cmp(three) == MP_LT) {
+        x = x.sub(pihalf);
+        x.sign = this.sign;
+        x.mantissa.sign = x.sign;
+        return [x, 1];
+    }
+
+    sign = this.sign;
+    // size of integer part in bits
+    size = this.absBitSize();
+
+    // Reduction must be done in precision
+    //     work_precision_(base 2) +  log_2(x)
+    // if we have an integer part
+    oldprec = getPrecision();
+    if (size > 0) {
+        newprec = oldprec + size + 3;
+    } else {
+        newprec = oldprec + 3;
+    }
+    setPrecision(newprec);
+    // we need as many digits of pi as there are digits in the integer part of the
+    // number, so for 1e308 we need 308 decimal digits of pi.
+    // Computing that much may take a while.
+
+    // Compute remainder of x/Pi/2
+    pi = this.pi();
+    // k = round(x * 2/Pi)
+    k = x.lShift(1).div(pi).round();
+    // r = x - k * Pi/2
+    r = x.sub(k.mul(pi.rShift(1)));
+    setPrecision(oldprec);
+    r.normalize();
+    k.normalize();
+    k = k.toBigint();
+    // we need the last two bits only
+    k = k.dp[0];
+    r.sign = this.sign;
+    r.mantissa.sign = this.sign;
+    return [r, k];
+};
+
+/*
+  Use of reduced argument:
+
+  k = round(x * 2/Pi)
+  r = x - k * Pi/2
+  n = k % 4
+
+    goal ->  sin(x)  cos(x)  sin(x)/cos(x)
+   n = 0 ->  sin(r)  cos(r)  sin(r)/cos(r)
+   n = 1 ->  cos(r) -sin(r) -cos(r)/sin(r) = (-inverse(tan))
+   n = 2 -> -sin(r) -cos(r)  sin(r)/cos(r)
+   n = 3 -> -cos(r)  sin(r) -cos(r)/sin(r) = (-inverse(tan))
+*/
+
+Bigfloat.prototype.sin = function() {
+    var x, k, sign;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    sign = this.sign;
+    x = this.reduceTrigArg();
+    k = x[1];
+    x = x[0];
+    k = k % 4;
+    switch (k) {
+        case 0:
+            x = x.kcossin(false, false, false);
+            break;
+        case 1:
+            x = x.kcossin(true, false, false);
+            break;
+        case 2:
+            x = x.kcossin(false, false, false);
+            break;
+        default:
+            x = x.kcossin(true, false, false);
+            break;
+    }
+    x.sign = sign;
+    x.mantissa.sign = sign;
+    return x;
+};
+
+
+Bigfloat.prototype.cos = function(){
+    var x, k, sign, pi, pihalf,one,eps;
+    if (this.isZero()) {
+        return new Bigfloat(1);
+    }
+    // cos(-z) = cos(z)
+    // zeros at pi * n + pi/2
+    // -one^n at pi*n (e.g.: cos(pi) = -1 )
+    // 1/2 at n*pi/3 (useful?)
+    // sign: q2,q3 < 0 ; q1,q4 > 0
+
+    x = this.reduceTrigArg();
+    k = x[1];
+    x = x[0];
+    k = k % 4;
+    // It is a zero or one
+    if(x.isZero()){
+       if (k == 0 || k == 3) {
+          return new Bigfloat(1);
+       } else {
+          return new Bigfloat(0);
+       }
+    }
+    eps = x.EPS();
+    // Very close to a zero or one
+    if(x.abs().cmp(eps) != MP_GT){
+       if (k == 0 || k == 3) {
+          return new Bigfloat(1);
+       } else {
+          return new Bigfloat(0);
+       }
+    }
+    sign = MP_ZPOS;
+    switch (k) {
+        case 0:
+            x = x.kcossin(true, false, false);
+            break;
+        case 1:
+            x = x.kcossin(false, false, false);
+            sign = -sign;
+            break;
+        case 2:
+            x = x.kcossin(true, false, false);
+            sign = -sign;
+            break;
+        default:
+            x = x.kcossin(false, false, false);
+            break;
+    }
+    // TODO: set sign correctly
+    x.sign = sign;
+    x.mantissa.sign = sign;
+    return x;
+};
+
+
+Bigfloat.prototype.tan = function() {
+    var x, k, sign, eps;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    sign = this.sign;
+    x = this.reduceTrigArg();
+    k = x[1];
+    x = x[0];
+    k = k % 4;
+    // It is a zero
+    if (x.isZero()) {
+        return new Bigfloat(0);
+    }
+    eps = x.EPS();
+    // Very close to a zero
+    if (x.abs().cmp(eps) != MP_GT) {
+        return new Bigfloat(0);
+    }
+    x = x.kcossin(true, true, false);
+    switch (k) {
+        case 0:
+            break;
+        case 1:
+            x = x.inv();
+            break;
+        case 2:
+            break;
+        default:
+            x = x.inv();
+            break;
+    }
+    x.sign = sign;
+    x.mantissa.sign = sign;
+    return x;
+};
+
+/* Inverse functions */
+
+// evaluates both atan and atanh but not at the same time
+Bigfloat.prototype.katan = function(hyper) {
+    var sum1, sum2, eps, t2, t4, tmp, n;
+    // checks & balances
+    // -1 < this < 1
+    // atan(h)(0) = 0
+    eps = this.EPS();
+    sum1 = this.copy();
+    t2 = this.sqr();
+    t4 = t2.sqr();
+    sum2 = this.div(new Bigfloat(3));
+    tmp = this.mul(t4);
+    n = 5;
+    while (tmp.cmp(eps) != MP_LT) {
+        // Doing it this way saves some branching for the hyperbolic case and
+        // because of the rule "legibility wins if it is cheaply to have" it is
+        // done here.
+        // It can be done for the cosine, too.
+        sum1 = sum1.add(tmp.div(new Bigfloat(n)));
+        n += 2;
+        sum2 = sum2.add(tmp.div(new Bigfloat(n)));
+        n += 2;
+        tmp = tmp.mul(t4);
+    }
+    sum2 = t2.mul(sum2);
+    if (hyper == true) {
+        return sum1.add(sum2);
+    } else {
+        return sum1.sub(sum2);
+    }
+};
+/*
+    Argument reduction for atan(x) with |x| > 1
+
+      atan(x) = Pi/2 - atan(1/x)       \; x > 0
+      atan(x) = -1 * (Pi/2 + atan(1/x) \; x < 0
+
+    Argument reduction for atan(x) with |x| < 1
+
+      atan(x) = atan( 1 ) + atan( (t-1)/(1+t) ) \; good for .5<x<1
+
+    Sign:
+
+      atan(x) = -atan(-x)
+
+    Fixed values:
+
+      atan(1) = Pi/4
+      atan(0) = 0
+      atan(Inf) = P/2;
+*/
+Bigfloat.prototype.atan = function() {
+    var one, x, pi, ret, sign, eps;
+
+    if (this.isNaN()) {
+        return (new Bigfloat()).setNaN();
+    }
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    one = new Bigfloat(1);
+    pi = this.pi();
+    sign = this.sign;
+    if (this.cmp(one) == MP_EQ) {
+        ret = pi.rShift(1);
+        if (sign == MP_NEG) {
+            ret.sign = MP_NEG;
+            ret.mantissa.sign = MP_NEG;
+        }
+        return ret;
+    }
+    x = this.abs();
+    // The smaller x is, the better the series works
+    // but foremost because of the instability near one.
+    if (x.cmp(one) == MP_LT) {
+        // atan(x) = atan( 1 ) + atan( (x-1)/(1+x) ) \; .5<x<1
+        // atan(1) = pi/4
+        // Actually, the exact limit is sqrt(2)-1, the positive solution of
+        // x + (x - 1)/(1 + x)
+        if (x.cmp(one.rShift(1)) != MP_LT){
+            ret = pi.rShift(2);
+            x = x.sub(one).div(one.add(x));
+            // x will be negative, make it positive again
+            x.sign = MP_ZPOS;
+            x.mantissa.sign = MP_ZPOS;
+            ret = ret.sub(x.katan());
+        } else {
+             ret = x.katan();
+        }
+    } else {
+        // atan(x) = Pi/2 - atan(1/x)       \; x > 0
+        // atan(x) = -1 * (Pi/2 + atan(1/x) \; x < 0
+        // the last one is not necessary because of
+        // atan(x) = -atan(-x)
+
+        // The inverse can get very small if x is very large, obviously.
+        // Cutoff depends on actual precision and absolute size of x, hence the
+        // chcek against EPS.
+        x = x.inv();
+        eps = x.EPS();
+        if (x.cmp(eps) == MP_GT) {
+            ret = pi.rShift(1).sub(x.katan());
+        } else {
+            // \lim x\to\infty tan^{-1} x = \frac{\pi}{2}
+            ret = pi.rShift(1);
+        }
+    }
+    if (sign == MP_NEG) {
+        ret.sign = MP_NEG;
+        ret.mantissa.sign = MP_NEG;
+    }
+    return ret;
+};
+// Conforms to most of ECMAScript 5.1 15.8.2.5
+// exceptions shall be considered bugs
+// Comments starting with "If" are from ECMAScript 5.1 15.8.2.5, sometimes
+// abbreviated
+Bigfloat.prototype.atan2 = function(bf) {
+    var ret, pi;
+
+    // atan2(y,x) (this = y, bf = x)
+    // If either x or y is NaN, the result is NaN
+    if (this.isNaN() || bf.isNaN()) {
+        return (new Bigfloat()).setNaN();
+    }
+    pi = this.pi();
+    if (this.isZero() && bf.isZero()) {
+        /*
+           The definition of the two-argument inverse tangent is
+
+            \tan^{-1}(x, y) = -i \log[ \fract{(x + yi) }{\sqrt{x^2 + y^2} }]
+
+           The square root of zero is zero: division by zero.
+           But we will follow suit here.
+           Just saying,
+        */
+        // If y is +0 and x is +0, the result is +0
+        if (this.sign == MP_ZPOS && bf.sign == MP_ZPOS) {
+            return new Bigfloat();
+        }
+        // If y is +0 and x is −0, the result is impl.-dep. approximation to +pi
+        if (this.sign == MP_ZPOS && bf.sign == MP_NEG) {
+            return pi;
+        }
+        // If y is −0 and x is +0, the result is −0
+        if (this.sign == MP_NEG && bf.sign == MP_ZPOS) {
+            ret = new Bigfloat();
+            ret.sign = MP_NEG;
+            ret.mantissa.sign = MP_NEG;
+            return ret;
+        }
+        // If y is −0 and x is −0, the result is impl.-dep. approximation to −pi
+        if (this.sign == MP_NEG && bf.sign == MP_NEG) {
+            ret = pi;
+            ret.sign = MP_NEG;
+            ret.mantissa.sign = MP_NEG;
+            return ret;
+        }
+    }
+    if (bf.isZero()) {
+        ret = pi.rShift(1);
+        // If y<0 and x is +-0, the result is impl.-dep. approximation to -pi/2
+        if (this.sign == MP_NEG) {
+            ret.sign = MP_NEG;
+            ret.mantissa.sign = MP_NEG;
+        }
+        // If y>0 and x is +-0, the result is impl.-dep. approximation to +pi/2
+        return ret;
+    }
+    if (this.isZero()) {
+        if (this.sign == MP_NEG) {
+            // If y is −0 and x<0, the result is impl.-dep. approximation to −pi
+            if (bf.sign == MP_NEG) {
+                ret = pi;
+            } else {
+                // If y is −0 and x>0, the result is −0
+                ret = new Bigfloat();
+            }
+            ret.sign = MP_NEG;
+            ret.mantissa.sign = MP_NEG;
+            return ret;
+        } else {
+            // If y is +0 and x<0, the result is impl.-dep. approximation to +pi
+            if (bf.sign == MP_NEG) {
+                ret = pi;
+            } else {
+                // If y is +0 and x>0, the result is +0
+                ret = new Bigfloat();
+            }
+            return ret;
+        }
+    }
+    if (this.isInf()) {
+        if (!bf.isInf()) {
+            ret = pi.rShift(1);
+            // If y is -Inf & x is finite, the result is impl.-dep. approx. to -pi/2
+            if (this.sign == MP_NEG) {
+                ret.sign = MP_NEG;
+                ret.mantissa.sign = MP_NEG;
+            }
+            // If y is +Inf & x is finite, the result is impl.-dep. approx. to +pi/2
+            return ret;
+        }
+        if (bf.isInf()) {
+            ret = pi.rShift(2);
+            // If y is +Inf & x is +Inf, the result is impl.-dep. approx. to +pi/4
+            if (this.sign = MP_ZPOS && bf.sign == MP_ZPOS) {
+                return ret;
+            }
+            // If y is +Inf & x is -Inf, the result is i-d approx. to +3*pi/4
+            if (this.sign = MP_ZPOS && bf.sign == MP_NEG) {
+                return ret.mul(new Bigfloat(3));
+            }
+            // If y is -Inf & x is +Inf, the result is impl.-dep. approx. to -pi/4
+            if (this.sign = MP_NEG && bf.sign == MP_ZPOS) {
+                ret.sign = MP_NEG;
+                ret.mantissa.sign = MP_NEG;
+                return ret;
+            }
+            // If y is -Inf & x is -Inf, the result is i-d approx. to -3*pi/4
+            if (this.sign = MP_ZPOS && bf.sign == MP_NEG) {
+                ret.sign = MP_NEG;
+                ret.mantissa.sign = MP_NEG;
+                return ret.mul(new Bigfloat(3));
+            }
+        }
+    }
+    if (this.sign == MP_NEG) {
+        ret = this.neg().div(bf);
+    } else {
+        ret = this.div(bf);
+    }
+    return ret.atan();
+};
