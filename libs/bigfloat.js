@@ -3,9 +3,6 @@
 
       Ignores large parts of IEEE 745 concerning the guts of the numbers but
       follows the rest (Infinity, NaN, divideByZero etc. pp.)
-
-      The chance of getting subnormal number by using the bigfloat numbers is
-      low.
 */
 
 /*
@@ -18,6 +15,11 @@
          The way strtof and ftostr work the numbers shouldn't be too small or
          too large, but something between 1e-1,000 and 1e+1,000 should work
          fast enough.
+
+         The way the finding of the initial values for the Newton based
+         functions works, the size of the actual numbers must be those
+         of the 64-bit double: between 1e-308 and 1e308, better between
+         1e-300 and 1e300
 
          Rounding is fixed to half-to-nearest for now.
 
@@ -51,6 +53,9 @@ var MPFLT_ROUNDS = 1;
 
 function Bigfloat(n) {
     // keep an extra sign and save some typing
+    // Addendum: after lot of code writing the author can conclude that the
+    //           comment above about the amount of typing is complete and
+    //           utter...
     this.sign = MP_ZPOS;
     this.mantissa = new Bigint(0);
     this.exponent = 1;
@@ -531,8 +536,6 @@ if (typeof Bigrational !== "undefined") {
 
         return new Bigrational(p[i - 1], q[i - 1]);
     };
-
-
 }
 
 
@@ -770,10 +773,25 @@ String.prototype.toBigfloat = function(numbase) {
         }
     };
     var stringToBigfloat = function(arrayFromParseNumber) {
-
+        var exceptions;
         if (typeof arrayFromParseNumber === 'string') {
-            // raise an error and...
-            return "NaN";
+            // check if it is +-Infinity or +-NaN
+            if(arrayFromParseNumber.search(/[+-]{0,1}Infinity/) >= 0 ){
+               exceptions = (new Bigfloat()).setInf();
+               exceptions.sign = arrayFromParseNumber.match(/{+-}/)[0];
+               exceptions.sign = (exceptions.sign == "-")?MP_NEG:MP_ZPOS;
+               exceptions.mantissa.sign = exceptions.sign;
+               return exceptions.sign;
+            } else if(arrayFromParseNumber.search(/[+-]{0,1}NaN/) >= 0 ){
+               exceptions = (new Bigfloat()).setNaN();
+               exceptions.sign = arrayFromParseNumber.match(/[+-]/)[0];
+               exceptions.sign = (exceptions.sign == "-")?MP_NEG:MP_ZPOS;
+               exceptions.mantissa.sign = exceptions.sign;
+               return exceptions.sign;
+            } else {
+               // raise some error and...
+               return (new Bigfloat()).setNaN();
+            }
         }
         var base = arrayFromParseNumber[0];
         var sign = arrayFromParseNumber[1];
