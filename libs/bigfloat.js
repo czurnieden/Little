@@ -27,30 +27,119 @@
 */
 
 // in bits, default is 104 bits (not a double-double that would be more)
+/**
+   Default precision in bits. Default value is the bit-size of two limbs of
+   Bigint.
+   @const {number}
+   @default
+*/
 var MPF_PRECISION = MP_DIGIT_BIT * 4;
 // it is also the minimum
+/**
+   Default minimum precision in bits. Default value is the bit-size of two limbs of
+   Bigint.
+   @const {number}
+   @default
+*/
 var MPF_PRECISION_MIN = MP_DIGIT_BIT * 4;
+/**
+   Default minimum precision in decimal. Default value is the size of two limbs of
+   Bigint assuming a size of a limb to be 26 exactly.
+   @const {number}
+   @default
+*/
 var MPF_DECIMAL_PRECISION_MIN = 31;
 // this is an arbitrary maximum, just a safe guard and free to change
+/**
+   Default maximum precision in bits.
+   The default value is 2<sup><i>32</i></sup>, about 1,293,664,848 decimal digits.
+   @const {number}
+   @default
+*/
 var MPF_PRECISION_MAX = 4294967296; // 2^32 bits, 165,191,050 big-digits
 
 // exception handling
+/**
+   Flag for exception: division by zero
+   @const {number}
+   @default
+*/
 var MPFE_DIVBYZERO = 1;
+/**
+   Flag for exception: inexact result
+   @const {number}
+   @default
+*/
 var MPFE_INEXACT = 2;
+/**
+   Flag for exception: invalid result
+   @const {number}
+   @default
+*/
 var MPFE_INVALID = 4;
+/**
+   Flag for exception: overflow
+   @const {number}
+   @default
+*/
 var MPFE_OVERFLOW = 8;
+/**
+   Flag for exception: overflow
+   @const {number}
+   @default
+*/
 var MPFE_UNDERFLOW = 16;
-
+/**
+   Bool sum of accepted exceptions.
+   Included by default are: division by zero, inexact and invalid
+   @const {number}
+   @default
+*/
 var MPFE_ALL_EXCEPT = MPFE_DIVBYZERO | MPFE_INEXACT | MPFE_INVALID;
 
 // Rounding modes
+/**
+   Flag for rounding mode: half to even.
+   This is the default rounding mode
+   @const {number}
+   @default
+*/
 var MPFE_TONEAREST = 1; // default
+/**
+   Flag for rounding mode: to +infinity.
+   @const {number}
+   @default
+*/
 var MPFE_UPWARD = 2;
+/**
+   Flag for rounding mode: to -infinity.
+   @const {number}
+   @default
+*/
 var MPFE_DOWNWARD = 4;
+/**
+   Flag for rounding mode: to zero.
+   @const {number}
+   @default
+*/
 var MPFE_TOWARDZERO = 8;
-
+/**
+   Flag for rounding mode in duty.
+   Default is half to even
+   @const {number}
+   @default
+*/
 var MPFLT_ROUNDS = 1;
 
+
+/**
+  Constructor for the Bigfloat object.
+  It accepts only a small <em>integer</em> as an argument. For converting
+  JavaScripts <code>Number</code> object to a Bigfloat use <code>toBigfloat()</code>
+  on a number.
+  @constructor
+  @param {number} n small integer &lt; 2<sup>MP_DIGIT_BIT</sup>
+*/
 function Bigfloat(n) {
     // keep an extra sign and save some typing
     // Addendum: after lot of code writing the author can conclude that the
@@ -69,7 +158,12 @@ function Bigfloat(n) {
         this.exponent = -this.precision + Math.abs(n).highBit() + 1;
     }
 }
-
+/**
+   Set the precision in bits. Does not actively change any Bigfloat, just
+   sets the global variables <code>MPF_PRECISION</code> to the argument
+   or to <code>MPF_PRECISION_MIN</code>
+   @param {number} n a small integer, the new precision in bits
+*/
 function setPrecision(n) {
     if (arguments.length > 0 && n.isInt() && n > MPF_PRECISION_MIN) {
         MPF_PRECISION = n;
@@ -77,16 +171,25 @@ function setPrecision(n) {
         MPF_PRECISION = MPF_PRECISION_MIN;
     }
 }
-
+/**
+   Get the precision in bits.
+   @return {number} the precision in bits
+*/
 function getPrecision() {
     return MPF_PRECISION;
 }
-
+/**
+   Get the precision of the actual Bigfloat in decimal
+   @return {number} the new precision in decimal digits
+*/
 Bigfloat.prototype.getDecimalPrecision = function() {
     var log210 = parseFloat("3.321928094887362347870319429489390175865");
     return Math.floor(this.precision / log210);
 };
-
+/**
+   Set the precision of the actual Bigfloat in decimal
+   @param {number} prec a small integer, the new precision in decimal
+*/
 Bigfloat.prototype.setDecimalPrecision = function(prec) {
     var log210 = parseFloat("3.321928094887362347870319429489390175865");
     if (!prec || !prec.isInt() || prec < MPF_DECIMAL_PRECISION_MIN) {
@@ -95,11 +198,17 @@ Bigfloat.prototype.setDecimalPrecision = function(prec) {
     this.precision = Math.ceil(prec * log210) + 1;
     return true;
 };
-
+/**
+   Get the current rounding mode.
+   @return {number} the current rounding mode
+*/
 function mpfegetround() {
     return MPFLT_ROUNDS;
 }
-
+/**
+   Set the current rounding mode.
+   @param {number} n
+*/
 function mpfesetround(n) {
     if (!n.isInt() || n < 0 || n > 3) {
         MPFLT_ROUNDS = -1;
@@ -112,6 +221,12 @@ function mpfesetround(n) {
 // for rough estimates only, e.g.: to find the needed precision of pi in
 // argument reducing for trigonometric functions
 // floor(abs(log_2(this)))
+/**
+   Measures size of integer part in bits.
+   For rough estimates only, e.g.: to find the needed precision of pi in
+   argument reducing for trigonometric functions.
+   @return {number}
+*/
 Bigfloat.prototype.absBitSize = function() {
     var prec = this.precision;
     var exp = this.exponent;
@@ -126,6 +241,12 @@ Bigfloat.prototype.absBitSize = function() {
 // for rough estimates only, e.g.: to find the needed precision of pi in
 // argument reducing for trigonometric functions
 // floor(abs(log_10(this)))
+/**
+   Measures size of integer part in decimal.
+   For rough estimates only, e.g.: to find the needed precision of pi in
+   argument reducing for trigonometric functions.
+   @return {number}
+*/
 Bigfloat.prototype.absDecimalSize = function() {
     var prec = this.absBitSize();
     if (prec != 0) {
@@ -133,10 +254,26 @@ Bigfloat.prototype.absDecimalSize = function() {
     }
     return prec;
 };
-
+/**
+   Caches the precision at the time EPS() had been run.
+   @private
+   @const {number}
+   @default
+*/
 var BIGFLOAT_EPS_PRECISION = -1;
 // Don't use directly, use Bigfloat.EPS() instead
+/**
+   Caches eps at the time EPS() had been run.
+   Don't use directly, use Bigfloat.EPS() instead
+   @private
+   @const {number}
+   @default
+*/
 var BIGFLOAT_EPS = -1;
+/**
+   Evaluates EPS of the Bigfloat
+   @return {Bigfloat} the eps
+*/
 Bigfloat.prototype.EPS = function() {
     var ret;
     if (BIGFLOAT_EPS_PRECISION != MPF_PRECISION) {
@@ -153,7 +290,21 @@ Bigfloat.prototype.EPS = function() {
    As a reminder: don't use the variables directly, use the
    functions instead.
 */
+/**
+   Caches pi
+   Don't use directly, use Bigfloat.pi() instead
+   @private
+   @const {Bigfloat}
+   @default
+*/
 var BIGFLOAT_PI = -1;
+/**
+   Caches precision of pi
+   Don't use directly, use Bigfloat.pi() instead
+   @private
+   @const {Bigfloat}
+   @default
+*/
 var BIGFLOAT_PI_PRECISION = -1;
 
 // Pi by the AGM (Brent-Salamin)
@@ -163,6 +314,17 @@ var BIGFLOAT_PI_PRECISION = -1;
 // It is not recommended to compute a million digits of pi with
 // this function (1,000 digits needs a couple of seconds)--but
 // you could.
+
+/**
+   Pi by the AGM (Brent-Salamin)
+   This algorithm is shamelessly stolen from
+   {ælink http://numbers.computation.free.fr/Constants/Pi/piAGM.html }
+   (Webpage by Xavier Gourdon and Pascal Sebah)<br>
+   It is not recommended to compute a million digits of pi with
+   this function (1,000 digits needs a couple of seconds)--but
+   you could.
+   @return {Bigfloat} pi in current precision
+*/
 Bigfloat.prototype.pi = function() {
     var a, b, d, s, t, p, two, twoinv, k;
     var eps = this.EPS();
@@ -206,6 +368,11 @@ Bigfloat.prototype.pi = function() {
     BIGFLOAT_PI_PRECISION = this.precision;
     return p;
 };
+/**
+  Converts a native JavaScript number to a Bigfloat
+  @function external:Number#toBigfloat
+  @return {Bigfloat}
+*/
 Number.prototype.toBigfloat = function() {
     var exponent;
     var sign;
@@ -328,6 +495,11 @@ Number.prototype.toBigfloat = function() {
 };
 
 // both function assume MP_DIGIT_BIT == 26
+/**
+  Converts a Bigfloat to a native JavaScript number if possible. If a zero is
+  returned it inherits the sign of the Bigfloat
+  @return {number} or the strings "Infinity", "-Infinity"
+*/
 Bigfloat.prototype.toNumber = function() {
     var high, mid, low, ret, buf, tmp, exponent, newthis, oldprec;
     // just reduce precision and put it into a JavaScript Number
@@ -390,7 +562,11 @@ Bigfloat.prototype.toNumber = function() {
     return ret;
 };
 
-
+/**
+  Converts a Bigint to a Bigfloat
+  @function external:Bigint#toBigfloat
+  @return {Bigfloat}
+*/
 Bigint.prototype.toBigfloat = function() {
     var ret = new Bigfloat();
     if (this.isNaN()) {
@@ -409,7 +585,11 @@ Bigint.prototype.toBigfloat = function() {
     ret.normalize();
     return ret;
 };
-
+/**
+  Converts a Bigfloat to a Bigint.
+  Truncates the fraction part.
+  @return {Bigint}
+*/
 Bigfloat.prototype.toBigint = function() {
     var ret, one;
     if (this.isNaN()) {
@@ -444,6 +624,11 @@ Bigfloat.prototype.toBigint = function() {
 };
 
 if (typeof Bigrational !== "undefined") {
+/**
+  Converts a Bigrational to a Bigfloat.
+  @function external:Bigrational#toBigfloat
+  @return {Bigfloat}
+*/
     Bigrational.prototype.toBigfloat = function() {
         var ret;
         if (this.isZero()) {
@@ -463,7 +648,13 @@ if (typeof Bigrational !== "undefined") {
         ret.sign = this.sign;
         return ret;
     };
-
+/**
+  Converts a Bigfloat to a Bigrational. Just puts the scaled fractionpart
+  into the numerator, the value of 2<sup><i>|exponent|</i></sup> into the
+  denumerator and reduces. Quite fast but maybe not what you want. See
+  bestApprox() for a more exact alternative based on continued fractions.
+  @return {Bigrational}
+*/
     Bigfloat.prototype.toBigrational = function() {
         var ret, num, den;
         // either just divide the mantissa by the exponent (man/2^abs(exponent))
@@ -485,7 +676,12 @@ if (typeof Bigrational !== "undefined") {
         return ret;
     };
 
-
+/**
+  Converts a Bigfloat to a Bigrational using continued fractions.
+  @param {number} precision the maximum size of the denominator in decimal
+  @param {array} contFrac an empty array to hold the computed continued fraction
+  @return {Bigrational}
+*/
     Bigfloat.prototype.bestApprox = function(precision, contFrac) {
         var prec, i, p, q, cf, x, fx, eps, sign, diff, decprec;
         var log210 = parseFloat("3.321928094887362347870319429489390175865");
@@ -538,7 +734,14 @@ if (typeof Bigrational !== "undefined") {
     };
 }
 
-
+/**
+  Converts a String to a Bigfloat. Rounding mode is restricted to half-to-even
+  for now. String must be clean: no whitespace around, no thousand-separator
+  inside, only ASCII characters.
+  @function external:String#toBigfloat
+  @param {number} base of the input string (only base 10 for now)
+  @return {Bigfloat}
+*/
 String.prototype.toBigfloat = function(numbase) {
     var parseNumber = function(s) {
         var slen = s.length;
@@ -965,7 +1168,11 @@ String.prototype.toBigfloat = function(numbase) {
     ret.normalize();
     return ret;
 };
-
+/**
+   Convert a Bigfloat to a String
+   @param {number} base of output (only base 10 for now)
+   @return {string} the number in scientific notation
+*/
 Bigfloat.prototype.toString = function(numbase) {
     var ret, quot;
     var log210 = parseFloat("3.321928094887362347870319429489390175865");
@@ -1045,21 +1252,37 @@ Bigfloat.prototype.toString = function(numbase) {
         signexpo + Math.abs(decexpo).toString();
     return ret;
 };
-
+/**
+   Set Bigfloat to <code>NaN</code>
+*/
 Bigfloat.prototype.setNaN = function() {
     this.mantissa.setNaN();
 };
+/**
+   Check if Bigfloat is <code>NaN</code>
+   @return {bool} true if it is NaN
+*/
 Bigfloat.prototype.isNaN = function() {
     this.mantissa.isNaN();
 };
-
+/**
+   Set Bigfloat to <code>Infinity</code>
+   Sign of the infinity is kept.
+*/
 Bigfloat.prototype.setInf = function() {
     this.mantissa.setInf();
 };
+/**
+   Check if Bigfloat is <code>Infinity</code>
+   @return {bool} true if it is Infinity
+*/
 Bigfloat.prototype.isInf = function() {
     this.mantissa.isInf();
 };
-
+/**
+   Check if Bigfloat is exactly zero
+   @return {bool} true if it is exactly zero
+*/
 Bigfloat.prototype.isZero = function() {
     if (this.mantissa.isZero() == MP_YES &&
         this.exponent == 1) {
@@ -1069,36 +1292,29 @@ Bigfloat.prototype.isZero = function() {
 };
 
 // eps = 1e-EPS
+/**
+   Check if the absoilute value of the Bigfloat is smaller or equal to EPS
+   @return {bool} true if it is smaller or equal to EPS
+*/
 Bigfloat.prototype.isEPSZero = function(eps) {
+    var eps, cmp;
     if (this.mantissa.isZero() == MP_YES &&
         this.exponent == 1) {
         return MP_YES;
     }
-
-    // get precision
-
-    // compare with exponent by de-biasing
-
-    /*
-         eps = 1e-80  (1e-80 = 1*2^(-80))
-         precision = 100
-
-         exponent = -170 -> no
-         de-biased = -170 + 100 = 70 and 70 < 80 (bigger actually, bec. of neg. val.)
-
-         exponent = -181 -> yes
-         de-biased = -181 + 100 = 81 and 81 > 80
-
-         problem with equality, need to check the whole number than:
-         exponent = -180 -> y?
-         de-biased = -180 + 100 = 80 and 80 == 80
-
-     */
-
-
+    eps = this.EPS();
+    cmp = this.abs().cmp(eps);
+    if (cmp != MP_GT) {
+        return MP_YES;
+    }
     return MP_NO;
 };
 // calls normalize() at the end, usable to change prec. temporary
+/**
+   Deep copy of a Bigfloat. Calls normalize() at the end, which is for example
+   usable to temporarily change precision
+   @return {Bigfloat} a copy of the original
+*/
 Bigfloat.prototype.copy = function() {
     var ret = new Bigfloat();
     ret.sign = this.sign;
@@ -1108,30 +1324,47 @@ Bigfloat.prototype.copy = function() {
     ret.normalize();
     return ret;
 };
-
+/**
+   Deep copy of a Bigfloat. Calls normalize() at the end, which is for example
+   usable to temporarily change precision
+   @return {Bigfloat} a copy of the original
+*/
 Bigfloat.prototype.dup = function() {
     return this.copy();
 };
-
+/**
+   Absolute value of the  Bigfloat. Works on copy.
+   @return {Bigfloat} the absolute value
+*/
 Bigfloat.prototype.abs = function() {
     var ret = this.copy();
     ret.sign = MP_ZPOS;
     ret.mantissa.sign = MP_ZPOS;
     return ret;
 };
-
+/**
+   Negate the  Bigfloat. Works on copy.
+   @return {Bigfloat} 
+*/
 Bigfloat.prototype.neg = function() {
     var ret = this.copy();
     ret.sign = (this.sign == MP_ZPOS) ? MP_NEG : MP_ZPOS;
     ret.mantissa.sign = ret.sign;
     return ret;
 };
-
+/**
+   Deep copy of a Bigfloat. Calls normalize() at the end, which is for example
+   usable to temporarily change precision
+   @return {Bigfloat} a copy of the original
+*/
 Bigfloat.prototype.exch = function(bf) {
     // of not much use here
     return this.copy();
 };
-
+/**
+   Floor function. Works on copy.
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.floor = function() {
     var qr, q, r, one, ret;
     // integer
@@ -1164,7 +1397,10 @@ Bigfloat.prototype.floor = function() {
     }
     return ret;
 };
-
+/**
+   Round function. Works on copy.
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.round = function() {
     var qr, q, r, one, two, ret, cmp;
     if (this.isNaN() || this.isInf()) {
@@ -1206,12 +1442,20 @@ Bigfloat.prototype.round = function() {
     ret = this.add(two).floor();
     return ret;
 };
-
+/**
+   Ceil function. Works on copy.
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.ceil = function() {
     var one = new Bigfloat(1);
     return this.floor().add(one);
 };
-
+/**
+   Normalizes the Bigfloat. Works in-place.
+   Only needed when changing precision or manipulating the innards of
+   Bigfloat.
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.normalize = function() {
     var cb, diff;
     var err;
@@ -1269,7 +1513,12 @@ Bigfloat.prototype.normalize = function() {
     return MP_OKAY;
 };
 
-
+/**
+  Compares one Bigfloat to another.
+  @param {Bigfloat} the bigfloat to compare against
+  @return {number} MP_LT, MP_EQ, and MP_GT when this is lower, equal or greater
+                   than the argument, respectively
+*/
 Bigfloat.prototype.cmp = function(bf) {
     var za, zb, sa, sb;
 
@@ -1312,7 +1561,15 @@ Bigfloat.prototype.cmp = function(bf) {
     /* same exponent and sign, compare mantissa */
     return this.mantissa.cmp(bf.mantissa);
 };
-
+/**
+   Add one Bigfloat to another.<br>
+   This algorithm works by truncating instead of expanding. This is much faster
+   for large differences in size but makes it harder to detect inexact/invalid
+   outcomes.
+   @todo: detect inexact/invalid errors
+   @param {Bigfloat} the other part of the sum
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.add = function(bf) {
     var tmp, other;
     var diff;
@@ -1357,7 +1614,15 @@ Bigfloat.prototype.add = function(bf) {
     ret.normalize();
     return ret;
 };
-
+/**
+   Subtract one Bigfloat from another.<br>
+   This algorithm works by truncating instead of expanding. This is much faster
+   for large differences in size but makes it harder to detect inexact/invalid
+   outcomes.
+   @todo: detect inexact/invalid errors
+   @param {Bigfloat} the other part of the difference
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.sub = function(bf) {
     var err;
     var tmp;
@@ -1399,7 +1664,11 @@ Bigfloat.prototype.sub = function(bf) {
     return ret;
 };
 
-
+/**
+   Multiply two Bigfloats
+   @param {Bigfloat}
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.mul = function(bf) {
     var ret = new Bigfloat();
 
@@ -1409,7 +1678,10 @@ Bigfloat.prototype.mul = function(bf) {
     ret.normalize();
     return ret;
 };
-
+/**
+   Square this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.sqr = function() {
     var ret = new Bigfloat();
 
@@ -1419,7 +1691,11 @@ Bigfloat.prototype.sqr = function() {
     ret.normalize();
     return ret;
 };
-
+/**
+   Divide one Bigfloat by another
+   @param {Bigfloat}
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.div = function(bf) {
     var tmp;
     var ret;
@@ -1437,7 +1713,11 @@ Bigfloat.prototype.div = function(bf) {
     ret = this.mul(tmp);
     return ret;
 };
-
+/**
+   Remainder of th division of one Bigfloat by another
+   @param {Bigfloat}
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.rem = function(bf) {
     var r;
     if (this.isZero()) {
@@ -1451,7 +1731,10 @@ Bigfloat.prototype.rem = function(bf) {
     r = bf.sub(this.div(bf).floor().mul(this));
     return r;
 };
-
+/**
+   Compute multiplicative inverse (1/x) of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.inv = function() {
     var ret, x0, xn, hn, A, inval, oldprec, one, nloops, eps,diff;
     // compute initial value x0 = 1/A
@@ -1498,6 +1781,10 @@ Bigfloat.prototype.inv = function() {
     xn.mantissa.sign = this.sign;
     return xn;
 };
+/**
+   Compute square root (x^(1/2)) of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.sqrt = function() {
     var ret, x0, xn, hn, A, sqrtval, oldprec, one, two, nloops, diff;
     var eps;
@@ -1549,7 +1836,10 @@ Bigfloat.prototype.sqrt = function() {
     xn = xn.mul(A);
     return xn;
 };
-
+/**
+   Exponentiate (x^e) this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.exp = function() {
     var n, to, t, tx, ret, x0, one, two, m, nt, i, oldprec, sign = MP_ZPOS,diff;
     // TODO: checks & balances
@@ -1625,7 +1915,10 @@ Bigfloat.prototype.exp = function() {
     return ret;
 };
 
-
+/**
+   Logarithm base e (log(x)) of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.log = function() {
     var init, ret, x0, xn, t, A, logval, prec, oldprec, one, two, nloops, diff,eps;
 
@@ -1670,6 +1963,13 @@ Bigfloat.prototype.log = function() {
     xn.normalize();
     return xn;
 };
+/**
+   Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
+   time by manipuationg the exponent and <em>only</em> the exponent.<br>
+   Works on copy.
+   @param {number} n 
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.lShift = function(n) {
     var ret;
     if (!n.isInt()) {
@@ -1688,7 +1988,13 @@ Bigfloat.prototype.lShift = function(n) {
     ret.exponent += n;
     return ret;
 };
-
+/**
+   Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
+   time by manipuationg the exponent and <em>only</em> the exponent.<br>
+   Works in-place.
+   @param {number} n 
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.lShiftInplace = function(n) {
     var ret;
     if (!n.isInt()) {
@@ -1708,7 +2014,13 @@ Bigfloat.prototype.lShiftInplace = function(n) {
     this.exponent += n;
 };
 
-
+/**
+   Division by 2<sup><i>n</i></sup>. This gets done in constant
+   time by manipuationg the exponent and <em>only</em> the exponent.<br>
+   Works on copy.
+   @param {number} n 
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.rShift = function(n) {
     var ret;
     if (!n.isInt()) {
@@ -1727,7 +2039,13 @@ Bigfloat.prototype.rShift = function(n) {
     ret.exponent -= n;
     return ret;
 };
-
+/**
+   Division by 2<sup><i>n</i></sup>. This gets done in constant
+   time by manipuationg the exponent and <em>only</em> the exponent.<br>
+   Works in-place.
+   @param {number} n 
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.rShiftInplace = function(n) {
     var ret;
     if (!n.isInt()) {
@@ -1751,6 +2069,19 @@ Bigfloat.prototype.rShiftInplace = function(n) {
 
 // Computes sine and cosine with |x| < 1
 //http://en.wikipedia.org/wiki/Taylor_series
+/**
+  Computes sine, cosine, tangent and their hyperbolic variations with |x| < 1.
+  Uses the standard MacLaurin series
+  {@link http://en.wikipedia.org/wiki/Taylor_series}<br>
+  Computes the tangent function by computing sine and cosine with a final
+  division, whch makes it run a little bit slower than for the single
+  functions alone.
+  @private
+  @param {bool} cosine compute the cosine (tangent) if true, sine otherwise
+  @param {bool} tan compute the tangent if true
+  @param {bool} hyper compute the hyperbolic versions if true
+  @return {Bigfloat}
+*/
 Bigfloat.prototype.kcossin = function(cosine, tan, hyper) {
     var sin, cos, tmp, n, eps;
     eps = this.EPS();
@@ -1785,8 +2116,12 @@ Bigfloat.prototype.kcossin = function(cosine, tan, hyper) {
     }
 };
 
-
 // Reduce sin/cos argument |x| to <= Pi/4
+/**
+   Argument reduction for sine, cosine and tangent to x <= pi/4
+   @private
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.reduceTrigArg = function() {
     var pi, pihalf, piquart, k, r, x, sign, size, oldprec, newprec,
         eps, three, one;
@@ -1862,7 +2197,10 @@ Bigfloat.prototype.reduceTrigArg = function() {
    n = 2 -> -sin(r) -cos(r)  sin(r)/cos(r)
    n = 3 -> -cos(r)  sin(r) -cos(r)/sin(r) = (-inverse(tan))
 */
-
+/**
+   Sine of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.sin = function() {
     var x, k, sign;
     if (this.isZero()) {
@@ -1892,7 +2230,10 @@ Bigfloat.prototype.sin = function() {
     return x;
 };
 
-
+/**
+   Cosine of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.cos = function(){
     var x, k, sign, pi, pihalf,one,eps;
     if (this.isZero()) {
@@ -1948,7 +2289,10 @@ Bigfloat.prototype.cos = function(){
     return x;
 };
 
-
+/**
+   Tangent of this Bigfloat
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.tan = function() {
     var x, k, sign, eps;
     if (this.isZero()) {
@@ -1989,6 +2333,12 @@ Bigfloat.prototype.tan = function() {
 /* Inverse functions */
 
 // evaluates both atan and atanh but not at the same time
+/**
+   Evaluates both atan and atanh but not at the same time.
+   @private
+   @param {bool} hyper computes hyperbolic version if true
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.katan = function(hyper) {
     var sum1, sum2, eps, t2, t4, tmp, n;
     // checks & balances
@@ -2038,6 +2388,10 @@ Bigfloat.prototype.katan = function(hyper) {
       atan(1) = Pi/4
       atan(0) = 0
       atan(Inf) = P/2;
+*/
+/**
+   Atan of this Bigfloat
+   @return {Bigfloat}
 */
 Bigfloat.prototype.atan = function() {
     var one, x, pi, ret, sign, eps;
@@ -2105,6 +2459,13 @@ Bigfloat.prototype.atan = function() {
 // exceptions shall be considered bugs
 // Comments starting with "If" are from ECMAScript 5.1 15.8.2.5, sometimes
 // abbreviated
+/**
+   Atan2 of this Bigfloat.<br>
+   Order of arguments is <code>atan2(this,bf) = atan(y,x)</code> resulting in
+   the computation of <code>atan(y/x)</code>
+   @param {Bigfloat} bf second argument to atan2(y,x)
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.atan2 = function(bf) {
     var ret, pi;
 
