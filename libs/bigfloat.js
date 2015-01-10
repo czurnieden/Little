@@ -700,7 +700,7 @@ String.prototype.toBigfloat = function(numbase) {
                     if (is_expo_part == true) {
                         expo_sign = c;
                     } else {
-                        return "Parse error: sign at wrong position ";
+                        return "Parse error: sign at wrong position";
                     }
                     break;
                     // either this or ignore. Add "_" (underbars) like in Perl?
@@ -819,7 +819,7 @@ String.prototype.toBigfloat = function(numbase) {
             // LOOP:
             do {
                 // Divide, keep quotient and remainder
-                // Q =  numerator/denominator + R
+                // numerator = Q * denominator + R
                 frac = num.divrem(den);
                 Q = frac[0];
                 R = frac[1];
@@ -851,7 +851,7 @@ String.prototype.toBigfloat = function(numbase) {
                  */
                 // Q' might got too large and is > work-precision now
                 // if that is the case set numerator = numerator/2
-                // and s = s - 1, then goto LOOP
+                // and s = s + 1, then goto LOOP
                 if ((Q.highBit() + 1) > the_number.precision) {
                     num.rShiftInplace(1);
                     S++;
@@ -1026,7 +1026,6 @@ Bigfloat.prototype.toString = function(numbase) {
         } else {
             ret = ret.toString();
         }
-        ret = ret.toString();
         // rounding might have added a digit (e.g.: 0.999... <> 1.000...)
         // so calculate the decimal exponent accordingly
         if (ret.length > decprec) {
