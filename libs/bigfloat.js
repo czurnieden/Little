@@ -695,6 +695,7 @@ String.prototype.toBigfloat = function(numbase) {
                     }
                     decimal_point = i;
                     break;
+                case '+':
                 case "-":
                     if (is_expo_part == true) {
                         expo_sign = c;
