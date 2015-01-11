@@ -574,7 +574,7 @@ var __bigint_check_endianess = (function() {
             console.log(e.message);
         }
         if (typeof alert === 'function') {
-            //alert(e.message);
+            alert(e.message);
         }
         throw {
             name: 'FatalError',
@@ -596,33 +596,53 @@ var __bigint_check_endianess = (function() {
    @return {string} lowercase'd name of input
 */
 function xtypeof(obj) {
-        // try it the traditional way
-        var tmp = typeof obj;
-        if (tmp !== "object") {
-            return tmp;
+    // try it the traditional way
+    var tmp = typeof obj;
+    if (tmp !== "object") {
+        return tmp;
+    } else {
+        // try the toString prototype
+        var toString = Object.prototype.toString;
+        tmp = toString.call(obj);
+        // it is one of the build-ins
+        if (tmp !== "[object Object]") {
+            return tmp.slice(8, -1).toLowerCase();
         } else {
-            // try the toString prototype
-            var toString = Object.prototype.toString;
-            tmp = toString.call(obj);
-            // it is one of the build-ins
-            if (tmp !== "[object Object]") {
-                return tmp.slice(8, -1).toLowerCase();
-            } else {
-                // Put your own objects here
-                // they must exist at this point
-                var list = {
-                    "bigint": Bigint
-                        // "complex": Complex
-                };
-                for (var p in list) {
-                    if (obj instanceof list[p]) {
-                        return p;
-                    }
+            // Put your own objects here
+            // they must exist at this point
+            /* 
+               Or try using something like
+                   var list = {
+                       "bigint": "Bigint",
+                       "bigfloat": "Bigfloat",
+                       "bigrational": "Bigrational",
+                       "complex": "Complex"
+                  };
+
+              and then, in the loop, do:
+
+                  if (obj instanceof eval(list[p])) {
+                       return p;
+                  }
+
+              But the people say: "Eval is evil!", so it is most probably not
+              a good idea.
+            */
+            var list = {
+                "bigint": Bigint/*,
+                "bigfloat":Bigfloat,
+                "bigrational":Bigrational
+                "complex": Complex*/
+            };
+            for (var p in list) {
+                if (obj instanceof list[p]) {
+                    return p;
                 }
-                return "object";
             }
+            return "object";
         }
     }
+}
     /**
       A primesieve, full implementation.
       @see {@link https://github.com/czurnieden/primesieve/} for a full
@@ -1651,24 +1671,24 @@ function Bigint(n) {
   to do it for us.
   <br>
   This functions empties the Bigint only, to sacrifice it completely the
-  variable must be set to 'null', too.<br>
+  variable must be set to 'undefined', too.<br>
   Example:
   <pre>
   tmp = new Bigint(0);
   // do some stuff with tmp
   // tmp got large but we'll do a lot of stuff after it in the same
   // scope and need to get rid of tmp
-  tmp.clear();
-  tmp = null;
+  tmp.free();
+  tmp = undefined;
   </pre>
   @memberof Bigint
   @instance
 */
 Bigint.prototype.free = function() {
-    this.dp = null;
-    this.used = null;
-    this.alloc = null;
-    this.sign = null;
+    delete this.dp;
+    delete this.used;
+    delete this.alloc;
+    delete this.sign;
 };
 /**
   Offer memory to GC but keep the rest for later use.
@@ -1680,6 +1700,14 @@ Bigint.prototype.clear = function() {
     this.used = 1;
     this.alloc = 1;
     this.sign = MP_ZPOS;
+};
+/**
+  Set to zero and offer memory to GC
+  @memberof Bigint
+  @instance
+*/
+Bigint.prototype.toZero() = function() {
+    this.clear();
 };
 /*
    Add "n" numbers of zeros to the MSB side aka preallocate more memory.
