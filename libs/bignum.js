@@ -1628,35 +1628,35 @@ Number.prototype.gcd = function(n) {
   @param {number} n small integer &lt; 2<sup>MP_DIGIT_BIT</sup>
 */
 function Bigint(n) {
-        /**
-           memory for limbs, preallocated to hold at least five limbs
-        */
-        this.dp = new Array(MP_PREC);
-        // Set all to zero (keep it simpel)
-        for (var i = this.dp.length - 1; i >= 0; i--) {
-            this.dp[i] = 0 >>> 0;
-        }
-        /**
-           number of limbs actually used
-        */
-        this.used = 1;
-        // Allocated length of limb-array. Probably unnecessary, may be removed in
-        // the future. On the other side, it is possible--depending on the javascript
-        // interpreter--to offer the GC something to collect by tinkering with the
-        // Array.length property.
-        // I'll probably remove it and use this.dp.length instead.
-        this.alloc = MP_PREC;
-        /**
-           sign of Bigint
-        */
-        this.sign = MP_ZPOS;
-
-        // Allow for a small number to be set directly
-        if (xtypeof(n) === 'number' && Math.abs(n) < MP_DIGIT_MAX) {
-            this.dp[0] = Math.abs(n);
-            this.sign = (n < 0) ? MP_NEG : MP_ZPOS;
-        }
+    /**
+       memory for limbs, preallocated to hold at least five limbs
+    */
+    this.dp = new Array(MP_PREC);
+    // Set all to zero (keep it simpel)
+    for (var i = this.dp.length - 1; i >= 0; i--) {
+        this.dp[i] = 0 >>> 0;
     }
+    /**
+       number of limbs actually used
+    */
+    this.used = 1;
+    // Allocated length of limb-array. Probably unnecessary, may be removed in
+    // the future. On the other side, it is possible--depending on the javascript
+    // interpreter--to offer the GC something to collect by tinkering with the
+    // Array.length property.
+    // I'll probably remove it and use this.dp.length instead.
+    this.alloc = MP_PREC;
+    /**
+       sign of Bigint
+    */
+    this.sign = MP_ZPOS;
+
+    // Allow for a small number to be set directly
+    if (xtypeof(n) === 'number' && Math.abs(n) < MP_DIGIT_MAX) {
+        this.dp[0] = Math.abs(n);
+        this.sign = (n < 0) ? MP_NEG : MP_ZPOS;
+    }
+}
     // Ones and zeros are always useful especially in binary arithmetic but
     // it is probably easier to do the "new Bigint(0)" directly
     //Bigint.ZERO = new Bigint(0);
@@ -3578,18 +3578,21 @@ Bigint.prototype.square = function() {
   @return {Bigint}
 */
 Bigint.prototype.sqr = function() {
+    var s = this.sign, ret;
     this.sign = MP_ZPOS;
 
     if (this.used >= FFT_SQR_CUTOFF) {
         // FFT does both in one function
-        return this.fft_mul();
+        ret = this.fft_mul();
     } else if (this.used >= 3 * TOOM_COOK_SQR_CUTOFF) {
-        return this.toom_cook_sqr();
+        ret = this.toom_cook_sqr();
     } else if (this.used >= 2 * KARATSUBA_SQR_CUTOFF) {
-        return this.karatsuba_square();
+        ret = this.karatsuba_square();
     } else {
-        return this.square();
+        ret = this.square();
     }
+    this.sign = s;
+    return ret;
 };
 
 /**
