@@ -1240,6 +1240,62 @@ function computeGiantsteps(start, end, stepsize) {
 }
 
 /*
+     Error handling
+     Idea shamelessly stolen from  Colin Ihrig
+     http://www.sitepoint.com/exceptional-exception-handling-in-javascript/
+
+     TODO: make a module out of it
+*/
+function DivisionByZero(message) {
+  this.name = "Division by zero";
+  this.message = (message || "Empty Message");
+}
+DivisionByZero.prototype = new Error();
+DivisionByZero.prototype.constructor = DivisionByZero;
+
+function Inexact(message) {
+  this.name = "Inexact result";
+  this.message = (message || "Empty Message");
+}
+Inexact.prototype = new Error();
+Inexact.prototype.constructor = Inexact;
+
+function Invalid(message) {
+  this.name = "Invalid result";
+  this.message = (message || "Empty Message");
+}
+Invalid.prototype = new Error();
+Invalid.prototype.constructor = Invalid;
+
+function Overflow(message) {
+  this.name = "Overflow";
+  this.message = (message || "Empty Message");
+}
+Overflow.prototype = new Error();
+Overflow.prototype.constructor = Overflow;
+
+function Underflow(message) {
+  this.name = "Underflow";
+  this.message = (message || "Empty Message");
+}
+Underflow.prototype = new Error();
+Underflow.prototype.constructor = Underflow;
+
+function Singularity(message) {
+  this.name = "Singularity";
+  this.message = (message || "Empty Message");
+}
+Singularity.prototype = new Error();
+Singularity.prototype.constructor = Singularity;
+
+function Unsupported(message) {
+  this.name = "Unsupported";
+  this.message = (message || "Empty Message");
+}
+Unsupported.prototype = new Error();
+Unsupported.prototype.constructor = Unsupported;
+
+/*
  * All functions implemented by prototyping to avoid name-clashes
  * E.g.: there is a Number.isNaN but no Number.prototype.isNaN
  * but mainly to support a common codebase, such that it will not matter if the
@@ -1286,6 +1342,7 @@ Number.prototype.isFinite = function() {
 */
 Number.prototype.isEven = function() {
     if (Math.abs(this) > 0x1fffffffffffff) {
+        // throw new Inexact("Value for Number.isEven too large")
         return MP_RANGE;
     }
     return (this % 2 == 0);
@@ -1298,6 +1355,7 @@ Number.prototype.isEven = function() {
 */
 Number.prototype.isOdd = function() {
     if (Math.abs(this) > 0x1fffffffffffff) {
+        // throw new Inexact("Value for Number.isOdd too large")
         return MP_RANGE;
     }
     return (this % 2 == 1);
@@ -1322,7 +1380,10 @@ Number.prototype.sign = function() {
 */
 Number.prototype.nextPow2 = function() {
     var n = this;
-    // checks & balances
+    if(!n.isInt() || n > MP_INT_MAX){
+        // throw new RangeError("Value for Number.nexPow2 too large or not an integer")
+        return MP_RANGE;
+    }
     n--;
     n |= n >>> 1;
     n |= n >>> 2;
@@ -1338,6 +1399,10 @@ Number.prototype.nextPow2 = function() {
   @return {number}
 */
 Number.prototype.lowBit = function() {
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Number.lowBit too large or not an integer")
+        return MP_RANGE;
+    }
     if (this == 0) {
         return 0;
     }
@@ -1357,6 +1422,10 @@ Number.prototype.lowBit = function() {
   @return {number}
 */
 Number.prototype.highBit = function() {
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Number.highBit too large or not an integer")
+        return MP_RANGE;
+    }
     if (this == 0) {
         return 0;
     }
@@ -1379,6 +1448,10 @@ Number.prototype.highBit = function() {
   @return {bool}
 */
 Number.prototype.isPow2 = function(b) {
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Number.isPow2 too large or not an integer")
+        return MP_RANGE;
+    }
     var x = 0 >>> 0;
     /* fast return if no power of two */
     if ((b == 0) || (b & (b - 1))) {
@@ -1489,6 +1562,10 @@ Number.prototype.issmallenough = function() {
   @return {number}
 */
 Number.prototype.setBits = function() {
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Number.setBits too large or not an integer")
+        return MP_RANGE;
+    }
     if (this == 0) {
         return 0;
     }
@@ -1506,6 +1583,10 @@ Number.prototype.setBits = function() {
 */
 Number.prototype.modInv = function(m) {
     var t1, t2, x, y, q, a, b;
+    if(!this.isInt()){
+        // throw new RangeError("Value for Number.modInv not an Integer")
+        return MP_RANGE;
+    }
     a = this;
     if (m < 0) {
         m = -m;
@@ -1550,6 +1631,10 @@ Number.prototype.abs = function() {
 */
 Number.prototype.gcd = function(n) {
     var x, y, g, temp;
+    if(!this.isInt()){
+        // throw new RangeError("Value for Number.gcd not an Integer")
+        return MP_RANGE;
+    }
     if (this.abs() > n.abs()) {
         return n.gcd(this);
     }
@@ -1724,7 +1809,14 @@ Bigint.prototype.toZero() = function() {
   @return {number} length of new limb-array
 */
 Bigint.prototype.grow = function(n) {
-    //checks & balances
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Bigint.grow too large or not an Integer")
+        return MP_RANGE;
+    }
+    if(n < 0){
+        // throw new Unsupported("Negative value for Bigint.grow not supported")
+        return MP_RANGE;
+    }
     var t = [];
     while (n--) {
         t[n] = 0 >>> 0;
@@ -1745,6 +1837,7 @@ Bigint.prototype.clamp = function() {
         this.used--;
     }
     // this may keep the whole array allocated, at least for some time.
+    // A so called "Optimization by Hope"
     this.dp.length = this.used;
     this.alloc = this.used;
 };
@@ -1770,6 +1863,10 @@ Bigint.prototype.sign = function() {
 */
 Number.prototype.toHex32 = function(uppercase) {
     var t = this;
+    if(!this.isInt() || this > MP_INT_MAX){
+        // throw new RangeError("Value for Number.toHex32 too large or not an Integer")
+        return MP_RANGE;
+    }
     var lower = "0123456789abcdef";
     var upper = "0123456789ABCDEF";
     var rcase = uppercase || false;
@@ -2186,6 +2283,9 @@ Bigint.prototype.toString = function(radix) {
 
     // we _could_ implement radix 1, too! Bwaaaaaahahahaha...*hem*
     if (radix < 2 || radix > 62) {
+        // var errormessage = "Radix is out of range, should be 1<radix<63, and not: " +
+        //    radix;
+        // throw new RangeError(errormessage);
         return "Radix is out of range, should be 1<radix<63, and not: " +
             radix;
     }
@@ -2319,6 +2419,9 @@ String.prototype.toBigint = function(radix) {
     }
 
     if (radix < 2 || radix > 62) {
+        // var errormessage = "Radix is out of range, should be 1<radix<63, and not: " +
+        //    radix;
+        // throw new RangeError(errormessage);
         return "Radix is out of range, should be 1<radix<63, not: " + radix;
     }
 
@@ -2396,7 +2499,9 @@ String.prototype.toBigint = function(radix) {
             }
         } else {
             // Actually, this _is_ an error and not something one can let slip.
-            // TODO: don't forget when implementing error-handling
+            // throw new Invalid("Weird error in String.toBigint. Please check "+
+            //                   "the table named \"mp_s_rmap\" at the top " +
+            //                   "for correctness.")
             break;
         }
     }
@@ -2610,7 +2715,7 @@ Bigint.prototype.random = function(bits, seed) {
     if (mod_mask > 0) {
         this.dp[digbits] = burtle_rand() & mod_mask;
     } else {
-        // to keep it downwards compatible
+        // to keep it repeatable
         burtle_rand();
     }
     this.dp[digbits] = burtle_rand() & mod_mask;
@@ -2653,7 +2758,9 @@ Bigint.prototype.dup = function() {
 
 // swap with deep copy (probably)
 /**
-  Swap <code>this</code> with argument
+  Swap <code>this</code> with argument<br>
+  Copies without thinking. No checks if on of the players is a <code>NaN</code>
+  or something else in that line.
   @memberof Bigint
   @instance
   @param {Bigint} target the Bigint to swap with
@@ -2701,6 +2808,18 @@ Bigint.prototype.neg = function() {
     return ret;
 };
 /**
+  Change sign of <code>this</code> in-place
+  @memberof Bigint
+  @instance
+*/
+Bigint.prototype.negInplace = function() {
+    if (this.sign == MP_ZPOS) {
+        this.sign = MP_NEG;
+    } else {
+        this.sign = MP_ZPOS;
+    }
+};
+/**
   Absolute value
   @memberof Bigint
   @instance
@@ -2712,6 +2831,16 @@ Bigint.prototype.abs = function() {
         ret.sign = MP_ZPOS;
     }
     return ret;
+};
+/**
+  Absolute value workin in-place
+  @memberof Bigint
+  @instance
+*/
+Bigint.prototype.abs = function() {
+    if (this.sign == MP_NEG) {
+        this.sign = MP_ZPOS;
+    }
 };
 /**
   Checks if <code>this</code> is zero
@@ -2890,7 +3019,7 @@ Bigint.prototype.highBit = function() {
   @return {number}
 */
 Bigint.prototype.ilog2 = function() {
-    return (this.highBit() + 1);
+    return (this.highBit());
 };
 
 // lowest bit set (e.g.: 22 = 0b10110, returns 1)
@@ -3280,7 +3409,8 @@ Bigint.prototype.rShiftRounded = function(i) {
     return ret;
 };
 /**
-  <code>this % 2^b</code> , like in libtommmath. Actually a port of the libtommmath functi
+  <code>this % 2^b</code> , like in libtommmath. 
+  Actually a port of the libtommmath functiion of the same name
   @param {number} b exponent of 2<sup>b</sup>
   @memberof Bigint
   @instance
