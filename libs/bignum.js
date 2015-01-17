@@ -596,53 +596,50 @@ var __bigint_check_endianess = (function() {
    @return {string} lowercase'd name of input
 */
 function xtypeof(obj) {
+    'use strict';
     // try it the traditional way
     var tmp = typeof obj;
-    if (tmp !== "object") {
+    if (tmp !== 'object') {
         return tmp;
     } else {
         // try the toString prototype
-        var toString = Object.prototype.toString;
-        tmp = toString.call(obj);
-        // it is one of the build-ins
-        if (tmp !== "[object Object]") {
+        tmp = Object.prototype.toString.call(obj);
+        // It is one of the build-ins
+        // Format is defined in the ECMAScript 5.1 in 5.2.4.2
+        // http://www.ecma-international.org/ecma-262/5.1/#sec-15.2.4.2
+        if (tmp !== '[object Object]') {
             return tmp.slice(8, -1).toLowerCase();
         } else {
             // Put your own objects here
-            // they must exist at this point
-            /* 
-               Or try using something like
-                   var list = {
-                       "bigint": "Bigint",
-                       "bigfloat": "Bigfloat",
-                       "bigrational": "Bigrational",
-                       "complex": "Complex"
-                  };
-
-              and then, in the loop, do:
-
-                  if (obj instanceof eval(list[p])) {
-                       return p;
-                  }
-
-              But the people say: "Eval is evil!", so it is most probably not
-              a good idea.
-            */
+            // The key is the lowercase'd name of the object,
+            // the value is the correctly typed name of the object.
+            // The value must be a String, hence in quotes.
             var list = {
-                "bigint": Bigint/*,
-                "bigfloat":Bigfloat,
-                "bigrational":Bigrational
-                "complex": Complex*/
+                bigint: 'Bigint',
+                bigfloat: 'Bigfloat',
+                bigrational: 'Bigrational',
+                complex: 'Complex'
             };
             for (var p in list) {
-                if (obj instanceof list[p]) {
+                try {
+                    // Yes, kids, eval() is eeeeevil!
+                    // Undefined entries will cause a ReferenceError.
+                    tmp = eval(list[p]);
+                } catch (e) {
+                    // Nothing to catch here because the evidence
+                    // of non-existance is sufficient for our needs,
+                    // so let's...
+                    continue;
+                }
+                if (obj instanceof tmp) {
                     return p;
                 }
             }
-            return "object";
+            return 'object';
         }
     }
 }
+
     /**
       A primesieve, full implementation.
       @see {@link https://github.com/czurnieden/primesieve/} for a full
@@ -1244,55 +1241,126 @@ function computeGiantsteps(start, end, stepsize) {
      Idea shamelessly stolen from  Colin Ihrig
      http://www.sitepoint.com/exceptional-exception-handling-in-javascript/
 
-     TODO: make a module out of it
+     TODO: make a module out of it?
+*/
+/**
+   Constructor for error: division by zero
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
 */
 function DivisionByZero(message) {
   this.name = "Division by zero";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 DivisionByZero.prototype = new Error();
+/**
+   @ignore
+*/
 DivisionByZero.prototype.constructor = DivisionByZero;
-
+/**
+   Constructor for error: inexact result (partial loss of significance)
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Inexact(message) {
   this.name = "Inexact result";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Inexact.prototype = new Error();
+/**
+   @ignore
+*/
 Inexact.prototype.constructor = Inexact;
-
+/**
+   Constructor for error: invalid result (total loss of significance)
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Invalid(message) {
   this.name = "Invalid result";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Invalid.prototype = new Error();
+/**
+   @ignore
+*/
 Invalid.prototype.constructor = Invalid;
-
+/**
+   Constructor for error: overflow
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Overflow(message) {
   this.name = "Overflow";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Overflow.prototype = new Error();
+/**
+   @ignore
+*/
 Overflow.prototype.constructor = Overflow;
-
+/**
+   Constructor for error: underflow
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Underflow(message) {
   this.name = "Underflow";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Underflow.prototype = new Error();
+/**
+   @ignore
+*/
 Underflow.prototype.constructor = Underflow;
-
+/**
+   Constructor for error: singularity (pole of function) (e.g.: gamma(-2))
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Singularity(message) {
   this.name = "Singularity";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Singularity.prototype = new Error();
+/**
+   @ignore
+*/
 Singularity.prototype.constructor = Singularity;
-
+/**
+   Constructor for error: method not (yet) supported (e.g.: sqrt(-2))
+   @constructor
+   @param {string} message an individual message (default is: "Empty Message")
+*/
 function Unsupported(message) {
   this.name = "Unsupported";
   this.message = (message || "Empty Message");
 }
+/**
+   @ignore
+*/
 Unsupported.prototype = new Error();
+/**
+   @ignore
+*/
 Unsupported.prototype.constructor = Unsupported;
 
 /*
@@ -1381,7 +1449,8 @@ Number.prototype.sign = function() {
 Number.prototype.nextPow2 = function() {
     var n = this;
     if(!n.isInt() || n > MP_INT_MAX){
-        // throw new RangeError("Value for Number.nexPow2 too large or not an integer")
+        // throw new RangeError("Value for Number.nexPow2 too large or "+
+        //                      " not an integer")
         return MP_RANGE;
     }
     n--;
@@ -1400,7 +1469,8 @@ Number.prototype.nextPow2 = function() {
 */
 Number.prototype.lowBit = function() {
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Number.lowBit too large or not an integer")
+        // throw new RangeError("Value for Number.lowBit too large or "+
+        //                      "not an integer")
         return MP_RANGE;
     }
     if (this == 0) {
@@ -1423,7 +1493,8 @@ Number.prototype.lowBit = function() {
 */
 Number.prototype.highBit = function() {
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Number.highBit too large or not an integer")
+        // throw new RangeError("Value for Number.highBit too large or "+
+        //                      "not an integer")
         return MP_RANGE;
     }
     if (this == 0) {
@@ -1449,7 +1520,8 @@ Number.prototype.highBit = function() {
 */
 Number.prototype.isPow2 = function(b) {
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Number.isPow2 too large or not an integer")
+        // throw new RangeError("Value for Number.isPow2 too large or "+
+        //                      "not an integer")
         return MP_RANGE;
     }
     var x = 0 >>> 0;
@@ -1466,8 +1538,8 @@ Number.prototype.isPow2 = function(b) {
 };
 /**
   Reverses the characters in a string.
-  <strong>Caution:</strong> Despite common opinion, this function is not generally applicable, the
- name should give a hint!
+  <strong>Caution:</strong> Despite common opinion, this function is not
+   generally applicable, the name should give a hint!
   @function external:String#asciireverse
   @return {string}
 */
@@ -1563,7 +1635,8 @@ Number.prototype.issmallenough = function() {
 */
 Number.prototype.setBits = function() {
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Number.setBits too large or not an integer")
+        // throw new RangeError("Value for Number.setBits too large or "+
+        //                      "not an integer")
         return MP_RANGE;
     }
     if (this == 0) {
@@ -3098,9 +3171,14 @@ Bigint.prototype.digits = function() {
   @return {Bigint}
 */
 Bigint.prototype.dlShift = function(i) {
-    var ret = this.copy();
+    var ret;
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
+       // throw new RangeError("Value in dlShift is either out of " +
+       //                       "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
-        return ret;
+        return this.copy();
     }
     if (i < 0) {
         return this.drShift(-i);
@@ -3110,6 +3188,7 @@ Bigint.prototype.dlShift = function(i) {
     while (i--) {
         tmp[i] = 0 >>> 0;
     }
+    ret = this.copy();
     ret.dp = tmp.concat(ret.dp);
     ret.used = ret.dp.length;
     ret.clamp();
@@ -3121,14 +3200,20 @@ Bigint.prototype.dlShift = function(i) {
   @memberof Bigint
   @instance
   @param {number} i the amount to be shifted
+  @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.dlShiftInplace = function(i) {
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in dlShiftInplace is either out of " +
+       //                       "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
-        return;
+        return MP_OKAY;
     }
     if (i < 0) {
         this.drShiftInplace(-i);
-        return;
+        return MP_OKAY;
     }
     var tmp = [];
     //for (var k = 0; k < i; ++k) tmp[k] = 0>>>0;
@@ -3138,6 +3223,7 @@ Bigint.prototype.dlShiftInplace = function(i) {
     this.dp = tmp.concat(this.dp);
     this.used = this.dp.length;
     this.clamp();
+    return MP_OKAY;
 };
 // shift right big-digit-wise, returns 0 if shift is bigger or equal length
 /**
@@ -3151,6 +3237,10 @@ Bigint.prototype.dlShiftInplace = function(i) {
 */
 Bigint.prototype.drShift = function(i) {
     var ret;
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in drShift is either out of bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
         return this.copy();
     }
@@ -3158,17 +3248,9 @@ Bigint.prototype.drShift = function(i) {
         return this.dlShift(-i);
     }
     if (this.used < i) {
-        ret = new Bigint();
-        ret.dp[0] = 0;
-        ret.used = 1;
-        ret.sign = MP_ZPOS;
-        return ret;
+        return new Bigint(0);
     }
-    ret = new Bigint();
-    if (i <= 0) {
-        // Alternative: return dlShift (like GP/PARI for example)
-        return ret;
-    }
+    ret = new Bigint(0);
     ret.dp = this.dp.slice(i, this.used);
     ret.used = ret.dp.length;
     ret.sign = this.sign;
@@ -3183,24 +3265,32 @@ Bigint.prototype.drShift = function(i) {
   @memberof Bigint
   @instance
   @param {number} i the amount to be shifted
+  @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.drShiftInplace = function(i) {
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in drShiftInplace is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
-        return;
+        return MP_OKAY;
     }
     if (i < 0) {
         this.dlShiftInplace(-i);
-        return;
+        return MP_OKAY;
     }
     if (this.used < i) {
         this.dp[0] = 0;
         this.used = 1;
         this.sign = MP_ZPOS;
+        return MP_OKAY;
     }
 
     this.dp = this.dp.slice(i, this.used);
     this.used = this.dp.length;
     this.clamp();
+    return MP_OKAY;
 };
 // shift left bit-wise
 /**
@@ -3216,7 +3306,11 @@ Bigint.prototype.lShift = function(i) {
     var lshift;
     var r, rr, k;
     var ret;
-
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in lShift is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
         return this.copy();
     }
@@ -3254,18 +3348,23 @@ Bigint.prototype.lShift = function(i) {
   @memberof Bigint
   @instance
   @param {number} i the amount to be shifted
+  @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.lShiftInplace = function(i) {
     var dlshift;
     var lshift;
     var r, rr, k;
-
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in lShiftInplace is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
-        return;
+        return MP_OKAY;
     }
     if (i < 0) {
         this.rShiftInplace(-i);
-        return;
+        return MP_OKAY;
     }
 
     dlshift = Math.floor(i / MP_DIGIT_BIT);
@@ -3273,7 +3372,7 @@ Bigint.prototype.lShiftInplace = function(i) {
 
     this.dlShiftInplace(dlshift);
     if (lshift == 0) {
-        return;
+        return MP_OKAY;
     }
 
     var mask = (1 << lshift) - 1;
@@ -3290,12 +3389,13 @@ Bigint.prototype.lShiftInplace = function(i) {
         this.used++;
     }
     this.clamp();
+    return MP_OKAY;
 };
 
 // shift right bit-wise
 /**
   Right Shift bit-wise (multiplication with 2<sup>i</sup>)
-  Returns to 0 if shift is bigger or equal length.
+  Returns 0 if shift is bigger or equal length.
   Input can be negative for multiplication
   @memberof Bigint
   @instance
@@ -3304,24 +3404,27 @@ Bigint.prototype.lShiftInplace = function(i) {
 */
 Bigint.prototype.rShift = function(i) {
     var ret;
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in rShift is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
         return this.copy();
     }
     if (i < 0) {
         return this.lShift(-i);
     }
-    ret = this.copy();
+
     if (this.highBit() < i) {
-        ret.dp[0] = 0;
-        ret.used = 1;
-        ret.sign = MP_ZPOS;
-        return ret;
+        return new Bigint(0);
     }
 
     var drshift = Math.floor(i / MP_DIGIT_BIT);
     var rshift = i % MP_DIGIT_BIT;
     var r, rr;
 
+    ret = this.copy();
     ret.drShiftInplace(drshift);
 
     if (rshift == 0) {
@@ -3349,20 +3452,26 @@ Bigint.prototype.rShift = function(i) {
   @memberof Bigint
   @instance
   @param {number} i the amount to be shifted
+  @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.rShiftInplace = function(i) {
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in rShiftInplace is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (i == 0) {
-        return;
+        return MP_OKAY;
     }
     if (i < 0) {
         this.lShiftInplace(-i);
-        return;
+        return MP_OKAY;
     }
     if (this.highBit() < i) {
         this.dp[0] = 0;
         this.used = 1;
         this.sign = MP_ZPOS;
-        return;
+        return MP_OKAY;
     }
 
     var drshift = Math.floor(i / MP_DIGIT_BIT);
@@ -3372,7 +3481,7 @@ Bigint.prototype.rShiftInplace = function(i) {
     this.drShiftInplace(drshift);
 
     if (rshift == 0) {
-        return;
+        return MP_OKAY;
     }
 
     var mask = (1 << rshift) - 1;
@@ -3386,6 +3495,7 @@ Bigint.prototype.rShiftInplace = function(i) {
         r = rr;
     }
     this.clamp();
+    return MP_OKAY;
 };
 // like rShift but rounds to +inf
 /**
@@ -3398,6 +3508,11 @@ Bigint.prototype.rShiftInplace = function(i) {
   @return {Bigint}
 */
 Bigint.prototype.rShiftRounded = function(i) {
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+       // throw new RangeError("Value in rShiftRounded is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     var ret = this.rShift(i);
     if (i > 0 && this.getBit(i - 1) == 1) {
         if (this.sign === MP_NEG) {
@@ -3410,7 +3525,7 @@ Bigint.prototype.rShiftRounded = function(i) {
 };
 /**
   <code>this % 2^b</code> , like in libtommmath. 
-  Actually a port of the libtommmath functiion of the same name
+  Actually a port of the libtommmath function of the same name
   @param {number} b exponent of 2<sup>b</sup>
   @memberof Bigint
   @instance
@@ -3418,7 +3533,11 @@ Bigint.prototype.rShiftRounded = function(i) {
 */
 Bigint.prototype.mod2d = function(b) {
     var x, ret;
-
+    if(!b.isInt() || b > MP_DIGIT_MAX)){
+       // throw new RangeError("Value in mod2d is either out of " + 
+       //                      "bounds or no integer");
+       return MP_RANGE;
+    }
     if (b <= 0) {
         return new Bigint(0);
     }
@@ -3683,14 +3802,14 @@ Bigint.prototype.square = function() {
 
         for (iy = ix + 1; iy < this.used; iy++) {
             r = this.dp[ix] * this.dp[iy];
-            //  (2^26-1) * 2 + (2^26-1)^2 + (2^26-1)^2 < 2^53 (by 134217728 )
+            //  (2^26-1) * 2 + (2^26-1)^2 + (2^26-1)^2 < 2^53 (by 134,217,728 )
             r = t.dp[ix + iy] + r + r + c;
             t.dp[ix + iy] = r & MP_MASK;
             c = Math.floor(r / MP_DIGIT_MAX);
         }
 
         while (c > 0) {
-            iy++; // if you ask yourself: WTF? you're right
+            iy++;
             r = t.dp[ix + iy - 1] + c;
             t.dp[ix + iy - 1] = r & MP_MASK;
             c = Math.floor(r / MP_DIGIT_MAX);
@@ -3816,7 +3935,7 @@ Bigint.prototype.cmp_mag = function(bi) {
 Bigint.prototype.cmp = function(bi) {
     /*
         We have signed zeros, that makes it a bit more complicated to avoid
-        curious things when comparing to -0. We just set -0 = +0 temprorarily.
+        curious things when comparing to -0. We just set -0 = +0 temporarily.
      */
     var a = this;
     var b = bi;
@@ -3933,15 +4052,21 @@ Bigint.prototype.add = function(bi) {
     return ret;
 };
 // TODO: to do
+// CLOSED: tried it, not faster
 /**
   Addition with a (small integer)
   @param {number} si a small integer
   @return {Bigint}
 */
 Bigint.prototype.addInt = function(si) {
+    if(!si.isInt()){
+       // throw new RangeError("Value in addInt is no integer");
+       return MP_RANGE;
+    }
     var bi = si.toBigint();
     return this.add(bi);
 };
+
 
 /**
   Lowlevel subtraction
@@ -4017,8 +4142,6 @@ Bigint.prototype.sub = function(bi) {
     ret.clamp();
     return ret;
 };
-
-// TODO: to do
 /**
   Subtraction with a small integer
   @memberof Bigint
@@ -4027,6 +4150,10 @@ Bigint.prototype.sub = function(bi) {
   @return {Bigint}
 */
 Bigint.prototype.subInt = function(si) {
+    if(!si.isInt()){
+       // throw new RangeError("Value in subInt is no integer");
+       return MP_RANGE;
+    }
     return this.sub(si.toBigint());
 };
 /**
@@ -4482,7 +4609,17 @@ Bigint.prototype.divrem = function(bint) {
         return [a.setInf(), b.setInf()];
     }
 
+    if (a.isZero()) {
+       ret = new Bigint(0);
+       if (a.sign == MP_NEG) {
+           ret.sign = MP_NEG;
+       }
+       return [ret, new Bigint(0)];
+    }
+
     if (b.isZero()) {
+        // Problem with error-throwing: not conforming to IEEE-754
+        // throw new DivisionByZero("Second argument in divrem is zero")
         return (b.sign == MP_NEG) ? [a.setNegInf(), new Bigint(0)] : [a.setPosInf(),
             new Bigint(0)
         ];
@@ -4557,9 +4694,36 @@ Bigint.prototype.divremInt = function(si) {
     };
     var Q = new Bigint(0);
     var R = new Bigint(0);
-    // TODO: checks & balances
+
+    if(!si.isInt()){
+       // throw new RangeError("Value in divremInt is no integer");
+       return MP_RANGE;
+    }
+
+    /* Some checks (NaN, Inf) */
+    if (isNaN(this.dp[0]) || isNaN(si)) {
+        return [Q.setNaN(), R.setNaN()];
+    }
+    if (this.isInf() || !si.isFinite()) {
+        return [Q.setInf(), R.setInf()];
+    }
+
+    if (this.isZero()) {
+       if (this.sign == MP_NEG) {
+           Q.sign = MP_NEG;
+       }
+       return [Q, R];
+    }
+
+    if (si == 0) {
+        // Problem with error-throwing: not conforming to IEEE-754
+        // throw new DivisionByZero("Second argument in divrem is zero")
+        return (this.sign == MP_NEG) ? [Q.setNegInf(), R] : [Q.setPosInf(), R];
+    }
+
     var qsign = ((this.sign * si.sign()) < 0) ? MP_NEG : MP_ZPOS;
     var rsign = (this.sign == MP_NEG) ? MP_NEG : MP_ZPOS;
+
     R.dp[0] = divrem2in1(this.dp, this.used, si, Q.dp, MP_DIGIT_BIT);
     Q.used = Q.dp.length;
     Q.sign = qsign;
@@ -4573,7 +4737,8 @@ Bigint.prototype.divremInt = function(si) {
 // division with remainder, rounding to -Infinity (like in GP/PARI for example)
 /**
   Division with remainder, rounding to -Infinity (like in GP/PARI for
-   example)
+   example). This function changes the output of <code>divrem</code> and is
+   therefore slower
   @memberof Bigint
   @instance
   @param {Bigint} bint Divisor
@@ -4615,7 +4780,8 @@ MOD_MUL_INV_THREE_HALF = Math.ceil(MOD_MUL_INV_THREE / 2);
    uses MP_DIGIT_BIT = 26 only but is easily changed
    It depends on architecture if it is actually faster, please test but I found
    at 1,000,000 bit long numbers with my good ol' Duron a difference of a mere
-   150 milliseconds (201 to 53)
+   150 milliseconds (201ms with direct division and 53ms with
+    <code>exactDiv3</code>)
 </p><p>
     Uses multiplication with the multiplicative modular inverse of 3 with the
     modulus 2^26, that is, the canonical residue of v mod 2^26 such that
@@ -4681,6 +4847,10 @@ Bigint.prototype.div = function(bi) {
   @return {Bigint} Quotient
 */
 Bigint.prototype.divInt = function(si) {
+    if(!si.isInt()){
+       // throw new RangeError("Value in divInt is no integer");
+       return MP_RANGE;
+    }
     return this.divremInt(si)[0];
 };
 /**
@@ -4699,6 +4869,10 @@ Bigint.prototype.rem = function(bi) {
   @return {Bigint} Remainder
 */
 Bigint.prototype.remInt = function(si) {
+    if(!si.isInt()){
+       // throw new RangeError("Value in remInt is no integer");
+       return MP_RANGE;
+    }
     return this.divremInt(si)[1];
 };
 
@@ -4717,6 +4891,26 @@ Bigint.prototype.incr = function() {
     this.dp[i] &= MP_MASK;
     // the chance of this early-out to happen has not yet been calculated but
     // conjectured to be quite high
+    /* With the help of the generalization of Benfords law and P(n) the chance
+       of the number -1 + 2^26 to appear as the n-th digit
+         P(1) ~ 0.03846 (ca. 4%)
+       But this is of no use, we need the probability of -1+2^26 to be the last
+       (smallest, rightmost) digit.
+       To use a Bigint makes only sense if we need more than 53 bit large
+       integers (native JavaScript number), so we can quite safely assume
+       that the average Biginteger has more than two limbs. The probability
+       at limb number three is
+         P(3) ~ 0.01596 (ca. 1.6%)
+       The growth of Benfords law is exponential, hence the larger the number
+       the smaller the chance of -1 + 2^26 to appear as the last digit.
+       One last example
+         P(100) ~ 0.00055 (ca 0.06%)
+       Computational complexity is O(1) for the best and O(n) for the worst
+       case. That means, of course that this function should not be used for
+       cryptographic purposes. Neither should be any other function in this
+       library be used for cryptographic purposes. The lack of fast modular
+       functions is intentional.
+    */
     if (carry === 0) {
         return;
     }
@@ -4771,6 +4965,7 @@ Bigint.prototype.decr = function() {
   @private
 */
 Bigint.prototype.slice = function(start, end) {
+    // no error checking in private functions?
     var ret = new Bigint(0);
     ret.dp = this.dp.slice(start, end);
     ret.used = end - start;
@@ -4785,7 +4980,7 @@ Bigint.prototype.slice = function(start, end) {
 */
 Bigint.prototype.karatsuba = function(bint) {
     var x0, x1, y0, y1, x0y0, x1y1, t1, xy;
-
+    // all errors got checked in Bigint.mul()
     var tlen = this.used;
     var blen = bint.used;
 
@@ -4905,10 +5100,10 @@ Bigint.prototype.toom_cook_mul = function(bint) {
     w2 = t2.sub(w0).sub(w4);
     w3 = t1.sub(t2);
 
-    w1 = w1.dlShift(1 * m); // c
-    w2 = w2.dlShift(2 * m); // c
-    w3 = w3.dlShift(3 * m); // c
-    w4 = w4.dlShift(4 * m); // c
+    w1 = w1.dlShift(1 * m);
+    w2 = w2.dlShift(2 * m);
+    w3 = w3.dlShift(3 * m);
+    w4 = w4.dlShift(4 * m);
 
     c = w0.add(w1).add(w2).add(w3).add(w4);
 
@@ -4925,7 +5120,7 @@ Bigint.prototype.toom_cook_sqr = function() {
     var tlen = this.used;
 
     var m = Math.floor(tlen / 3);
-    if (m <= 40 /* TOOM_MUL_CUTOFF */ ) {
+    if (m <= TOOM_COOK_SQR_CUTOFF) {
         return this.karatsuba_square();
     }
 
@@ -5611,6 +5806,7 @@ Bigint.prototype.ilogb = function(base) {
     // this works works for positive and integer bases only
     // if(base < 0) return this.toBigfloat().cilogb(b).abs().floor();
     if (base < 1 || !base.isInt()) {
+        // throw new RangeError("base in ilogb out of range of not an integer")
         return this.copy().setNaN();
     }
 
@@ -5623,7 +5819,7 @@ Bigint.prototype.ilogb = function(base) {
     low = new Bigint(0);
     bracket_low = new Bigint(1);
     high = new Bigint(1);
-    bracket_high = new Bigint(base);
+    bracket_high = base.toBigint();
 
     while (bracket_high.cmp(this) == MP_LT) {
         low = high.copy();
@@ -5665,11 +5861,17 @@ Bigint.prototype.sqrt = function() {
 
     // complex comes later
     if (this.sign == MP_NEG) {
+        // throw new Unsupported("Value im sqrt() is negative");
         return MP_VAL;
     }
 
     if (this.isZero()) {
         return new Bigint();
+    }
+
+    if (this.used == 1) {
+        t1 = Math.floor(Math.sqrt(this.dp[0]));
+        return new Bigint(t1);
     }
 
     t1 = this.copy();
@@ -5699,6 +5901,7 @@ Bigint.prototype.nthroot = function(b) {
         if (b > 0) {
             return new Bigint(0);
         } else {
+            // throw new RangeError("b negative in nthroot")
             return (new Bigint()).setNaN();
         }
     }
@@ -5715,8 +5918,13 @@ Bigint.prototype.nthroot = function(b) {
         // would return 1/(x^(1/-b)) but that is always < 1
         return new Bigint(0);
     }
-    if (b == 0 || b.isNaN()) {
+    if (b == 0) {
         // zero means this^(1/0) which is a division by zero
+        // return new DivisionByZero("b is zero in nthroot");
+        return (new Bigint()).setNaN();
+    }
+    if (b.isNaN()) {
+        // return new RangeError("b is NaN in nthroot");
         return (new Bigint()).setNaN();
     }
     if (b == 1) {
@@ -5726,6 +5934,7 @@ Bigint.prototype.nthroot = function(b) {
 
     /* input must be positive if b is even */
     if ((b & 1) == 0 && this.sign == MP_NEG) {
+        // throw new RangeError("input negative and b odd in nthroot");
         return (new Bigint()).setNaN();
     }
     if (b == 2) {
@@ -6107,8 +6316,8 @@ Bigint.prototype.notInplace = function() {
     }
     this.clamp();
 };
-
 // all single bit manipulators are zero based
+// Error checking (mainly bounds) left to the JS-engine
 /**
   Get a bit of <code>this</code>
   @memberof Bigint
@@ -6158,6 +6367,7 @@ Bigint.prototype.mask = function(n) {
     var ndlen, nblen, mask, ret;
     // or allow zero?
     if (n <= 0) {
+        // throw new RangeError("Argument in mask() <= 0");
         this.dp[0] = Number.NaN;
         return;
     }
@@ -6190,7 +6400,7 @@ Bigint.prototype.mask = function(n) {
 
 /**
   Jacobi function.<br>
-  First argument can be negative, too.
+  First argument (<code>this</code>) can be negative, too.
   @memberof Bigint
   @instance
   @param {Bigint} p positive odd integer
@@ -6287,6 +6497,7 @@ Bigint.prototype.kjacobi = function(p) {
 Bigint.prototype.modInv = function(b) {
     var x, y, u, v, A, B, C, D;
     if (b.sign == MP_NEG) {
+        // throw new RangeError("negative b in modInv()");
         return MP_VAL;
     }
     if (b.dp[0].isOdd()) {
@@ -6295,6 +6506,7 @@ Bigint.prototype.modInv = function(b) {
     x = this.rem(b);
     y = b.copy();
     if (x.isEven() && y.isEven()) {
+        // throw new RangeError("both arguments are even in modInv()");
         return MP_VAL;
     }
     /* 3. u=x, v=y, A=1, B=0, C=0,D=1 */
@@ -6452,6 +6664,9 @@ Bigint.prototype.barrettreduce = function(bint) {
 */
 Bigint.prototype.powmod = function(exp, mod) {
     var z1, ret;
+    // the use of "typeof" is not the best solution here, asumes proper input
+    // in the first place and if we already know the input we can write a little
+    // wrapper function for the conversions
     if (typeof exp === "number") {
         exp = exp.toBigint();
     }
@@ -6459,9 +6674,11 @@ Bigint.prototype.powmod = function(exp, mod) {
         mod = mod.toBigint();
     }
     if (mod.isZero() || mod.sign == MP_NEG) {
+        // throw new RangeError("mod is <=0 in powmod");
         return (new Bigint()).setNaN();
     }
     if (exp.sign == MP_NEG) {
+        // throw new RangeError("exp is <0 in powmod");
         return (new Bigint()).setNaN();
     }
     if ((this.isZero() && !exp.isZero()) || mod.isOne()) {
@@ -6520,10 +6737,16 @@ Bigint.prototype.mulmod = function(bint, mod){
     if (typeof mod === "number") {
         mod = mod.toBigint();
     }
-    if(mod.isZero()){
+    if (mod.isZero()){
+        // throw new RangeError("mod is zero in mulmod");
         return (new Bigint()).setNaN();
     }
-    if(this.isZero() || bint.isZero()){
+    if (this.isZero()) {
+        // throw new RangeError("First argument (this) is zero in mulmod");
+        return new Bigint(0);
+    }
+    if( bint.isZero()) {
+        // throw new RangeError("Second argument (bint) is zero in mulmod");
         return new Bigint(0);
     }
 
@@ -6562,6 +6785,7 @@ Bigint.prototype.isPerfectSquare = function() {
     lasthex = this.dp[0] & 0x3f;
 
     if (this.sign == MP_NEG) {
+        // throw new RangeError("Input is negative in isPerfectSquare");
         return MP_VAL;
     }
     if (this.isZero() || this.isOne()) {
@@ -6584,7 +6808,8 @@ Bigint.prototype.isPerfectSquare = function() {
   Numbers up to <code>34,155,071,728,320</code> are accepted.
   @memberof Bigint
   @instance
-  @return {bool} or <code>MP_VAL</code> in case of an error
+  @return {bool}
+  @throws {RangeError} Input is larger than 3415507172832
 */
 Bigint.prototype.isSmallPrime = function() {
     var n, k, sqrtn, primes;
@@ -6595,7 +6820,8 @@ Bigint.prototype.isSmallPrime = function() {
         if (this.cmp((34155071728321).toBigint()) == MP_LT) {
             return this.isPseudoprime();
         } else {
-            return MP_VAL;
+            throw new RangeError("Input is larger than 34155071728321 in"+
+                                  " isSmallPrime");
         }
     }
     n = this.dp[0];
@@ -6603,6 +6829,7 @@ Bigint.prototype.isSmallPrime = function() {
     if (sqrtn * sqrtn == n) {
         return MP_NO;
     }
+
     // sqrt(2^26) = 8192 and pi(8192) = 1028
     primes = primesieve.primeRange(0, sqrtn);
     for (k = 0; k < primes.length; k++) {
@@ -6610,6 +6837,7 @@ Bigint.prototype.isSmallPrime = function() {
             return MP_NO;
         }
     }
+
     return MP_YES;
 };
 
@@ -6673,7 +6901,7 @@ Bigint.prototype.rabinMiller = function(base) {
   Timing for 2^200 - 75,  61 decimal digits: ~3.8 sec.
   @memberof Bigint
   @instance
-  @return {bool} or <code>MP_VAL</code> in case of an error
+  @return {bool}
 */
 Bigint.prototype.isPseudoprime = function() {
     var sqrtN, qmax, primes, k;
