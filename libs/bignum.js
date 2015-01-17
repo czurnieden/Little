@@ -1883,7 +1883,8 @@ Bigint.prototype.toZero() = function() {
 */
 Bigint.prototype.grow = function(n) {
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Bigint.grow too large or not an Integer")
+        // throw new RangeError("Value for Bigint.grow too large or "+
+        //                      "not an Integer")
         return MP_RANGE;
     }
     if(n < 0){
@@ -1937,7 +1938,8 @@ Bigint.prototype.sign = function() {
 Number.prototype.toHex32 = function(uppercase) {
     var t = this;
     if(!this.isInt() || this > MP_INT_MAX){
-        // throw new RangeError("Value for Number.toHex32 too large or not an Integer")
+        // throw new RangeError("Value for Number.toHex32 too large or "+
+        //                      "not an Integer")
         return MP_RANGE;
     }
     var lower = "0123456789abcdef";
@@ -1975,38 +1977,39 @@ var BIGDECIMAL_LOG10_BASE = 7;
    @param {number} k small integer
 */
 function Bigdecimal(k) {
-        this.digits = [];
-        this.sign = 1;
-        this.used = 0;
-        if (arguments.length != 0) {
-            var n = arguments[0];
-            if (n.isInt()) {
-                if (n < BIGDECIMAL_BASE) {
-                    this.digits[0] = n;
-                    this.sign = n.sign();
-                    this.used = 1;
-                } else if (n < BIGDECIMAL_BASE * BIGDECIMAL_BASE) {
-                    this.digits[0] = n % BIGDECIMAL_BASE;
-                    this.digits[1] = Math.floor(n / BIGDECIMAL_BASE);
-                    this.used = 2;
-                } else {
-                    this.digits[0] = n % BIGDECIMAL_BASE;
-                    this.digits[1] = Math.floor(n / BIGDECIMAL_BASE);
-                    this.digits[2] = Math.floor(this.digits[1] /
-                        BIGDECIMAL_BASE) >>> 0;
-                    this.digits[1] = (this.digits[1] % BIGDECIMAL_BASE) >>> 0;
-                    this.used = 3;
-                }
+    this.digits = [];
+    this.sign = 1;
+    this.used = 0;
+    if (arguments.length != 0) {
+        var n = arguments[0];
+        if (n.isInt()) {
+            if (n < BIGDECIMAL_BASE) {
+                this.digits[0] = n;
+                this.sign = n.sign();
+                this.used = 1;
+            } else if (n < BIGDECIMAL_BASE * BIGDECIMAL_BASE) {
+                this.digits[0] = n % BIGDECIMAL_BASE;
+                this.digits[1] = Math.floor(n / BIGDECIMAL_BASE);
+                this.used = 2;
+            } else {
+                this.digits[0] = n % BIGDECIMAL_BASE;
+                this.digits[1] = Math.floor(n / BIGDECIMAL_BASE);
+                this.digits[2] = Math.floor(this.digits[1] /
+                    BIGDECIMAL_BASE) >>> 0;
+                this.digits[1] = (this.digits[1] % BIGDECIMAL_BASE) >>> 0;
+                this.used = 3;
             }
-        } else {
-            this.digits[0] = 0;
         }
+    } else {
+        this.digits[0] = 0;
     }
-    /**
-      Clamps of leading zeros to give the GC a chance to clean up.
-      @memberof Bigdecimal
-      @instance
-    */
+}
+
+/**
+  Clamps of leading zeros to give the GC a chance to clean up.
+  @memberof Bigdecimal
+  @instance
+*/
 Bigdecimal.prototype.clamp = function() {
     while (this.used > 1 && (this.digits[this.used - 1] == 0 || isNaN(this.digits[
             this.used - 1]))) {
@@ -2266,8 +2269,6 @@ Bigdecimal.prototype.lowlevel_mul = function(bdec) {
         retv, temp;
     var tblen = tlen + blen;
     var carry, i, j;
-
-    //if(typeof bdec == 'number') return this.lowlevel_mulD(bdec);
 
     if (bdec.isZero()) {
         return ret;
@@ -2596,6 +2597,7 @@ Number.prototype.toBigint = function() {
     var ret = new Bigint(0);
     // Check Number
     if (!this.isOk() || !this.isInt()) {
+        // throw new RangeError("Input not fit for Number.toBigint")
         ret.setNaN();
         return ret;
     }
@@ -2650,7 +2652,7 @@ Bigint.prototype.isOk = function() {
     return true;
 };
 /**
-  Converts a Bigint into anative number if possible
+  Converts a Bigint into a native number if possible
   @memberof Bigint
   @instance
   @return {number}
@@ -2762,7 +2764,9 @@ function burtle_rand(seed) {
   Uses Bob Jenkins' small PRNG (with the extra round) listed at {@link burtle_rand}<br>
   Used instead of <code>Math.random</code> to get a well-known function with a good mix
   (good avalaunche values).<br>
-  This works in-place!
+  This works in-place!<br>
+  The number you get might have a smaller number of bits than called for. Either try
+  again or ask for more bits in the first place and shift right later.
   @memberof Bigint
   @instance
   @param {number} bits size of random number in bits; resulting number might be smaller!
@@ -2910,7 +2914,7 @@ Bigint.prototype.abs = function() {
   @memberof Bigint
   @instance
 */
-Bigint.prototype.abs = function() {
+Bigint.prototype.absInplace = function() {
     if (this.sign == MP_NEG) {
         this.sign = MP_ZPOS;
     }
