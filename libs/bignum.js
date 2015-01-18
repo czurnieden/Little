@@ -4893,27 +4893,27 @@ Bigint.prototype.incr = function() {
     this.dp[i] = this.dp[i] + carry;
     carry = this.dp[i] >>> MP_DIGIT_BIT;
     this.dp[i] &= MP_MASK;
-    // the chance of this early-out to happen has not yet been calculated but
-    // conjectured to be quite high
+    // the chance of this early-out to happen is:
     /* With the help of the generalization of Benfords law and P(n) the chance
-       of the number -1 + 2^26 to appear as the n-th digit
-         P(1) ~ 0.03846 (ca. 4%)
+       of the number -1 + 2^26 to appear as the first digit
+         P(1) ~ 0.00000000082683967377
        But this is of no use, we need the probability of -1+2^26 to be the last
        (smallest, rightmost) digit.
        To use a Bigint makes only sense if we need more than 53 bit large
        integers (native JavaScript number), so we can quite safely assume
        that the average Biginteger has more than two limbs. The probability
-       at limb number three is
-         P(3) ~ 0.01596 (ca. 1.6%)
-       The growth of Benfords law is exponential, hence the larger the number
-       the smaller the chance of -1 + 2^26 to appear as the last digit.
-       One last example
-         P(100) ~ 0.00055 (ca 0.06%)
-       Computational complexity is O(1) for the best and O(n) for the worst
-       case. That means, of course that this function should not be used for
-       cryptographic purposes. Neither should be any other function in this
-       library be used for cryptographic purposes. The lack of fast modular
-       functions is intentional.
+       at limb n is
+         P(2)  ~ 0.000000014551586344877780148581481623954425854052673092740
+         P(3)  ~ 0.000000014901161187687220864635435468019684431315983003679
+         P(4)  ~ 0.000000014901161193847656158202359070417718624866786766027
+         P(5)  ~ 0.000000014901161193847656249999998632108555293347168381091
+         P(6)  ~ 0.000000014901161193847656249999999999999979616829086741018
+         P(7)  ~ 0.000000014901161193847656249999999999999999999999696267085
+         P(8)  ~ 0.0000000149011611938476562499999999999999999999999999999954740
+         P(9)  ~ 0.000000014901161193847656249999999999999999999999999999999(9)
+         P(10) ~ 0.000000014901161193847656249999999999999999999999999999999(9)
+       The limit is 0.00000001490116119384765625 for P(n) with n\to\infty which
+       is the expected 1/(-1+2^26).
     */
     if (carry === 0) {
         return;
