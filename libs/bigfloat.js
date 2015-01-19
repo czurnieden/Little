@@ -2229,6 +2229,26 @@ Bigfloat.prototype.sin = function() {
     x.mantissa.sign = sign;
     return x;
 };
+/**
+   Hyperbolic sine of this Bigfloat
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.sinh = function() {
+    var x, sign;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    sign = this.sign;
+    // TODO: check size of input and adjust work precision
+    //       accordingly
+    x = this.abs();
+    
+    x = x.kcossin(false, false, true);
+
+    x.sign = sign;
+    x.mantissa.sign = sign;
+    return x;
+};
 
 /**
    Cosine of this Bigfloat
@@ -2288,6 +2308,24 @@ Bigfloat.prototype.cos = function(){
     x.mantissa.sign = sign;
     return x;
 };
+/**
+   Hyperbolic cosine of this Bigfloat
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.cosh = function() {
+    var x;
+    if (this.isZero()) {
+        return new Bigfloat(1);
+    }
+   
+    // TODO: check size of input and adjust work precision
+    //       accordingly
+    x = this.abs();
+    
+    x = x.kcossin(true, false, true);
+
+    return x;
+};
 
 /**
    Tangent of this Bigfloat
@@ -2325,6 +2363,31 @@ Bigfloat.prototype.tan = function() {
             x = x.inv();
             break;
     }
+    x.sign = sign;
+    x.mantissa.sign = sign;
+    return x;
+};
+
+/**
+   Hyperbolic tangent of this Bigfloat
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.tanh = function() {
+    var x, sign;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    if (this.isInf()) {
+        return new Bigfloat(1);
+    }
+   
+    // TODO: check size of input and adjust work precision
+    //       accordingly
+    sign = this.sign;
+    x = this.abs();
+    
+    x = x.kcossin(true, true, true);
+
     x.sign = sign;
     x.mantissa.sign = sign;
     return x;
@@ -2439,7 +2502,7 @@ Bigfloat.prototype.atan = function() {
 
         // The inverse can get very small if x is very large, obviously.
         // Cutoff depends on actual precision and absolute size of x, hence the
-        // chcek against EPS.
+        // check against EPS.
         x = x.inv();
         eps = x.EPS();
         if (x.cmp(eps) == MP_GT) {
