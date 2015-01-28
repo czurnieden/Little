@@ -50,6 +50,39 @@ decimalnumber (({DIL}\.{DDS}*{DEP}?)|(\.{DDS}{DEP}?)|({DIL}{DEP}?))
    at the end */
 imaginarydecimalnumber {decimalnumber}[i]
 
+
+/* Adding escapes to string literals is a bit more complex than just parsing
+   anything between two characters (single or double quote) accepting every
+   character as valid except the limiting quotes. But not as complex as the
+   last sentence. */
+
+/* The minimum for newline, tabs, quotes and the escape character '\' 
+   itself. Support for multi-char escapes like hex- and unicode-escapes
+   is planned but not yet implemented. It needs a kind of "mini-parser" inside
+   the lexer. See for example:
+   http://stackoverflow.com/questions/5418181/flex-lex-encoding-strings-with-escaped-characters
+   and
+   http://flex.sourceforge.net/manual/Start-Conditions.html#Start-Conditions
+   scroll down for a lengthy example for string parsing with escapes
+ */
+escapechar [\'\"\\bfnrtv]
+/* Together with the escape character '\' we got all we need */
+escape \\{escapechar}
+/* we want to allow both, single and double quote delimited strings, so 
+   the acceptable print-characters need to be parted in two groups.
+   The printable characters are every character except the delimiter.
+   I see no actual reason to forbid linebreaks inside a string (the 
+   semicolon is mandatory in Little making linebreaks inside nearly
+   everything not a large problem) which leaves the quotes as the single
+   characters to be avoided--together with the escape indicator, of course .*/
+acceptedcharssingle [^\'\\]+
+acceptedcharsdouble [^\"\\]+
+/* group with escapes */
+stringsingle {escape}|{acceptedcharssingle}
+stringdouble {escape}|{acceptedcharsdouble}
+/* add quotes and put all together. Empty strings are allowed */
+stringliteral (\'{stringsingle}*\')|(\"{stringdouble}*\")
+
 /* This has to run in Flex, too, so ... */
 %options flex
 %%
@@ -57,9 +90,7 @@ imaginarydecimalnumber {decimalnumber}[i]
 
 "/*"(.|\n|\r)*?"*/" /* ignore multiline comment. No single line comment, sorry */
 
-/* Anything between a pair of single or double quotes */
-'"'[^"]+'"'      return 'STRING_LITERAL'
-"'"[^']+"'"      return 'STRING_LITERAL'
+{stringliteral}      return 'STRING_LITERAL'
 
 "null"           return 'NULLTOKEN'
 "true"           return 'TRUETOKEN'
