@@ -34,7 +34,7 @@ DDS [0-9]
    Too strict? */
 NZD [1-9]
 /* signed integer, may start with a zero */
-DSI [+-]?{DDS}
+DSI [-+]?{DDS}
 /* exponent indicator */
 DEI [eE] /* [pP] for other encodings with a decimal encoded exponent */
 /* decimal exponent for decimal numbers */
@@ -44,7 +44,7 @@ DEP {DEI}{DSI}
 DIL [0]|({NZD}{DDS}*)
 
 /* complete IEEE-754 number */
-decimalnumber [+-]?(({DIL}\.{DDS}*{DEP}?)|(\.{DDS}{DEP}?)|({DIL}{DEP}?))
+decimalnumber [-+]?(({DIL}\.{DDS}*{DEP}?)|(\.{DDS}{DEP}?)|({DIL}{DEP}?))
 
 /* There is no extra symbol for imaginary numbers, just a little indicator
    at the end */
@@ -378,8 +378,16 @@ array_literal
     /* vector with content */
     | "[" element_list "]"
     /* matrix with at least two rows (too much syntactic sugar?) */
-    | "[" element_list ";" element_list "]"
+    | "[" matrix_list "]"
     ;
+
+matrix_list
+    /* two rows */
+    : element_list ";" element_list
+    /* at least the two rows from above plus one new row */
+    | matrix_list ";" element_list
+    ;
+
 /* a = [1,2,3,4+b,func(w)] */
 element_list
     : assignment_expression
