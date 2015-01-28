@@ -44,7 +44,7 @@ DEP {DEI}{DSI}
 DIL [0]|({NZD}{DDS}*)
 
 /* complete IEEE-754 number */
-decimalnumber [-+]?(({DIL}\.{DDS}*{DEP}?)|(\.{DDS}{DEP}?)|({DIL}{DEP}?))
+decimalnumber (({DIL}\.{DDS}*{DEP}?)|(\.{DDS}{DEP}?)|({DIL}{DEP}?))
 
 /* There is no extra symbol for imaginary numbers, just a little indicator
    at the end */
