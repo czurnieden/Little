@@ -90,7 +90,7 @@ stringliteral (\'{stringsingle}*\')|(\"{stringdouble}*\")
 
 "/*"(.|\n|\r)*?"*/" /* ignore multiline comment. No single line comment, sorry */
 
-{stringliteral}      return 'STRING_LITERAL'
+{stringliteral}  return 'STRING_LITERAL'
 
 "null"           return 'NULLTOKEN'
 "true"           return 'TRUETOKEN'
@@ -109,7 +109,6 @@ stringliteral (\'{stringsingle}*\')|(\"{stringdouble}*\")
 "do"		 return 'DO'
 "while"		 return 'WHILE'
 "else"		 return 'ELSE'
-"in"		 return 'INTOKEN'
 "switch"	 return 'SWITCH'
 
 /* reach external files */
@@ -176,35 +175,55 @@ stringliteral (\'{stringsingle}*\')|(\"{stringdouble}*\")
 /* Useful? *
 /*".."	 return 'RANGE'*/
 /* truncated division */
-"//"                  return 'INTDIV'
-"="                   return '='
-"*"                   return '*'
-"/"                   return '/'
-"-"                   return '-'
-"+"                   return '+'
-"^"                   return '^'
-"!"                   return '!'
-"%"                   return '%'
-"&"                   return '&'
-"|"                   return '|'
-"("                   return '('
-")"                   return ')'
-"["                   return '['
-"]"                   return ']'
-"{"                   return '{'
-"}"                   return '}'
-"?"                   return '?'
-":"                   return ':'
-";"                   return ';'
-","                   return ','
+"//"     return 'INTDIV'
+"="      return '='
+"*"      return '*'
+"/"      return '/'
+"-"      return '-'
+"+"      return '+'
+"^"      return '^'
+"!"      return '!'
+"%"      return '%'
+"&"      return '&'
+"|"      return '|'
+"("      return '('
+")"      return ')'
+"["      return '['
+"]"      return ']'
+"{"      return '{'
+"}"      return '}'
+"?"      return '?'
+":"      return ':'
+";"      return ';'
+","      return ','
 /* no period outside of a number but it is still reserved for future use */
-/*"."                   return '.'*/
+/*"."      return '.'*/
 /* Cardinality. Shorthand for "length()". Useful? */
-"#"                   return '#'
+"#"      return '#'
 <<EOF>>               return 'EOF'
 /* TODO: In implementation handle error here */
-.                     return 'INVALID'
+.        return 'INVALID'
 /lex
+
+%token NULLTOKEN TRUETOKEN FALSETOKEN
+%token STRINGLITERAL NUMBERLITERAL IMAGINARYLITERAL
+
+%token CASE DEFAULT SWITCH
+%token DO WHILE FOR CONTINUE BREAK
+%token IF ELSE
+%token DEFINE LET IDENTIFIER
+%token RETURN
+
+%token INCLUDE
+
+%token EQEQ NE STREQ STRNEQ LE GE
+%token PLUSEQUAL MINUSEQUAL POWEREQUAL MULTEQUAL DIVEQUAL INTDIVEQUAL
+%token LSHIFTEQUAL RSHIFTEQUAL URSHIFTEQUAL ANDEQUAL MODEQUAL XOREQUAL
+%token OREQUAL
+
+%token OR AND PLUSPLUS MINUSMINUS LSHIFT RSHIFT URSHIFT
+%token POWER INTDIV
+%token 
 
 /* You have to start somewhere to end somewhere, otherwise everything would
    happen at once and that would be boring */
@@ -242,7 +261,7 @@ statement_list
    if run in JavaScript). That is intentional. */
 /* There is no loose handling of the semicolon in Little. Never. Nowhere. */
 variable_statement
-    : "LET" variable_declaration_list ";"
+    : LET variable_declaration_list ";"
     ;
 
 /* chaining  (a = 2,b,v,d=6;) is allowed. although it might get confusing
@@ -258,8 +277,8 @@ variable_declaration_list
    Well, there are implicite conversions between numbers but not between
    the other types */
 variable_declaration
-    : "IDENTIFIER"
-    | "IDENTIFIER" initialiser
+    : IDENTIFIER
+    | IDENTIFIER initialiser
     ;
 
 initialiser
@@ -278,15 +297,15 @@ expression_statement
 /* Brackets ( {, } ) are mandatory in Little */
 /* Standard if */
 if_statement
-    : "IF" "(" expression ")" "{" statement "}"
-    | "IF" "(" expression ")" "{" statement "}" "ELSE" "{" statement "}"
+    : IF "(" expression ")" "{" statement "}"
+    | IF "(" expression ")" "{" statement "}" "ELSE" "{" statement "}"
     ;
 
 /* Standard loops */
 iteration_statement
-    : "DO" statement "WHILE" "(" expression ")" ";"
-    | "WHILE" "(" expression ")" "{" statement "}"
-    | "FOR" "(" expression_opt ";" expression_opt ";" expression_opt ")" "{" statement "}"
+    : DO statement WHILE "(" expression ")" ";"
+    | WHILE "(" expression ")" "{" statement "}"
+    | FOR "(" expression_opt ";" expression_opt ";" expression_opt ")" "{" statement "}"
     ;
 
 /* up to all expressions in a for loop can be empty but it is frowned upon. Use
@@ -298,25 +317,25 @@ expression_opt
 
 /* Standard continue. Don't know if the labelled continue is of much use in Little */
 continue_statement
-    : "CONTINUE" ";"
-    | "CONTINUE" "IDENTIFIER" ";"
+    : CONTINUE ";"
+    | CONTINUE IDENTIFIER ";"
     ;
 
 /* Standard break. Don't know if the labelled break is of much use in Little */
 break_statement
-    : "BREAK" ";"
-    | "BREAK" "IDENTIFIER" ";"
+    : BREAK ";"
+    | BREAK IDENTIFIER ";"
     ;
 
 /* Standard return */
 return_statement
-    : "RETURN" ";"
-    | "RETURN" expression ";"
+    : RETURN ";"
+    | RETURN expression ";"
     ;
 
 /* Standard switch */
 switch_statement
-    : "SWITCH" "(" expression ")" case_block
+    : SWITCH "(" expression ")" case_block
     ;
 
 case_block
@@ -331,18 +350,18 @@ case_clauses
     ;
 
 case_clause
-    : "CASE" expression ":" statement_list
+    : CASE expression ":" statement_list
     ;
 
 
 default_clause
-    : "DEFAULT" ":" statement_list
+    : DEFAULT ":" statement_list
     ;
 
 /* the label/jump-target of break/continue
    And "goto" if I find out how to implement one in JavaScript */
 labelled_statement
-    : "IDENTIFIER" ":" statement
+    : IDENTIFIER ":" statement
     ;
 
 /* Functions use "define" as the indicator that a function declaration follows.
@@ -352,13 +371,13 @@ labelled_statement
    Otherwise and until then: */
 /* Standard function declaration */
 function_declaration
-    : "DEFINE" "IDENTIFIER" "(" ")" "{" function_body "}"
-    | "DEFINE" "IDENTIFIER" "(" parameter_list ")" "{" function_body "}"
+    : DEFINE IDENTIFIER "(" ")" "{" function_body "}"
+    | DEFINE IDENTIFIER "(" parameter_list ")" "{" function_body "}"
     ;
 /* Only identifiers as parameters, no fancy default values to avoid cluttering */
 parameter_list
-    : "IDENTIFIER"
-    | parameter_list "," "IDENTIFIER"
+    : IDENTIFIER
+    | parameter_list "," IDENTIFIER
     ;
 
 /* Only statements, no functions inside of functions */
@@ -368,7 +387,7 @@ function_body
 
 /* The root node. Can be empty */
 program
-   : include_files source_elements "EOF"
+   : include_files source_elements EOF
    ;
 /* Include files at the top of the program file only */
 include_files
@@ -377,6 +396,9 @@ include_files
    ;
 
 /* The parentheses are not really necessary, drop? */
+/* Including external files is not possible with every JavaScript engine and not
+   for every file from every location, hence this function is very restricted in
+   in the JavaScript version and might not even exist at all. */
 include_file
    : INCLUDE "(" STRING_LITERAL ")" ";"
    ;
@@ -386,8 +408,8 @@ source_elements
     |
     ;
 
-/* Here they come together, the statements and the function declarations and
-   it is the only place where we can meet them together */
+/* Here they come entwined, the statements and the function declarations and
+   it is the only place where we can meet them in such intimate togetherness */
 source_element
     : statement
     | function_declaration
@@ -396,7 +418,7 @@ source_element
 /* We have to start somewhere and the most primitive types are a good starting
   point */
 primary_expression
-    : "IDENTIFIER"
+    : IDENTIFIER
     | literal         /* numbers, bools, and null (Strings, too. For now) */
     | array_literal
     | "(" expression ")"
@@ -442,13 +464,13 @@ element_list
 function_call
     /* Take it as one expression like here or part it?
        It is one of two places that allow for it. Still part? */
-    : "IDENTIFIER" arguments array_list
+    : IDENTIFIER arguments array_list
     /* a function call, who would have thought */
-    | "IDENTIFIER" arguments
+    | IDENTIFIER arguments
     ;
 array_call
     /* dereference array left-hand*/
-    : "IDENTIFIER" array_list
+    : IDENTIFIER array_list
     ;
 
 /* We could use such a list for the declaration, too and offer a way to build
@@ -487,14 +509,14 @@ postfix_expression
     /* The factorial gets used quite often in a numerical program and deserves
        its own shortcut */
     | left_hand_side_expression "!"
-    | left_hand_side_expression "PLUSPLUS"
-    | left_hand_side_expression "MINUSMINUS"
+    | left_hand_side_expression PLUSPLUS
+    | left_hand_side_expression MINUSMINUS
     ;
 
 unary_expression
     : postfix_expression
-    |  "PLUSPLUS" unary_expression
-    | "MINUSMINUS" unary_expression
+    | PLUSPLUS unary_expression
+    | MINUSMINUS unary_expression
     /* plus: sign */
     | "+" unary_expression
     /* minus: sign */
@@ -540,13 +562,13 @@ additive_expression
 shift_expression
     : additive_expression
     /* left shift "<<": multiplication with 2^n for integers only*/
-    | shift_expression "LSHIFT" additive_expression
+    | shift_expression LSHIFT additive_expression
     /* signed right shift ">>": division by 2^n for integers only */ 
-    | shift_expression "RSHIFT" additive_expression
+    | shift_expression RSHIFT additive_expression
     /* unsigned right shift ">>>": division by 2^n for integers only.
        There exist a function to return the remainder of that shift.
        Implemented a special operator for it?  */ 
-    | shift_expression "URSHIFT" additive_expression
+    | shift_expression URSHIFT additive_expression
     ;
 
 relational_expression
@@ -556,22 +578,22 @@ relational_expression
     /* greater than */
     | relational_expression ">" shift_expression
     /* lower than or equal */
-    | relational_expression "LE" shift_expression
+    | relational_expression LE shift_expression
     /* greater than or equal */
-    | relational_expression "GE" shift_expression
+    | relational_expression GE shift_expression
     ;
 
 /* Are the strict version useful in Little */
 equality_expression
     : relational_expression
     /* equality test */
-    | equality_expression "EQEQ" relational_expression
+    | equality_expression EQEQ relational_expression
     /* non-equality test */
-    | equality_expression "NE" relational_expression
+    | equality_expression NE relational_expression
     /* strict equality test (both must be of the same type)*/
-    | equality_expression "STREQ" relational_expression
+    | equality_expression STREQ relational_expression
     /* strict non-equality test (both must be of the same type)*/
-    | equality_expression "STRNEQ" relational_expression
+    | equality_expression STRNEQ relational_expression
     ;
 
 bitwise_and_expression
@@ -595,13 +617,13 @@ bitwise_or_expression
 logical_and_expression
     : bitwise_or_expression
     /* logical operation (bool): and */
-    | logical_and_expression "AND" bitwise_or_expression
+    | logical_and_expression AND bitwise_or_expression
     ;
 
 logical_or_expression
     : logical_and_expression
     /* logical operation (bool): or */
-    | logical_or_expression "OR" logical_and_expression
+    | logical_or_expression OR logical_and_expression
     ;
 
 /* I think it is of not much use but YMMV.
@@ -654,21 +676,21 @@ literal
     ;
 
 null_literal
-    : "NULLTOKEN"
+    : NULLTOKEN
     ;
 
 boolean_literal
-    : "TRUETOKEN"
-    | "FALSETOKEN"
+    : TRUETOKEN
+    | FALSETOKEN
     ;
 
 numeric_literal
-    : "NUMBER_LITERAL"
-    | "IMAGINARY_LITERAL"
+    : NUMBER_LITERAL
+    | IMAGINARY_LITERAL
     ;
 
 string_literal
-    : "STRING_LITERAL"
+    : STRING_LITERAL
     ;
 
 %%
