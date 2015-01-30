@@ -129,7 +129,7 @@ stringliteral (\'{stringsingle}*\')|(\"{stringdouble}*\")
 /* Variable and function names must not start with a digit 
    The characters '$' and '@' have no special meaning,
    they exist for convenience only */
-[a-zA-Z_$@][a-zA-Z0-9_-]*	return 'IDENTIFIER'
+[a-zA-Z_$@][a-zA-Z0-9_]*	return 'IDENTIFIER'
 /* Decimal floats. Make integers/rationals special here or in the
    number-parser? */
 {decimalnumber}                 return 'NUMBER_LITERAL'
@@ -298,7 +298,7 @@ expression_statement
 /* Standard if */
 if_statement
     : IF "(" expression ")" "{" statement "}"
-    | IF "(" expression ")" "{" statement "}" "ELSE" "{" statement "}"
+    | IF "(" expression ")" "{" statement "}" ELSE "{" statement "}"
     ;
 
 /* Standard loops */
