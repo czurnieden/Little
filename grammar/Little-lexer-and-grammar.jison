@@ -297,15 +297,15 @@ expression_statement
 /* Brackets ( {, } ) are mandatory in Little */
 /* Standard if */
 if_statement
-    : IF "(" expression ")" "{" statement "}"
-    | IF "(" expression ")" "{" statement "}" ELSE "{" statement "}"
+    : IF "(" expression ")" block
+    | IF "(" expression ")" block ELSE block
     ;
 
 /* Standard loops */
 iteration_statement
-    : DO statement WHILE "(" expression ")" ";"
-    | WHILE "(" expression ")" "{" statement "}"
-    | FOR "(" expression_opt ";" expression_opt ";" expression_opt ")" "{" statement "}"
+    : DO block WHILE "(" expression ")" ";"
+    | WHILE "(" expression ")" block
+    | FOR "(" expression_opt ";" expression_opt ";" expression_opt ")" block
     ;
 
 /* up to all expressions in a for loop can be empty but it is frowned upon. Use
