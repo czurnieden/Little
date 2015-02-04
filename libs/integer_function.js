@@ -98,7 +98,7 @@ function prime_divisors(n, p) {
   @param {number} n the n in factorial(n)
   @return {Bigint}
 */
-function factorial(n) {
+function bigfactorial(n) {
     // first fifty factorials
     var small_factorials = [
         [1],
