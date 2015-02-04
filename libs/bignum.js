@@ -2690,9 +2690,9 @@ Bigint.prototype.toNumber = function() {
     bd_high += bd_low;
 
     // This will overflow Javascript Number when
-    // (this.used-3) * MP_DIGIT_BIT + 15 > 1023;
+    // (this.used-2) * MP_DIGIT_BIT + 15 > 1023;
     // Which is less then 40 bigdigits!
-    bd_high *= Math.pow(2, (this.used - 3) * MP_DIGIT_BIT);
+    bd_high *= Math.pow(2, (this.used - 2) * MP_DIGIT_BIT);
 
     if (this.sign == MP_NEG) {
         bd_high *= -1;
