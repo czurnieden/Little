@@ -1864,7 +1864,7 @@ Bigint.prototype.clear = function() {
   @memberof Bigint
   @instance
 */
-Bigint.prototype.toZero() = function() {
+Bigint.prototype.toZero = function() {
     this.clear();
 };
 /*
@@ -3207,7 +3207,7 @@ Bigint.prototype.dlShift = function(i) {
   @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.dlShiftInplace = function(i) {
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in dlShiftInplace is either out of " +
        //                       "bounds or no integer");
        return MP_RANGE;
@@ -3241,7 +3241,7 @@ Bigint.prototype.dlShiftInplace = function(i) {
 */
 Bigint.prototype.drShift = function(i) {
     var ret;
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in drShift is either out of bounds or no integer");
        return MP_RANGE;
     }
@@ -3272,7 +3272,7 @@ Bigint.prototype.drShift = function(i) {
   @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.drShiftInplace = function(i) {
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in drShiftInplace is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3310,7 +3310,7 @@ Bigint.prototype.lShift = function(i) {
     var lshift;
     var r, rr, k;
     var ret;
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in lShift is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3358,7 +3358,7 @@ Bigint.prototype.lShiftInplace = function(i) {
     var dlshift;
     var lshift;
     var r, rr, k;
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in lShiftInplace is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3408,7 +3408,7 @@ Bigint.prototype.lShiftInplace = function(i) {
 */
 Bigint.prototype.rShift = function(i) {
     var ret;
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in rShift is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3459,7 +3459,7 @@ Bigint.prototype.rShift = function(i) {
   @return {number} MP_OKAY or an errorvalue
 */
 Bigint.prototype.rShiftInplace = function(i) {
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in rShiftInplace is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3512,7 +3512,7 @@ Bigint.prototype.rShiftInplace = function(i) {
   @return {Bigint}
 */
 Bigint.prototype.rShiftRounded = function(i) {
-    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN)){
+    if(!i.isInt() || i > MP_INT_MAX || i < MP_INT_MIN){
        // throw new RangeError("Value in rShiftRounded is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
@@ -3537,7 +3537,7 @@ Bigint.prototype.rShiftRounded = function(i) {
 */
 Bigint.prototype.mod2d = function(b) {
     var x, ret;
-    if(!b.isInt() || b > MP_DIGIT_MAX)){
+    if(!b.isInt() || b > MP_DIGIT_MAX){
        // throw new RangeError("Value in mod2d is either out of " + 
        //                      "bounds or no integer");
        return MP_RANGE;
