@@ -809,6 +809,14 @@ Number.prototype.toBigrational = function() {
     return fp;
 };
 /**
+  Convert a <code>Bigrational</code> to a number
+  @return {number}
+*/
+Bigrational.prototype.toNumber = function() {
+    return this.num.toNumber() / this.den.toNumber();
+};
+
+/**
    Return current precision in bits
    @return {number} current precison in bits
 */
