@@ -565,7 +565,7 @@ Bigfloat.prototype.toNumber = function() {
     }
     buf.setUint32(4, tmp);
     ret = buf.getFloat64(0);
-    tmp = Math.pow(2, this.precision);
+    tmp = Math.pow(2, newthis.precision);
     ret *= tmp;
     return ret;
 };
@@ -1482,7 +1482,7 @@ Bigfloat.prototype.normalize = function() {
     if (this.precision != MPF_PRECISION && this.precision >=
         MPF_PRECISION_MIN) {
         this.precision = MPF_PRECISION;
-    } else {
+    } else if(this.precision < MPF_PRECISION_MIN){
         this.precision = MPF_PRECISION_MIN;
     }
 
@@ -1782,7 +1782,6 @@ Bigfloat.prototype.inv = function() {
     }
     inval = 1 / inval;
     oldprec = this.precision;
-    eps = this.EPS();
     // number of loops:
     // quadratic, so every round doubles the number of correct digits
     // TODO: this is the function for decimal digits, need a different one here
@@ -1791,6 +1790,7 @@ Bigfloat.prototype.inv = function() {
     nloops = 0;
     setPrecision(oldprec + 3);
     xn = inval.toBigfloat();
+    eps = xn.EPS();
     // x0 = xn.copy();
     one = new Bigfloat(1);
     A = this.abs();
@@ -1886,6 +1886,14 @@ Bigfloat.prototype.exp = function() {
     }
     // TODO: check if size of input is too large
 
+
+
+    oldprec = getPrecision();
+    //var extra = Math.floor(oldprec / 100) * 5  + 3;
+
+    // TODO: compute number of guard digits more precisely
+    setPrecision(oldprec + 30 );
+
     if (this.sign == MP_NEG) {
         sign = MP_NEG;
         nt = this.abs();
@@ -1893,12 +1901,8 @@ Bigfloat.prototype.exp = function() {
         nt = this.copy();
     }
 
-    oldprec = getPrecision();
-    var eps = this.EPS();
-    var extra = Math.floor(oldprec / 100) * 5  + 3;
-    // TODO: compute number of guard digits more precisely
-    setPrecision(oldprec + extra );
     ret = new Bigfloat(1);
+    var eps = ret.EPS();
     to = new Bigfloat(1);
     tx = new Bigfloat(1);
     n = 1;
@@ -1969,13 +1973,14 @@ Bigfloat.prototype.log = function() {
     logval = this.toNumber();
     logval = Math.log(logval);
     oldprec = this.precision;
-    eps = this.EPS();
+
     // see Bigfloat.inv() for problems with this approach
     var maxloops = oldprec.highBit()  + 1;
     nloops = 0;
     var extra = Math.floor(oldprec / 100) * 5  + 3;
-    setPrecision(oldprec + extra);
+    setPrecision(oldprec + extra + 20);
     xn = logval.toBigfloat();
+    eps = xn.EPS();
     one = new Bigfloat(1);
     A = this.abs();
     // logarithm
