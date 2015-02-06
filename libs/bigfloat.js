@@ -34,6 +34,14 @@
    @default
 */
 var MPF_PRECISION = MP_DIGIT_BIT * 4;
+/**
+   Default precision in decimal. Default value is the bit-size of two limbs of
+   Bigint.
+   @const {number}
+   @default
+*/
+   var MPF_DECIMAL_PRECISION = 31;
+            
 // it is also the minimum
 /**
    Default minimum precision in bits. Default value is the bit-size of two limbs of
@@ -489,8 +497,8 @@ Number.prototype.toBigfloat = function() {
     ret.mantissa.sign = (sign == 1) ? MP_NEG : MP_ZPOS;
     ret.mantissa.clamp();
     ret.sign = ret.mantissa.sign;
-    ret.exponent = -ret.precision + exponent;
-    //ret.normalize();
+    ret.exponent = exponent - 53;
+    ret.normalize();
     return ret;
 };
 
@@ -557,7 +565,7 @@ Bigfloat.prototype.toNumber = function() {
     }
     buf.setUint32(4, tmp);
     ret = buf.getFloat64(0);
-    tmp = Math.pow(2, newthis.precision);
+    tmp = Math.pow(2, this.precision);
     ret *= tmp;
     return ret;
 };
@@ -1296,7 +1304,7 @@ Bigfloat.prototype.isZero = function() {
    Check if the absoilute value of the Bigfloat is smaller or equal to EPS
    @return {bool} true if it is smaller or equal to EPS
 */
-Bigfloat.prototype.isEPSZero = function(eps) {
+Bigfloat.prototype.isEPSZero = function() {
     var eps, cmp;
     if (this.mantissa.isZero() == MP_YES &&
         this.exponent == 1) {
@@ -1361,6 +1369,15 @@ Bigfloat.prototype.exch = function(bf) {
     // of not much use here
     return this.copy();
 };
+/**
+   Tests if <code>this</code> is an integer. Uses the <code>floor()</code>
+   function which can be more expensive than intented.
+   @return {boolean}
+*/
+Bigfloat.prototype.isInt = function() {
+    return (this.floor().cmp(this) == MP_EQ);
+};
+
 /**
    Floor function. Works on copy.
    @return {Bigfloat}
@@ -1522,6 +1539,10 @@ Bigfloat.prototype.normalize = function() {
 Bigfloat.prototype.cmp = function(bf) {
     var za, zb, sa, sb;
 
+    if(!(bf instanceof Bigfloat)){
+        return this.cmp(bf.toBigfloat());
+    }
+
     /* if one is zero than we early out */
     za = this.mantissa.isZero();
     sa = this.mantissa.sign;
@@ -1574,6 +1595,11 @@ Bigfloat.prototype.add = function(bf) {
     var tmp, other;
     var diff;
     var ret;
+
+    if(!(bf instanceof Bigfloat)){
+        return this.add(bf.toBigfloat());
+    }
+
     if (this.isZero()) {
         tmp = bf.copy();
         tmp.normalize();
@@ -1629,6 +1655,10 @@ Bigfloat.prototype.sub = function(bf) {
     var diff;
     var ret = new Bigfloat();
 
+    if(!(bf instanceof Bigfloat)){
+        return this.sub(bf.toBigfloat());
+    }
+
     if (this.isZero()) {
         tmp = bf.neg();
         tmp.normalize();
@@ -1671,7 +1701,9 @@ Bigfloat.prototype.sub = function(bf) {
 */
 Bigfloat.prototype.mul = function(bf) {
     var ret = new Bigfloat();
-
+    if(!(bf instanceof Bigfloat)){
+        return this.mul(bf.toBigfloat());
+    }
     ret.mantissa = this.mantissa.mul(bf.mantissa);
     ret.exponent = this.exponent + bf.exponent;
     ret.sign = ret.mantissa.sign;
@@ -1699,7 +1731,9 @@ Bigfloat.prototype.sqr = function() {
 Bigfloat.prototype.div = function(bf) {
     var tmp;
     var ret;
-
+    if(!(bf instanceof Bigfloat)){
+        return this.div(bf.toBigfloat());
+    }
     /* ensure b is not zero */
     if (bf.mantissa.isZero() == MP_YES) {
         return MP_VAL;
@@ -1720,6 +1754,9 @@ Bigfloat.prototype.div = function(bf) {
 */
 Bigfloat.prototype.rem = function(bf) {
     var r;
+    if(!(bf instanceof Bigfloat)){
+        return this.rem(bf.toBigfloat());
+    }
     if (this.isZero()) {
         return new Bigfloat();
     }
@@ -1963,9 +2000,39 @@ Bigfloat.prototype.log = function() {
     xn.normalize();
     return xn;
 };
+// untested
+Bigfloat.prototype.pow = function(e) {
+    var intpow = function(b, e) {
+        var ret = new Bigfloat(1);
+        var bi
+        if (!(e instanceof Bigint)) {
+            bi = e.toBigint();
+        }
+        while (bi.isZero() == MP_NO) {
+            if (bi.isOdd() == MP_YES) {
+                ret = ret.mul(b);
+            }
+            b = b.sqr();
+            bi.rShiftInplace(1);
+        }
+        return ret;
+    };
+    if (!(e instanceof Bigfloat)) {
+        if (e.isInt()) {
+            return intpow(this.copy(), e);
+        } else {
+            return this.pow(e.toBigfloat());
+        }
+    }
+    // Now it gets quite expensive
+    var logt = this.log();
+    var ret = logt.mul(e);
+    return ret.exp();
+};
+
 /**
    Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
-   time by manipuationg the exponent and <em>only</em> the exponent.<br>
+   time by manipulating the exponent and <em>only</em> the exponent.<br>
    Works on copy.
    @param {number} n 
    @return {Bigfloat}
@@ -2203,6 +2270,7 @@ Bigfloat.prototype.reduceTrigArg = function() {
 */
 Bigfloat.prototype.sin = function() {
     var x, k, sign;
+
     if (this.isZero()) {
         return new Bigfloat();
     }
@@ -2531,7 +2599,9 @@ Bigfloat.prototype.atan = function() {
 */
 Bigfloat.prototype.atan2 = function(bf) {
     var ret, pi;
-
+    if(!(bf instanceof Bigfloat)){
+        return this.atan2(bf.toBigfloat());
+    }
     // atan2(y,x) (this = y, bf = x)
     // If either x or y is NaN, the result is NaN
     if (this.isNaN() || bf.isNaN()) {
