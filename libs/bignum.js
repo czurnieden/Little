@@ -646,6 +646,10 @@ function xtypeof(obj) {
       description.
       @namespace primesieve
     */
+/**
+   A primesieve, full implementation.
+   @namespace primesieve
+*/
 var primesieve = (function() {
     /**
        Basket for the easier return of the functions of this module
@@ -672,15 +676,67 @@ var primesieve = (function() {
     */
     var primesieve;
     /**
-       The guard limit of the primesieve.
+       The guard limit of the primesieve.<br>
+       Currently set to one megabibyte, which can hold more than half a million
+       primes.
        @memberof primesieve
        @constant  {number}
        @default
-       @see raiseLimit
+       @see primesieve.raiseLimit
     */
     var primesizelimit = 0x800000; // 1 megabyte
     /**
-       This sieve works with normal Araays, too
+       A [2, 3, 5, 7, 11] wheel for factoring
+       @memberof primesieve
+       @private
+    */
+    var wheel = [
+        1, 2, 2, 4, 2, 4, 2, 6, 4, 2, 4, 6, 6, 2, 6, 4, 2, 6, 4, 6,
+        8, 4, 2,
+        4, 2, 4, 14, 4, 6, 2, 10, 2, 6, 6, 4, 2, 4, 6, 2, 10, 2, 4,
+        2, 12,
+        10, 2, 4, 2, 4, 6, 2, 6, 4, 6, 6, 6, 2, 6, 4, 2, 6, 4, 6, 8,
+        4, 2,
+        4, 6, 8, 6, 10, 2, 4, 6, 2, 6, 6, 4, 2, 4, 6, 2, 6, 4, 2, 6,
+        10, 2,
+        10, 2, 4, 2, 4, 6, 8, 4, 2, 4, 12, 2, 6, 4, 2, 6, 4, 6, 12,
+        2, 4, 2,
+        4, 8, 6, 4, 6, 2, 4, 6, 2, 6, 10, 2, 4, 6, 2, 6, 4, 2, 4, 2,
+        10, 2,
+        10, 2, 4, 6, 6, 2, 6, 6, 4, 6, 6, 2, 6, 4, 2, 6, 4, 6, 8, 4,
+        2, 6,
+        4, 8, 6, 4, 6, 2, 4, 6, 8, 6, 4, 2, 10, 2, 6, 4, 2, 4, 2,
+        10, 2, 10,
+        2, 4, 2, 4, 8, 6, 4, 2, 4, 6, 6, 2, 6, 4, 8, 4, 6, 8, 4, 2,
+        4, 2, 4,
+        8, 6, 4, 6, 6, 6, 2, 6, 6, 4, 2, 4, 6, 2, 6, 4, 2, 4, 2, 10,
+        2, 10,
+        2, 6, 4, 6, 2, 6, 4, 2, 4, 6, 6, 8, 4, 2, 6, 10, 8, 4, 2, 4,
+        2, 4,
+        8, 10, 6, 2, 4, 8, 6, 6, 4, 2, 4, 6, 2, 6, 4, 6, 2, 10, 2,
+        10, 2, 4,
+        2, 4, 6, 2, 6, 4, 2, 4, 6, 6, 2, 6, 6, 6, 4, 6, 8, 4, 2, 4,
+        2, 4, 8,
+        6, 4, 8, 4, 6, 2, 6, 6, 4, 2, 4, 6, 8, 4, 2, 4, 2, 10, 2,
+        10, 2, 4,
+        2, 4, 6, 2, 10, 2, 4, 6, 8, 6, 4, 2, 6, 4, 6, 8, 4, 6, 2, 4,
+        8, 6,
+        4, 6, 2, 4, 6, 2, 6, 6, 4, 6, 6, 2, 6, 6, 4, 2, 10, 2, 10,
+        2, 4, 2,
+        4, 6, 2, 6, 4, 2, 10, 6, 2, 6, 4, 2, 6, 4, 6, 8, 4, 2, 4, 2,
+        12, 6,
+        4, 6, 2, 4, 6, 2, 12, 4, 2, 4, 8, 6, 4, 2, 4, 2, 10, 2, 10,
+        6, 2, 4,
+        6, 2, 6, 4, 2, 4, 6, 6, 2, 6, 4, 2, 10, 6, 8, 6, 4, 2, 4, 8,
+        6, 4,
+        6, 2, 4, 6, 2, 6, 6, 6, 4, 6, 2, 6, 4, 2, 4, 2, 10, 12, 2,
+        4, 2, 10,
+        2, 6, 4, 2, 4, 6, 6, 2, 10, 2, 6, 4, 14, 4, 2, 4, 2, 4, 8,
+        6, 4, 6,
+        2, 4, 6, 2, 6, 6, 4, 2, 4, 6, 2, 6, 4, 2, 4, 12
+    ];
+    /**
+       This sieve works with normal Arrays, too
        @memberof primesieve
        @private
     */
@@ -737,7 +793,7 @@ var primesieve = (function() {
         if (isNaN(x)) {
             return false;
         }
-        if (x > -9007199254740992 && x < 9007199254740992 && Math.floor(
+        if (x > -9007199254740992 && x <= 9007199254740992 && Math.floor(
                 x) == x) {
             return true;
         }
@@ -868,9 +924,9 @@ var primesieve = (function() {
        Error value for "above guard limit"
        @memberof primesieve
        @constant {number}
-       @default 
+       @default
        @private
-       @see raiseLimit
+       @see primesieve.raiseLimit
     */
     var E_ABOVE_LIMIT = 4;
     /**
@@ -910,11 +966,13 @@ var primesieve = (function() {
         }
     };
     /**
-       Checks if the given number is a prime
+       Checks if the given number is a small prime (must be in the sieve)<br>
+       For larger numbers see {@link primesieve.isPrime}
        @alias isSmallPrime
        @memberof primesieve
        @param {number} prime positive small integer
        @return {bool} or undefined in case of an error
+       @see primesieve.isPrime
     */
     Primesieve.isSmallPrime = function(prime) {
         if (!isInt(prime)) {
@@ -935,6 +993,147 @@ var primesieve = (function() {
             return true;
         }
         return false;
+    };
+    /**
+       Checks if the given number is a prime.<br>
+       Might need a couple of seconds for larger primes.
+       @alias isPrime
+       @memberof primesieve
+       @param {number} prime positive integer &lt; 2<sup><i>53</i></sup>
+       @return {bool} or undefined in case of an error
+    */
+    Primesieve.isPrime = function(n) {
+        var length = wheel.length;
+        // length of lead of wheel/start of cycle
+        var roundstart = 3;
+        // first prime
+        var factor = 2;
+        // cycling index into the wheel
+        var next = 0;
+        var sqrtn;
+        if (!isInt(n)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (n < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        Primesieve.error = E_SUCCESS;
+        if (n & 1 == 0) {
+            return false;
+        }
+        sqrtn = Math.floor(Math.sqrt(n));
+        // check for perfect squares.
+        if (sqrtn * sqrtn == n) {
+            return false;
+        }
+        while (factor < sqrtn) {
+            if (n % factor == 0) {
+                return false;
+            }
+            factor += wheel[next];
+            next++;
+            if (next == length) {
+                next = roundstart;
+            }
+        }
+        return true;
+    };
+    /**
+       Returns factors of argument<br>
+       Returns all factors in an array, for a different format
+       {@link primesieve.primeDecomposition}
+       @alias factor
+       @memberof primesieve
+       @param {number} prime positive integer &lt; 2<sup><i>53</i></sup>
+       @return {array} list of all factors in increasing order or undefined in
+                      case of an error
+       @see primesieve.primeDecomposition
+    */
+    Primesieve.factor = function(n) {
+        var length = wheel.length;
+        var roundstart = 3;
+        var factor = 2;
+        var next = 0;
+        var result = [];
+        if (!isInt(n)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (n < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        Primesieve.error = E_SUCCESS;
+        while (factor * factor <= n) {
+            while (n % factor == 0) {
+                result.push(factor);
+                n /= factor;
+            }
+            factor += wheel[next];
+            next++;
+            if (next == length) {
+                next = roundstart;
+            }
+        }
+        if (n > 1) {
+            result.push(n);
+        }
+        return result;
+    };
+    /**
+       Returns factors of argument as tuples (prime, exponent)<br>
+       For a different format  see {@link primesieve.factor}
+       @alias primeDecomposition
+       @memberof primesieve
+       @param {number} prime positive integer &lt; 2<sup><i>53</i></sup>
+       @return {array} list of all factors in increasing order as tuples of the
+                      form (prime, exponent) packed into an array or undefined
+                      in case of an error
+       @see primesieve.factor
+    */
+    Primesieve.primeDecomposition = function(n) {
+        var length = wheel.length;
+        var roundstart = 3;
+        var factor = 2;
+        var next = 0;
+        var result = [];
+        // a short array, because p(41) = max. primorial < 2^53
+        var counter = [];
+        var idx;
+        if (!isInt(n)) {
+            Primesieve.error = E_ARG_NO_INT;
+            return undefined;
+        } else if (n < 2) {
+            Primesieve.error = E_ARG_TOO_LOW;
+            return undefined;
+        }
+        Primesieve.error = E_SUCCESS;
+        while (factor * factor <= n) {
+            while (n % factor == 0) {
+                idx = counter.indexOf(factor);
+                if (idx < 0) {
+                    counter.push(factor);
+                    result.push([factor, 1]);
+                } else {
+                    result[idx][1] ++;
+                }
+                n /= factor;
+            }
+            factor += wheel[next];
+            next++;
+            if (next == length) {
+                next = roundstart;
+            }
+        }
+        if (n > 1) {
+            idx = counter.indexOf(n);
+            if (idx < 0) {
+                result.push([n, 1]);
+            } else {
+                result[idx] ++;
+            }
+        }
+        return result;
     };
     /**
        Returns prime greater than argument
@@ -1146,7 +1345,6 @@ var primesieve = (function() {
         } else if (alot > primelimit) {
             Primesieve.error = E_SUCCESS;
             fillsieve(alot);
-            return true;
         }
         /* else {
                    Do nothing for now
@@ -1158,8 +1356,8 @@ var primesieve = (function() {
        @alias fill
        @memberof primesieve
        @param {number} alot positive small integer
-       @return {bool} undefined in case of an error
-       @see raiseLimit
+       @return {bool} or undefined in case of an error
+       @see primesieve.raiseLimit
        @see primesieve.grow
     */
     Primesieve.fill = Primesieve.grow;
@@ -1181,7 +1379,6 @@ var primesieve = (function() {
         } else if (raise > primesizelimit) {
             Primesieve.error = E_SUCCESS;
             primesizelimit = raise;
-            return true;
         }
     };
     /**
@@ -1208,8 +1405,6 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
         window.primesieve = primesieve;
     }
 }
-
-
 /**
 Computes iteration steps for e.g. Newton-Raphson.
 "stepsize" is the length of the steps and a multiplicator.
@@ -1925,6 +2120,17 @@ Bigint.prototype.clamp = function() {
 Bigint.prototype.sign = function() {
     return this.sign;
 };
+
+/**
+  Returns true because it <em>is</em> an integer
+  @memberof Bigint
+  @instance
+  @return {bool} true
+*/
+Bigint.prototype.isInt = function() {
+    return true;
+};
+
 
 // print all four bytes even if zero (little endian). toString(16) does not
 // do that
