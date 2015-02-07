@@ -1548,11 +1548,11 @@ Bigfloat.prototype.cmp = function(bf) {
         if(this.precision < bf.precision){
             var tmp = this.copy();
             tmp.normalize();
-            return 1//tmp.cmp(bf);
+            return tmp.cmp(bf);
         } else {
             var tmp = bf.copy();
             tmp.normalize();
-            return 1//this.cmp(tmp);
+            return this.cmp(tmp);
         }
     }
 
