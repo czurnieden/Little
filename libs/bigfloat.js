@@ -1542,6 +1542,19 @@ Bigfloat.prototype.cmp = function(bf) {
     if(!(bf instanceof Bigfloat)){
         return this.cmp(bf.toBigfloat());
     }
+    // just in case one of the participants is not normalized
+    // would otherwise cause a very curious error
+    if(this.precision != bf.precision){
+        if(this.precision < bf.precision){
+            var tmp = this.copy();
+            tmp.normalize();
+            return 1//tmp.cmp(bf);
+        } else {
+            var tmp = bf.copy();
+            tmp.normalize();
+            return 1//this.cmp(tmp);
+        }
+    }
 
     /* if one is zero than we early out */
     za = this.mantissa.isZero();
@@ -2022,6 +2035,12 @@ Bigfloat.prototype.pow = function(e) {
         }
         return ret;
     };
+    if(this.isZero()){
+        if(e.isZero()){
+            return new Bigfloat(1);
+        }
+        return new Bigfloat();
+    }
     if (!(e instanceof Bigfloat)) {
         if (e.isInt()) {
             return intpow(this.copy(), e);
