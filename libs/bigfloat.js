@@ -376,6 +376,56 @@ Bigfloat.prototype.pi = function() {
     BIGFLOAT_PI_PRECISION = this.precision;
     return p;
 };
+
+/**
+  Deconstructs a <code>Bigfloat</code> into its fraction part and (binary) exponent, just
+  like the <code>frexp</code> function in the standard C library.
+  @return {array} With the fraction as a <code>Bigfloat</code> and the
+                  exponent as a <code>Number</code> in that order
+*/
+Bigfloat.prototype.frexp = function() {
+    var frac, exp;
+    if (this.isInf() || this.isNaN()) {
+        return [this, Number.NaN];
+    }
+    if (this.isZero()) {
+        return [new Bigfloat(), 0];
+    }
+    frac = new Bigfloat;
+    exp = this.exponent + this.precision;
+    frac.exponent = -this.precision;
+    frac.mantissa = this.mantissa.copy();
+    frac.sign = this.sign;
+    return [frac, exp];
+};
+
+/**
+  Constructs a <code>Bigfloat</code> from a fraction part and a (binary) exponent, just
+  like the <code>ldexp</code> function in the standard C library.
+  @param {number} exp exponent for the new number
+  @return {Bigfloat}
+*/
+Bigfloat.prototype.ldexp = function(exp) {
+    var ret = new Bigfloat();
+    if (exp.isNaN() || !exp.isInt()) {
+        throw new RangeError(
+            "Argument to Bigfloat.ldexp is not a small integer");
+    }
+    if (this.isInf()) {
+        return ret.setInf();
+    }
+    if (this.isNaN()) {
+        return ret.setNaN();
+    }
+    if (this.isZero()) {
+        return ret;
+    }
+    ret.mantissa = this.mantissa.copy();
+    ret.exponent = exp - this.precision;
+    ret.sign = this.sign;
+    return ret;
+};
+
 /**
   Converts a native JavaScript number to a Bigfloat
   @function external:Number#toBigfloat
@@ -1545,7 +1595,7 @@ Bigfloat.prototype.cmp = function(bf) {
     // just in case one of the participants is not normalized
     // would otherwise cause a very curious error
     if(this.precision != bf.precision){
-        if(this.precision < bf.precision){
+        if(this.precision < bf.precision){ty
             var tmp = this.copy();
             tmp.normalize();
             return tmp.cmp(bf);
@@ -2035,19 +2085,20 @@ Bigfloat.prototype.pow = function(e) {
         }
         return ret;
     };
-    if(this.isZero()){
-        if(e.isZero()){
+    if (this.isZero()) {
+        if (e.isZero()) {
             return new Bigfloat(1);
         }
         return new Bigfloat();
     }
-    if (!(e instanceof Bigfloat)) {
-        if (e.isInt()) {
-            return intpow(this.copy(), e);
-        } else {
-            return this.pow(e.toBigfloat());
-        }
+
+    if (e.isInt()) {
+        return intpow(this.copy(), e);
     }
+
+    // TODO; for real exponents use integer and fractional parts
+    //       separately?
+
     // Now it gets quite expensive
     var logt = this.log();
     var ret = logt.mul(e);
