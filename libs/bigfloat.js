@@ -1468,6 +1468,17 @@ Bigfloat.prototype.isZero = function() {
     }
     return MP_NO;
 };
+/**
+   Check if Bigfloat is between zero and plusminus one exclusively:
+   <code>0&lt;x&lt;1</code>
+   @return {bool} true if it is fraction
+*/
+Bigfloat.prototype.isFraction = function() {
+    if (this.isZero()) {
+        return true;
+    }
+    return (this.exponent <= -this.precision) ? true : false;
+};
 
 // eps = 1e-EPS
 /**
@@ -2262,7 +2273,7 @@ Bigfloat.prototype.oldlog = function() {
 Bigfloat.prototype.pow = function(e) {
     var bigintpow = function(b, e) {
         var ret = new Bigfloat(1);
-        var bi
+        var bi;
         if (!(e instanceof Bigint)) {
             bi = e.toBigint();
         }
@@ -2991,3 +3002,29 @@ Bigfloat.prototype.atan2 = function(bf) {
     }
     return ret.atan();
 };
+/**
+   Atan hyperbolicus of this Bigfloat
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.atanh = function() {
+    var oldeps, ret;
+    if (this.isZero()) {
+        return new Bigfloat();
+    }
+    if (this.cmp(new Bigfloat(1)) == MP_EQ || this.cmp(new Bigfloat(-1)) ==
+        MP_EQ) {
+        return (new Bigfloat()).setInf();
+    }
+    if(!this.isFraction()){
+        throw new RangeError("Argument outside of domain of Bigfloat.atanh");
+    }
+    oldeps = epsilon();
+    epsilon(oldeps + 3);
+    ret = this.copy();
+    ret = ret.katan(true);
+    epsilon(oldeps);
+    ret.normalize();
+    return ret;
+};
+
+
