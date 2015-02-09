@@ -1,3 +1,4 @@
+"use strict";
 /*
       Need Bigint to function, even inherits a lot of global variables.
 
@@ -41,7 +42,7 @@ var MPF_PRECISION = MP_DIGIT_BIT * 4;
    @default
 */
    var MPF_DECIMAL_PRECISION = 31;
-            
+
 // it is also the minimum
 /**
    Default minimum precision in bits. Default value is the bit-size of two limbs of
@@ -170,6 +171,7 @@ function Bigfloat(n) {
    Set the precision in bits. Does not actively change any Bigfloat, just
    sets the global variables <code>MPF_PRECISION</code> to the argument
    or to <code>MPF_PRECISION_MIN</code>
+   @private
    @param {number} n a small integer, the new precision in bits
 */
 function setPrecision(n) {
@@ -188,6 +190,7 @@ function getPrecision() {
 }
 /**
    Get the precision of the actual Bigfloat in decimal
+   @private
    @return {number} the new precision in decimal digits
 */
 Bigfloat.prototype.getDecimalPrecision = function() {
@@ -196,6 +199,7 @@ Bigfloat.prototype.getDecimalPrecision = function() {
 };
 /**
    Set the precision of the actual Bigfloat in decimal
+   @private
    @param {number} prec a small integer, the new precision in decimal
 */
 Bigfloat.prototype.setDecimalPrecision = function(prec) {
@@ -206,6 +210,25 @@ Bigfloat.prototype.setDecimalPrecision = function(prec) {
     this.precision = Math.ceil(prec * log210) + 1;
     return true;
 };
+/**
+   Set the precision of the actual Bigfloat in decimal digits
+   @param {number} prec an optional small integer, the new precision in decimal
+   @return {number} the current precision in decimal digits
+*/
+function epsilon(n){
+    var log210 = parseFloat("3.321928094887362347870319429489390175865");
+
+    if (arguments.length > 0 && n.isInt() && n > MPF_DECIMAL_PRECISION_MIN) {
+        setPrecision(Math.ceil(n * log210) + 1);
+        MPF_DECIMAL_PRECISION = n;
+        //Little.config.decimalPrecision = n;
+    } else if(n <= MPF_DECIMAL_PRECISION_MIN){
+       setPrecision(MPF_PRECISION_MIN);
+       //Little.config.decimalPrecision = MPF_DECIMAL_PRECISION_MIN;
+    }
+    return MPF_DECIMAL_PRECISION;
+}
+
 /**
    Get the current rounding mode.
    @return {number} the current rounding mode
@@ -258,7 +281,7 @@ Bigfloat.prototype.absBitSize = function() {
 Bigfloat.prototype.absDecimalSize = function() {
     var prec = this.absBitSize();
     if (prec != 0) {
-        floor(Math.log(prec) / Math.log(10));
+        Math.floor(Math.log(prec) / Math.log(10));
     }
     return prec;
 };
@@ -298,6 +321,101 @@ Bigfloat.prototype.EPS = function() {
    As a reminder: don't use the variables directly, use the
    functions instead.
 */
+/**
+   Caches the constant log(2)
+   Don't use directly, use Bigfloat.constlog2() instead
+   @private
+   @const {Bigfloat}
+   @default
+*/
+var bigfloat_const_ln2 = null;
+/**
+   Caches the current precision of the constant log(2)
+   Don't use directly, use Bigfloat.constlog2() instead
+   @private
+   @const {Bigfloat}
+   @default
+*/
+var bigfloat_const_ln2_precision = 0;
+/**
+   Constant <code>log(2)</code> by way of a hypergeometric sum
+   This algorithm is shamelessly stolen from
+   {ælink  http://numbers.computation.free.fr/Constants/TinyPrograms/OnlineConstants.html}
+   (Webpage by Xavier Gourdon and Pascal Sebah)<br>
+   It is not recommended to compute a million digits of <code>log(2)</code> with
+   this function (1,000 digits needs a couple of seconds)--but
+   you could.
+   @return {Bigfloat} <code>log(2)</code> in current precision
+*/
+Bigfloat.prototype.constlog2 = function(i) {
+    var precision = this.getDecimalPrecision();
+    var r = new Bigfloat();
+    // Hypergeometric series. Idea shamelessly stolen from
+    // http://numbers.computation.free.fr/Constants/TinyPrograms/OnlineConstants.html
+    // Paper: http://numbers.computation.free.fr/Constants/Log2/log2.ps, sec. 6 cor. 13
+    var constlog2 = function(n) {
+        var ret = new Bigint();
+        // n / log_10(base) pluse one guard digit
+        var rounds = Math.floor(n / 6 + 1);
+        var base = Math.pow(10, 7);
+        // number of terms
+        var alen = Math.floor(n * 10 / 3);
+        var a = new Array(alen + 1);
+        var i, k, num, den;
+        var digit;
+
+        for (i = 0; i <= alen; i++) {
+            a[i] = 5;
+        }
+
+        while (rounds--) {
+            den = 0;
+            k = alen;
+            while (--k) {
+                den += a[k] * base;
+                num = 2 * k + 2;
+                a[k] = den % num;
+                den = Math.floor(den / num);
+                den *= k;
+            }
+            den += a[0] * base;
+            a[0] = den % base;
+            digit = Math.floor(den / base);
+            ret = ret.mul(base);
+            ret = ret.add(digit);
+        }
+        return ret;
+    };
+    var log210 = parseFloat("3.321928094887362347870319429489390175865");
+
+    // TODO: checks  & balances
+    if (bigfloat_const_ln2 == null || bigfloat_const_ln2_precision == 0) {
+        var tmp = constlog2(precision + 3);
+        var tmplen = tmp.highBit() + 1;
+        // we do have a big integer now (changing the algorithm to use
+        // Bigfloats caused too much rounding errors), so make a
+        // float out of it by doubling the length (shift left) and
+        // divide by ten to the power of the number of decimal digits
+        log210 = Math.floor((tmp.highBit() + 1) / log210);
+        var ten = new Bigint(10);
+        ten = ten.pow(log210);
+        tmp.lShiftInplace(tmp.highBit() + 1);
+        tmp = tmp.div(ten);
+        r.mantissa = tmp;
+        // new exponent is just the length of the bigint in bits, let
+        // normalize() do all the hard work.
+        r.exponent = -tmplen;
+        r.normalize();
+
+        bigfloat_const_ln2 = r;
+        bigfloat_const_ln2_precision = r.precision;
+        return r;
+    } else {
+        return bigfloat_const_ln2;
+    }
+};
+
+
 /**
    Caches pi
    Don't use directly, use Bigfloat.pi() instead
@@ -391,7 +509,7 @@ Bigfloat.prototype.frexp = function() {
     if (this.isZero()) {
         return [new Bigfloat(), 0];
     }
-    frac = new Bigfloat;
+    frac = new Bigfloat();
     exp = this.exponent + this.precision;
     frac.exponent = -this.precision;
     frac.mantissa = this.mantissa.copy();
@@ -779,11 +897,13 @@ if (typeof Bigrational !== "undefined") {
         i = 2;
         do {
             fx = x.floor();
-            cf[i - 2] = fx.toBigint();;
+            cf[i - 2] = fx.toBigint();
             p[i] = cf[i - 2].mul(p[i - 1]).add(p[i - 2]);
             q[i] = cf[i - 2].mul(q[i - 1]).add(q[i - 2]);
             diff = x.sub(fx);
-            if (diff.cmp(eps) == MP_LT) break;
+            if (diff.cmp(eps) == MP_LT){
+                break;
+            }
             x = diff.inv();
             i++;
         } while (i < prec);
@@ -1038,21 +1158,21 @@ String.prototype.toBigfloat = function(numbase) {
         var exceptions;
         if (typeof arrayFromParseNumber === 'string') {
             // check if it is +-Infinity or +-NaN
-            if(arrayFromParseNumber.search(/[+-]{0,1}Infinity/) >= 0 ){
-               exceptions = (new Bigfloat()).setInf();
-               exceptions.sign = arrayFromParseNumber.match(/{+-}/)[0];
-               exceptions.sign = (exceptions.sign == "-")?MP_NEG:MP_ZPOS;
-               exceptions.mantissa.sign = exceptions.sign;
-               return exceptions.sign;
-            } else if(arrayFromParseNumber.search(/[+-]{0,1}NaN/) >= 0 ){
-               exceptions = (new Bigfloat()).setNaN();
-               exceptions.sign = arrayFromParseNumber.match(/[+-]/)[0];
-               exceptions.sign = (exceptions.sign == "-")?MP_NEG:MP_ZPOS;
-               exceptions.mantissa.sign = exceptions.sign;
-               return exceptions.sign;
+            if (arrayFromParseNumber.search(/[+-]{0,1}Infinity/) >= 0) {
+                exceptions = (new Bigfloat()).setInf();
+                exceptions.sign = arrayFromParseNumber.match(/{+-}/)[0];
+                exceptions.sign = (exceptions.sign == "-") ? MP_NEG : MP_ZPOS;
+                exceptions.mantissa.sign = exceptions.sign;
+                return exceptions.sign;
+            } else if (arrayFromParseNumber.search(/[+-]{0,1}NaN/) >= 0) {
+                exceptions = (new Bigfloat()).setNaN();
+                exceptions.sign = arrayFromParseNumber.match(/[+-]/)[0];
+                exceptions.sign = (exceptions.sign == "-") ? MP_NEG : MP_ZPOS;
+                exceptions.mantissa.sign = exceptions.sign;
+                return exceptions.sign;
             } else {
-               // raise some error and...
-               return (new Bigfloat()).setNaN();
+                // raise some error and...
+                return (new Bigfloat()).setNaN();
             }
         }
         var base = arrayFromParseNumber[0];
@@ -1402,7 +1522,7 @@ Bigfloat.prototype.abs = function() {
 };
 /**
    Negate the  Bigfloat. Works on copy.
-   @return {Bigfloat} 
+   @return {Bigfloat}
 */
 Bigfloat.prototype.neg = function() {
     var ret = this.copy();
@@ -1587,7 +1707,7 @@ Bigfloat.prototype.normalize = function() {
                    than the argument, respectively
 */
 Bigfloat.prototype.cmp = function(bf) {
-    var za, zb, sa, sb;
+    var za, zb, sa, sb, tmp;
 
     if(!(bf instanceof Bigfloat)){
         return this.cmp(bf.toBigfloat());
@@ -1595,12 +1715,12 @@ Bigfloat.prototype.cmp = function(bf) {
     // just in case one of the participants is not normalized
     // would otherwise cause a very curious error
     if(this.precision != bf.precision){
-        if(this.precision < bf.precision){ty
-            var tmp = this.copy();
+        if(this.precision < bf.precision){
+            tmp = this.copy();
             tmp.normalize();
             return tmp.cmp(bf);
         } else {
-            var tmp = bf.copy();
+            tmp = bf.copy();
             tmp.normalize();
             return this.cmp(tmp);
         }
@@ -2020,10 +2140,73 @@ Bigfloat.prototype.exp = function() {
 };
 
 /**
-   Logarithm base e (log(x)) of this Bigfloat
+   Logarithm base e (log(x)) of this Bigfloat<br>
+   Algorithm based on Taylor series for <code>log(1 + x)</code>
    @return {Bigfloat}
 */
 Bigfloat.prototype.log = function() {
+    var ret;
+    var eps;
+    var x, f, e;
+    var x0, n = 2,
+        diff, to, t, argred, xc;
+    var oldeps = epsilon();
+    if(this.isZero()){
+        throw new RangeError("argument to Bigfloat.log is zero");
+    }
+    if(this.isInf()){
+        return (new Bigfloat()).setInf();
+    }
+    if(this.sign == MP_NEG ){
+        // TODO: send to Complex instead
+        throw new RangeError("argument to Bigfloat.log is negativ");
+    }
+    // a bit of extra precision, mostly for the argument reduction
+    epsilon(oldeps + 3);
+    // argument reduction
+    argred = (256).toBigfloat();
+    eps = argred.EPS();
+    x = this.copy();
+    // use the fraction part which is guaranteed to be < 1
+    f = x.frexp();
+    x = f[0];
+    // log(x^n) = n log(x)
+    for (var k = 0; k < 8; k++) {
+        x = x.sqrt();
+    }
+    x = x.sub(new Bigfloat(1));
+    xc = x.copy();
+    ret = x.copy();
+    e = f[1].toBigfloat();
+    do {
+        x0 = ret.copy();
+        t = new Bigfloat(n);
+        t = t.inv(); // -> 1/n
+        x = x.mul(xc); // x^(n-1) -> x^(n)
+        t = t.mul(x); // 1/n*x^(n)
+        if (n.isOdd()) {
+            ret = ret.add(t);
+        } else {
+            ret = ret.sub(t); // series + 1/n*x^(n)
+        }
+        diff = x0.abs().sub(ret.abs()).abs();
+        if (diff.isZero()) {
+            break;
+        }
+        n++;
+    } while (diff.cmp(eps) != MP_LT);
+    ret = ret.mul(argred).add(e.mul(ret.constlog2()));
+    epsilon(oldeps);
+    ret.normalize();
+    return ret;
+};
+
+/**
+   Logarithm base e (log(x)) of this Bigfloat<br>
+   Algorithm based on x(n+1) = xn - 1 + A/exp(xn)
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.oldlog = function() {
     var init, ret, x0, xn, t, A, logval, prec, oldprec, one, two, nloops, diff,eps;
 
     if (this.sign == MP_NEG) {
@@ -2068,9 +2251,16 @@ Bigfloat.prototype.log = function() {
     xn.normalize();
     return xn;
 };
-// untested
+
+/**
+   Computes <code>this</code> to the power of <code>e</code><br>
+   It might be a faster way for large integer exponents to use
+   the method x^n = exp(n log(x)) directly.
+   @param {number|Bigint|Bigfloat} e the exponent
+   @return {Bigfloat}
+*/
 Bigfloat.prototype.pow = function(e) {
-    var intpow = function(b, e) {
+    var bigintpow = function(b, e) {
         var ret = new Bigfloat(1);
         var bi
         if (!(e instanceof Bigint)) {
@@ -2085,31 +2275,41 @@ Bigfloat.prototype.pow = function(e) {
         }
         return ret;
     };
-    if (this.isZero()) {
-        if (e.isZero()) {
-            return new Bigfloat(1);
+    var intpow = function(b, e) {
+        var ret = new Bigfloat(1);
+        var bi = e;
+        while (bi != 0) {
+            if (bi.isOdd() == MP_YES) {
+                ret = ret.mul(b);
+            }
+            b = b.sqr();
+            bi >>>= 1;
         }
-        return new Bigfloat();
+        return ret;
+    };
+    if (!(e instanceof Bigfloat)) {
+        if (e.isInt()) {
+            if(e instanceof Bigint){
+                return bigintpow(this.copy(), e);
+            } else {
+                return intpow(this.copy(), e);
+            }
+        } else {
+            return this.pow(e.toBigfloat());
+        }
     }
-
-    if (e.isInt()) {
-        return intpow(this.copy(), e);
-    }
-
-    // TODO; for real exponents use integer and fractional parts
-    //       separately?
-
     // Now it gets quite expensive
     var logt = this.log();
     var ret = logt.mul(e);
     return ret.exp();
 };
 
+
 /**
    Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
    time by manipulating the exponent and <em>only</em> the exponent.<br>
    Works on copy.
-   @param {number} n 
+   @param {number} n
    @return {Bigfloat}
 */
 Bigfloat.prototype.lShift = function(n) {
@@ -2134,7 +2334,7 @@ Bigfloat.prototype.lShift = function(n) {
    Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
    time by manipuationg the exponent and <em>only</em> the exponent.<br>
    Works in-place.
-   @param {number} n 
+   @param {number} n
    @return {Bigfloat}
 */
 Bigfloat.prototype.lShiftInplace = function(n) {
@@ -2160,7 +2360,7 @@ Bigfloat.prototype.lShiftInplace = function(n) {
    Division by 2<sup><i>n</i></sup>. This gets done in constant
    time by manipuationg the exponent and <em>only</em> the exponent.<br>
    Works on copy.
-   @param {number} n 
+   @param {number} n
    @return {Bigfloat}
 */
 Bigfloat.prototype.rShift = function(n) {
@@ -2185,7 +2385,7 @@ Bigfloat.prototype.rShift = function(n) {
    Division by 2<sup><i>n</i></sup>. This gets done in constant
    time by manipuationg the exponent and <em>only</em> the exponent.<br>
    Works in-place.
-   @param {number} n 
+   @param {number} n
    @return {Bigfloat}
 */
 Bigfloat.prototype.rShiftInplace = function(n) {
@@ -2385,7 +2585,7 @@ Bigfloat.prototype.sinh = function() {
     // TODO: check size of input and adjust work precision
     //       accordingly
     x = this.abs();
-    
+
     x = x.kcossin(false, false, true);
 
     x.sign = sign;
@@ -2460,11 +2660,11 @@ Bigfloat.prototype.cosh = function() {
     if (this.isZero()) {
         return new Bigfloat(1);
     }
-   
+
     // TODO: check size of input and adjust work precision
     //       accordingly
     x = this.abs();
-    
+
     x = x.kcossin(true, false, true);
 
     return x;
@@ -2523,12 +2723,12 @@ Bigfloat.prototype.tanh = function() {
     if (this.isInf()) {
         return new Bigfloat(1);
     }
-   
+
     // TODO: check size of input and adjust work precision
     //       accordingly
     sign = this.sign;
     x = this.abs();
-    
+
     x = x.kcossin(true, true, true);
 
     x.sign = sign;
