@@ -2288,6 +2288,8 @@ Bigfloat.prototype.oldlog = function() {
    @return {Bigfloat}
 */
 Bigfloat.prototype.pow = function(e) {
+    var sign = MP_ZPOS,
+        ret, logt;
     var bigintpow = function(b, e) {
         var ret = new Bigfloat(1);
         var bi;
@@ -2307,30 +2309,39 @@ Bigfloat.prototype.pow = function(e) {
     };
     var intpow = function(b, e) {
         var ret = new Bigfloat(1);
-        var bi = e;
-        while (bi != 0) {
-            if (bi.isOdd() == MP_YES) {
+        while (e != 0) {
+            if (e & 1 == 1) {
                 ret = ret.mul(b);
             }
             b = b.sqr();
-            bi >>>= 1;
+            e >>>= 1;
         }
         return ret;
     };
     if (!(e instanceof Bigfloat)) {
+        // TODO: check for Bigrationals?
         if (e.isInt()) {
-            if(e instanceof Bigint){
-                return bigintpow(this.copy(), e);
+            if (e < 0) {
+                sign = MP_NEG;
+                e = -e;
+            }
+            if ((e instanceof Bigint) || e >= MP_INT_MAX) {
+                ret = bigintpow(this.copy(), e);
             } else {
-                return intpow(this.copy(), e);
+                ret = intpow(this.copy(), e);
+            }
+            if (sign == MP_NEG) {
+                return ret.inv();
+            } else {
+                return ret;
             }
         } else {
             return this.pow(e.toBigfloat());
         }
     }
     // Now it gets quite expensive
-    var logt = this.log();
-    var ret = logt.mul(e);
+    logt = this.log();
+    ret = logt.mul(e);
     return ret.exp();
 };
 
