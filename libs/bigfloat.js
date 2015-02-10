@@ -2366,10 +2366,9 @@ Bigfloat.prototype.ilog2 = function(){
    @param {number} b the exponent, th <i>n</i> in n<sup><i>th</(i></sup>-root
    @return {Bigfloat}
 */
-// TODO: initial value!
 Bigfloat.prototype.nthroot = function(b) {
     var t1, t2, t3, t4, a;
-    var sign, ilog2;
+    var sign, ilog2, invb, bminusone, est, i, eps, x0;
 
     if (this.isZero()) {
         if (b > 0) {
@@ -2387,10 +2386,13 @@ Bigfloat.prototype.nthroot = function(b) {
             return new Bigfloat();
         }
     }
-
     if (b < 0) {
         // 1/(x^(1/-b))
         return this.nthroot(-b).inv();
+    }
+    if (!b.isInt()) {
+        throw new RangeError(
+            "argument to Bigfloat.nthroot greater than 2^52")
     }
     if (b == 0) {
         // zero means this^(1/0) which is a division by zero
@@ -2403,12 +2405,13 @@ Bigfloat.prototype.nthroot = function(b) {
         // this^(1/1)
         return this.copy();
     }
+
+    /* input must be positive if b is even */
+    if ((b & 1) == 0 && this.sign == MP_NEG) {
+        //throw new RangeError("input negative and b odd in Bigfloat.nthroot");
+    }
     if (b == 2) {
         return this.sqrt();
-    }
-    if ((b & 1) == 0 && this.sign == MP_NEG) {
-        // return new Complex(this.copy(),new Bigfloat()).nthroot(b)
-        throw new RangeError("input negative and b odd in Bigfloat.nthroot");
     }
     var oldeps = epsilon();
     epsilon(oldeps + 3);
@@ -2416,34 +2419,52 @@ Bigfloat.prototype.nthroot = function(b) {
 
     sign = a.sign;
     a.sign = MP_ZPOS;
-    if (this.isDouble()) {
-        t2 = Math.pow(a.toNumber(), 1 / b).toBigfloat();
-    } else {
-        ilog2 = this.ilog2() + 1;
 
-        if (ilog2 / b <= 52) {
-            var r = Math.floor(Math.pow(2, (ilog2) / b)) + 1;
-            t2 = r.toBigfloat();
+    if (!a.isDouble()) {
+        /*
+            x^n = exp(log(x) * n)
+            x^n = 2^(log_2(x) * n)
+            x^n ~ 2^(floor(log_2(x)) * n)
+
+            where floor(log_2(x)) is the exponent of the Bigfloat minus
+            the bias (precision)
+        */
+        ilog2 = a.ilog2() + 1;
+        est = ilog2 / b;
+        // a negative result cannot happen.
+        if (est < 1022 && est > -1022) {
+            est = Math.pow(2, est).toBigfloat();
         } else {
-            ilog2 = Math.floor(ilog2 / b);
-            t2 = new Bigfloat(1);
-            t2.lShiftInplace(ilog2 + 1);
+            var tmp = new Bigfloat(1);
+            tmp.lShiftInplace(Math.floor(est));
+            est = tmp;
         }
+        t2 = est;
+        // TODO: add a round or two of bracketing?
+    } else {
+        t2 = Math.pow(a.toNumber(), 1 / b).toBigfloat();
     }
-    var invb = b.toBigfloat().inv();
-    // safe guard--result might be off by slightly more than EPS
-    var sg = Math.ceil(this.precision.highBit()) + 1;
+    t2 = new Bigfloat(1);
+    invb = b.toBigfloat().inv();
+    bminusone = b - 1;
+    // safe guard for the worst case
+    i = a.precision + 1;
+    eps = a.EPS();
     do {
-        // compute difference
-        t3 = t2.pow(b - 1);
+        x0 = t2.copy();
+        t3 = t2.pow(bminusone);
         t3 = a.div(t3);
         t3 = t3.sub(t2);
         t3 = t3.mul(invb);
         t2 = t2.add(t3);
-        if (sg-- == 0) {
+        if (t3.isZero()) {
             break;
         }
-    } while (!t3.isEPSZero());
+        if (i-- == 0) {
+            throw new Inexact("Max. rounds reached in Bigfloat.nthroot")
+            break;
+        }
+    } while (t2.cmp(x0) != MP_EQ);
 
     /* reset the sign of a first */
     a.sign = sign;
@@ -2453,6 +2474,7 @@ Bigfloat.prototype.nthroot = function(b) {
     t2.normalize();
     return t2;
 };
+
 /**
    Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
    time by manipulating the exponent and <em>only</em> the exponent.<br>
