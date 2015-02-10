@@ -1480,9 +1480,26 @@ Bigfloat.prototype.isFraction = function() {
     return (this.exponent <= -this.precision) ? true : false;
 };
 
-// eps = 1e-EPS
 /**
-   Check if the absoilute value of the Bigfloat is smaller or equal to EPS
+   Check if <code>this</code> is inside the allowed magnitude for a 64 bit
+   IEEE-double (between ca. 2.225e-308 and 1.798e308)
+   @return {bool} true if it fits a double in magnitude
+*/
+Bigfloat.prototype.isDouble = function(){
+    var prec = this.precision;
+    var exp = this.exponent;
+    // The bias is dynamical and at -precision, so any exponent
+    // which is in -(1022 + precision) < exp < (1023 - precision)
+    // is inside the domain for a 64 bit IEEE-double
+    if(-(1021 + prec) <= exp && exp <= (1024 - prec)){
+        return MP_YES;
+    } else {
+        return MP_NO;
+    }
+};
+
+/**
+   Check if the absolute value of the Bigfloat is smaller or equal to EPS
    @return {bool} true if it is smaller or equal to EPS
 */
 Bigfloat.prototype.isEPSZero = function() {
@@ -2276,6 +2293,8 @@ Bigfloat.prototype.pow = function(e) {
         var bi;
         if (!(e instanceof Bigint)) {
             bi = e.toBigint();
+        } else {
+            bi = e.copy();
         }
         while (bi.isZero() == MP_NO) {
             if (bi.isOdd() == MP_YES) {
@@ -2316,6 +2335,113 @@ Bigfloat.prototype.pow = function(e) {
 };
 
 
+/**
+   Integer logarithm base 2 of <code>this</code><br>
+   Returns zero for 0 &lt; this &lt;= 1
+   @return {number}
+*/
+Bigfloat.prototype.ilog2 = function(){
+    var d = this.precision - Math.abs(this.exponent);
+    if(d < 0){
+        return 0;
+    } else {
+        return d - 1;
+    }
+};
+
+/**
+   Computes <code>this</code> to the power of <code>1/b</code>, the so called
+   n<sup><i>th</(i></sup>-root<br>
+   @param {number} b the exponent, th <i>n</i> in n<sup><i>th</(i></sup>-root
+   @return {Bigfloat}
+*/
+// TODO: initial value!
+Bigfloat.prototype.nthroot = function(b) {
+    var t1, t2, t3, t4, a;
+    var sign, ilog2;
+
+    if (this.isZero()) {
+        if (b > 0) {
+            return new Bigfloat();
+        } else {
+            throw new RangeError("b negative in bigfloat.nthroot")
+                //return (new Bigint()).setNaN();
+        }
+    }
+
+    if (this.cmp(new Bigfloat(1)) == MP_EQ) {
+        if (b == 0) {
+            return (new Bigfloat()).setNaN();
+        } else {
+            return new Bigfloat();
+        }
+    }
+
+    if (b < 0) {
+        // 1/(x^(1/-b))
+        return this.nthroot(-b).inv();
+    }
+    if (b == 0) {
+        // zero means this^(1/0) which is a division by zero
+        throw new DivisionByZero("b is zero in Bigfloat.nthroot");
+    }
+    if (b.isNaN()) {
+        throw new RangeError("b is NaN in Bigfloat.nthroot");
+    }
+    if (b == 1) {
+        // this^(1/1)
+        return this.copy();
+    }
+    if (b == 2) {
+        return this.sqrt();
+    }
+    if ((b & 1) == 0 && this.sign == MP_NEG) {
+        // return new Complex(this.copy(),new Bigfloat()).nthroot(b)
+        throw new RangeError("input negative and b odd in Bigfloat.nthroot");
+    }
+    var oldeps = epsilon();
+    epsilon(oldeps + 3);
+    a = this.copy();
+
+    sign = a.sign;
+    a.sign = MP_ZPOS;
+    if (this.isDouble()) {
+        t2 = Math.pow(a.toNumber(), 1 / b).toBigfloat();
+    } else {
+        ilog2 = this.ilog2() + 1;
+
+        if (ilog2 / b <= 52) {
+            var r = Math.floor(Math.pow(2, (ilog2) / b)) + 1;
+            t2 = r.toBigfloat();
+        } else {
+            ilog2 = Math.floor(ilog2 / b);
+            t2 = new Bigfloat(1);
+            t2.lShiftInplace(ilog2 + 1);
+        }
+    }
+    var invb = b.toBigfloat().inv();
+    // safe guard--result might be off by slightly more than EPS
+    var sg = Math.ceil(this.precision.highBit()) + 1;
+    do {
+        // compute difference
+        t3 = t2.pow(b - 1);
+        t3 = a.div(t3);
+        t3 = t3.sub(t2);
+        t3 = t3.mul(invb);
+        t2 = t2.add(t3);
+        if (sg-- == 0) {
+            break;
+        }
+    } while (!t3.isEPSZero());
+
+    /* reset the sign of a first */
+    a.sign = sign;
+    /* set the sign of the result */
+    t2.sign = sign;
+    epsilon(oldeps);
+    t2.normalize();
+    return t2;
+};
 /**
    Multiplication with 2<sup><i>n</i></sup>. This gets done in constant
    time by manipulating the exponent and <em>only</em> the exponent.<br>
