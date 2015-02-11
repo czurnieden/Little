@@ -348,9 +348,9 @@ var bigfloat_const_ln2_precision = 0;
    @return {Bigfloat} <code>log(2)</code> in current precision
 */
 Bigfloat.prototype.constlog2 = function(i) {
-    var precision = this.getDecimalPrecision();
+    var precision = epsilon();
     var r = new Bigfloat();
-    // Hypergeometric series. Idea shamelessly stolen from
+    // Hypergeometric series. Idea and some code shamelessly stolen from 
     // http://numbers.computation.free.fr/Constants/TinyPrograms/OnlineConstants.html
     // Paper: http://numbers.computation.free.fr/Constants/Log2/log2.ps, sec. 6 cor. 13
     var constlog2 = function(n) {
@@ -386,25 +386,79 @@ Bigfloat.prototype.constlog2 = function(i) {
         }
         return ret;
     };
+    // Nothing wrong with you if this looks familiar--it is from strtof
+    var roundFraction = function(num, den, S, prec) {
+        var frac, Q, R, dhalf, cmp;
+        // We might need to do the next lines multiple times
+        // so either loop or use a goto. JavaScript has no goto
+        // so a loop it is.
+        // LOOP:
+        do {
+            // Divide, keep quotient and remainder
+            // numerator = Q * denominator + R
+            frac = num.divrem(den);
+            Q = frac[0];
+            R = frac[1];
+            // we need one half of the denominator to compare
+            // the remainder against, so dhalf = denominator/2
+            // works only if denominator is even. There
+            // are some rare cases where that is not the case
+            // It's a cheap test, so...
+            if (den.isEven()) {
+                dhalf = den.rShift(1);
+            } else {
+                dhalf = den.sub(R);
+            }
+            // Rounding. Fixed mode: "half to even"
+            // if(R > dhalf) Q' = Q +1
+            // if(R == dhalf && Q.isOdd()) Q' = Q +1
+            cmp = R.cmp(dhalf);
+            if (cmp == MP_GT) {
+                Q.incr();
+            }
+            if (cmp == MP_EQ) {
+                if (Q.isOdd()) {
+                    Q.incr();
+                }
+            }
+            /*
+                Other rounding modes may need information about the
+                sign, too.
+             */
+            // Q' might got too large and is > work-precision now
+            // if that is the case set numerator = numerator/2
+            // and s = s + 1, then goto LOOP
+            if ((Q.highBit() + 1) > prec) {
+                num.rShiftInplace(1);
+                S++;
+                continue;
+            }
+            // else break out of the loop if one was used instead of
+            // a goto
+            break;
+        } while (true);
+        return [Q, S];
+    };
+
+
     var log210 = parseFloat("3.321928094887362347870319429489390175865");
 
     // TODO: checks  & balances
     if (bigfloat_const_ln2 == null || bigfloat_const_ln2_precision == 0) {
-        var tmp = constlog2(precision + 3);
+        // enough fodder for at least one limp more;
+        var tmp = constlog2(precision);
         var tmplen = tmp.highBit() + 1;
-        // we do have a big integer now (changing the algorithm to use
-        // Bigfloats caused too much rounding errors), so make a
-        // float out of it by doubling the length (shift left) and
-        // divide by ten to the power of the number of decimal digits
         log210 = Math.floor((tmp.highBit() + 1) / log210);
         var ten = new Bigint(10);
-        ten = ten.pow(log210 + 1);
-        tmp.lShiftInplace(tmp.highBit() + 1);
-        tmp = tmp.div(ten);
-        r.mantissa = tmp;
-        r.exponent = -tmplen;
+        ten = ten.pow(tmp.digits());
+        var tenlen = ten.highBit() + 1;
+        var s = tmplen - tenlen;
+        tmp.lShiftInplace(r.precision - s);
+        var fraction = roundFraction(tmp, ten, s, r.precision);
+        var exponent = -(r.precision - fraction[1]);
+        r.mantissa = fraction[0];
+        r.exponent = exponent;
         r.normalize();
-
         bigfloat_const_ln2 = r;
         bigfloat_const_ln2_precision = r.precision;
         return r;
