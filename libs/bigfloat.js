@@ -2177,29 +2177,36 @@ Bigfloat.prototype.log = function() {
     var x0, n = 2,
         diff, to, t, argred, xc;
     var oldeps = epsilon();
-    if(this.isZero()){
+    if (this.isZero()) {
         throw new RangeError("argument to Bigfloat.log is zero");
     }
-    if(this.isInf()){
+    if (this.isInf()) {
         return (new Bigfloat()).setInf();
     }
-    if(this.sign == MP_NEG ){
-        // TODO: send to Complex instead
+    if (this.sign == MP_NEG) {
+        // TODO: send to Complex
         throw new RangeError("argument to Bigfloat.log is negativ");
     }
-    // a bit of extra precision, mostly for the argument reduction
+
     epsilon(oldeps + 3);
+    // seems small but more will need more guard bits, too
+    var ar = 4096;
     // argument reduction
-    argred = (256).toBigfloat();
+    argred = ar.toBigfloat();
+
     eps = argred.EPS();
     x = this.copy();
     // use the fraction part which is guaranteed to be < 1
     f = x.frexp();
     x = f[0];
     // log(x^n) = n log(x)
+    /*
+    // for ar = 256
     for (var k = 0; k < 8; k++) {
         x = x.sqrt();
     }
+    */
+    x = x.nthroot(ar);
     x = x.sub(new Bigfloat(1));
     xc = x.copy();
     ret = x.copy();
@@ -2226,7 +2233,6 @@ Bigfloat.prototype.log = function() {
     ret.normalize();
     return ret;
 };
-
 /**
    Logarithm base e (log(x)) of this Bigfloat<br>
    Algorithm based on x(n+1) = xn - 1 + A/exp(xn)
