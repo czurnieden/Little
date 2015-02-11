@@ -398,12 +398,10 @@ Bigfloat.prototype.constlog2 = function(i) {
         // divide by ten to the power of the number of decimal digits
         log210 = Math.floor((tmp.highBit() + 1) / log210);
         var ten = new Bigint(10);
-        ten = ten.pow(log210);
+        ten = ten.pow(log210 + 1);
         tmp.lShiftInplace(tmp.highBit() + 1);
         tmp = tmp.div(ten);
         r.mantissa = tmp;
-        // new exponent is just the length of the bigint in bits, let
-        // normalize() do all the hard work.
         r.exponent = -tmplen;
         r.normalize();
 
@@ -2461,8 +2459,7 @@ Bigfloat.prototype.nthroot = function(b) {
             break;
         }
         if (i-- == 0) {
-            throw new Inexact("Max. rounds reached in Bigfloat.nthroot")
-            break;
+            throw new Inexact("Max. rounds reached in Bigfloat.nthroot");
         }
     } while (t2.cmp(x0) != MP_EQ);
 
