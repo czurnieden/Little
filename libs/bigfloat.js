@@ -350,7 +350,7 @@ var bigfloat_const_ln2_precision = 0;
 Bigfloat.prototype.constlog2 = function(i) {
     var precision = epsilon();
     var r = new Bigfloat();
-    // Hypergeometric series. Idea and some code shamelessly stolen from 
+    // Hypergeometric series. Idea and some code shamelessly stolen from
     // http://numbers.computation.free.fr/Constants/TinyPrograms/OnlineConstants.html
     // Paper: http://numbers.computation.free.fr/Constants/Log2/log2.ps, sec. 6 cor. 13
     var constlog2 = function(n) {
@@ -440,15 +440,13 @@ Bigfloat.prototype.constlog2 = function(i) {
         return [Q, S];
     };
 
-
-    var log210 = parseFloat("3.321928094887362347870319429489390175865");
-
     // TODO: checks  & balances
     if (bigfloat_const_ln2 == null || bigfloat_const_ln2_precision == 0) {
         // enough fodder for at least one limp more;
-        var tmp = constlog2(precision);
+        var tmp = constlog2(precision + 10);
+        // for comments see strtof because we are doing basically the same
+        // without the string parsing.
         var tmplen = tmp.highBit() + 1;
-        log210 = Math.floor((tmp.highBit() + 1) / log210);
         var ten = new Bigint(10);
         ten = ten.pow(tmp.digits());
         var tenlen = ten.highBit() + 1;
@@ -458,6 +456,7 @@ Bigfloat.prototype.constlog2 = function(i) {
         var exponent = -(r.precision - fraction[1]);
         r.mantissa = fraction[0];
         r.exponent = exponent;
+        // it should be normal at this state--just in case
         r.normalize();
         bigfloat_const_ln2 = r;
         bigfloat_const_ln2_precision = r.precision;
@@ -485,21 +484,13 @@ var BIGFLOAT_PI = -1;
 */
 var BIGFLOAT_PI_PRECISION = -1;
 
-// Pi by the AGM (Brent-Salamin)
-// This algorithm is shamelessly stolen from
-// http://numbers.computation.free.fr/Constants/Pi/piAGM.html
-// Webpage by Xavier Gourdon and Pascal Sebah
-// It is not recommended to compute a million digits of pi with
-// this function (1,000 digits needs a couple of seconds)--but
-// you could.
-
 /**
    Pi by the AGM (Brent-Salamin)
    This algorithm is shamelessly stolen from
    {ælink http://numbers.computation.free.fr/Constants/Pi/piAGM.html }
    (Webpage by Xavier Gourdon and Pascal Sebah)<br>
    It is not recommended to compute a million digits of pi with
-   this function (1,000 digits needs a couple of seconds)--but
+   this function (1,000 digits need a couple of seconds already)--but
    you could.
    @return {Bigfloat} pi in current precision
 */
@@ -2036,106 +2027,124 @@ Bigfloat.prototype.rem = function(bf) {
    @return {Bigfloat}
 */
 Bigfloat.prototype.inv = function() {
-    var ret, x0, xn, hn, A, inval, oldprec, one, nloops, eps,diff;
+    var ret, x0, xn, hn, A, inval, oldprec, one, nloops, eps, diff, exp;
+
     // compute initial value x0 = 1/A
-    inval = this.toNumber();
-    inval = Math.abs(inval);
-    if(inval == 0){
-       inval = 0.000000000000001;
+    if (this.isDouble()) {
+        inval = this.toNumber();
+        inval = Math.abs(inval);
+        if (inval == 0) {
+            inval = 0.000000000000001;
+        }
+        inval = (1 / inval).toBigfloat();
+    } else {
+        var f = this.frexp();
+        inval = (1 / f[0].toNumber()).toBigfloat();
+        f[1] = -f[1];
+        inval = inval.ldexp(f[1]);
     }
-    inval = 1 / inval;
-    oldprec = this.precision;
-    // number of loops:
-    // quadratic, so every round doubles the number of correct digits
-    // TODO: this is the function for decimal digits, need a different one here
-    // NOTE: maximum #rounds is log_2(precision)
-    var maxrounds = oldprec.highBit() + 1;
+    oldprec = epsilon();
+    epsilon(oldprec + 3);
+    inval.normalize();
+    // make it deterministic
+    var maxrounds = getPrecision() + 1;
     nloops = 0;
-    setPrecision(oldprec + 3);
-    xn = inval.toBigfloat();
-    eps = xn.EPS();
-    // x0 = xn.copy();
+
+    xn = inval;
     one = new Bigfloat(1);
     A = this.abs();
+    A.normalize();
     // xn = 2*xn-A*xn^2 normally but here we do something different:
     // hn =  1-A*xn
     // x(n+1) = xn + xn*hn.
     do {
         x0 = xn.copy();
         hn = one.sub(A.mul(xn));
+        if (hn.isEPSZero()) {
+            break;
+        }
         xn = xn.add(xn.mul(hn));
         nloops++;
-        if(nloops >= maxrounds){
-           break;
+        if (nloops >= maxrounds) {
+            // it might be a bug elsewhere, please report
+            throw new Inexact("Bigfloat.inv does not converge");
         }
-        diff = x0.sub(xn).abs();
-        if(diff.isZero()){
-           break;
-        }
-    }while(diff.cmp(eps) == MP_GT);
-    // we are probably (hopefuly) too high
-    setPrecision(oldprec);
+    } while (x0.cmp(xn) != MP_EQ);
+    epsilon(oldprec);
     xn.normalize();
-    // set sign
+    // don't forget the sign
     xn.sign = this.sign;
     xn.mantissa.sign = this.sign;
     return xn;
 };
+
 /**
    Compute square root (x^(1/2)) of this Bigfloat
    @return {Bigfloat}
 */
 Bigfloat.prototype.sqrt = function() {
     var ret, x0, xn, hn, A, sqrtval, oldprec, one, two, nloops, diff;
-    var eps;
+    var eps, f;
     if (this.sign == MP_NEG) {
         return (new Bigfloat()).setNaN();
     }
+
+    oldprec = epsilon();
+    epsilon(oldprec + 3);
+    xn = this.copy();
+
     // compute initial value x0 = 1/sqrt(A)
-    sqrtval = this.toNumber();
-    if (sqrtval == 1) {
-        if (Math.abs(this.exponent) >= 104) {
-            sqrtval = 1.00000000000001;
-        } else {
-            sqrtval = 0.99999999999999;
+    if (xn.isDouble()) {
+        sqrtval = this.toNumber();
+        if (sqrtval == 1) {
+            if (Math.abs(xn.exponent) >= 104) {
+                sqrtval = 1.00000000000001;
+            } else {
+                sqrtval = 0.99999999999999;
+            }
         }
+        sqrtval = 1 / Math.sqrt(sqrtval);
+        sqrtval = sqrtval.toBigfloat();
+    } else {
+        f = xn.frexp();
+        sqrtval = (Math.sqrt(f[0].toNumber())).toBigfloat();
+        f[1] = f[1] >> 1;
+        sqrtval = sqrtval.ldexp(f[1]).inv();
     }
-    sqrtval = 1 / Math.sqrt(sqrtval);
-    oldprec = this.precision;
-    eps = this.EPS();
-    // see Bigfloat.inv() for problems with this approach
-    var maxrounds = oldprec.highBit() + 1;
+
+    // make it deterministic
+    var maxrounds = getPrecision() + 1;
     nloops = 0;
-    setPrecision(oldprec + 3);
-    xn = sqrtval.toBigfloat();
-    // x0 = xn.copy();
+
+    xn = sqrtval;
     one = new Bigfloat(1);
     two = new Bigfloat(2);
     two = two.inv();
     A = this.abs();
+    A.normalize();
     // inverse sqrt
     // hn = 1-A*xn^2
     // x(n+1) = xn + xn/2 * hn.
     do {
         x0 = xn.copy();
         hn = one.sub(A.mul(xn.sqr()));
+        if (hn.isEPSZero()) {
+            break;
+        }
         xn = xn.add(xn.mul(two).mul(hn));
         nloops++;
         if (nloops >= maxrounds) {
-            break;
+            // it might be a bug elsewhere, please report
+            throw new Inexact("Bigfloat.sqrt does not converge");
         }
-        diff = x0.sub(xn).abs();
-        if (diff.isZero()) {
-            break;
-        }
-    } while (diff.cmp(eps) == MP_GT);
-    // we are probably (hopefuly) too high
-    setPrecision(oldprec);
-    xn.normalize();
+    } while (x0.cmp(xn) != MP_EQ);
     // sqrt(A) = 1/sqrt(A) * A
     xn = xn.mul(A);
+    epsilon(oldprec);
+    xn.normalize();
     return xn;
 };
+
 /**
    Exponentiate (x^e) this Bigfloat
    @return {Bigfloat}
