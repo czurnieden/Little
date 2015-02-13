@@ -29,14 +29,14 @@
 
 // in bits, default is 104 bits (not a double-double that would be more)
 /**
-   Default precision in bits. Default value is the bit-size of two limbs of
+   Default precision in bits. Default value is the bit-size of four limbs of
    Bigint.
    @const {number}
    @default
 */
 var MPF_PRECISION = MP_DIGIT_BIT * 4;
 /**
-   Default precision in decimal. Default value is the bit-size of two limbs of
+   Default precision in decimal. Default value is the bit-size of four limbs of
    Bigint.
    @const {number}
    @default
@@ -45,7 +45,7 @@ var MPF_PRECISION = MP_DIGIT_BIT * 4;
 
 // it is also the minimum
 /**
-   Default minimum precision in bits. Default value is the bit-size of two limbs of
+   Default minimum precision in bits. Default value is the bit-size of four limbs of
    Bigint.
    @const {number}
    @default
@@ -1401,7 +1401,7 @@ Bigfloat.prototype.toString = function(numbase) {
     var decprec = this.getDecimalPrecision();
     var exponent = this.exponent;
     var signexpo = (this.exponent < 0) ? "-" : "";
-    var decexpo;
+    var decexpo, digits;
     var ten = new Bigint(10);
     var one = new Bigint(1);
 
@@ -1412,17 +1412,28 @@ Bigfloat.prototype.toString = function(numbase) {
     // we could use the sign of the mantissa directly but that might
     // not be the correct one.
     ret = this.mantissa.abs();
-
     // if exponent >= 0 shift left by exponent
     if (exponent >= 0) {
         // lShiftInplace() does nothing if exponent is zero, no check needed.
         ret.lShiftInplace(exponent);
+        digits = ret.digits();
+        // use Bigfloat directly at about 1,000 decimal digits and up
+        if (Math.abs(exponent) > 3330) {
+            ret = ret.toBigfloat();
+            ten = new Bigfloat(10);
+            ten = ten.pow(digits - decprec);
+            ten = ret.div(ten);
+            ret = ten.mantissa.abs().lShift(ten.exponent);
+        } else {
+            // The Bigint.toString is so slow, even a large division helps
+            ret = ret.div(ten.pow(digits - decprec));
+        }
         if (ret.isZero()) {
             ret = "00";
         } else {
-            ret = ret.toString();
+            ret = ret.toString(10);
         }
-        decexpo = ret.length - 1;
+        decexpo = digits - 1;
         signexpo = "";
     } else {
         // multiply by 10^(toDec(this.precision)) and divide by 2^exponent
@@ -1432,31 +1443,41 @@ Bigfloat.prototype.toString = function(numbase) {
         // What can be done is checking the remainder in the division below--
         // if it is zero it is an integer for all intent and purposes
         decexpo = Math.floor(Math.abs(this.exponent) / log210);
-        // scale
-        ret = ret.mul(ten.pow(decexpo));
-        // convert
-        one.lShiftInplace(Math.abs(exponent));
-        ret = ret.div(one);
-        // TODO: needs some rounding here, too, or some guard digits in general
-        // NOTE: general guard  digits are better--in general. I think.
-        var mod100 = ret.divremInt(100)[1];
-        var mod10 = mod100 % 10;
-        if (mod10 > 5) {
-            ret = ret.addInt(10 - mod10);
-        } else if (mod10 == 5) {
-            mod100 = Math.floor(mod100 / 10) % 10;
-            if (mod100 & 1 == 1) {
+        // as above: use Bigfloat directly at about 1,000 decimal digits and up
+        if (Math.abs(exponent) > 3330) {
+            ten = new Bigfloat(10);
+            ret = this.mul(ten.pow(decexpo));
+            ret = ret.mantissa.abs().lShift(ret.exponent);
+            digits = decprec;
+        } else {
+            // scale        
+            ret = ret.mul(ten.pow(decexpo));
+            // convert
+            one.lShiftInplace(Math.abs(exponent));
+            ret = ret.div(one);
+            // etxra rounding here, the Bigfloat version above does it
+            // internally
+            var mod100 = ret.divremInt(100)[1];
+            var mod10 = mod100 % 10;
+            if (mod10 > 5) {
                 ret = ret.addInt(10 - mod10);
+            } else if (mod10 == 5) {
+                mod100 = Math.floor(mod100 / 10) % 10;
+                if (mod100 & 1 == 1) {
+                    ret = ret.addInt(10 - mod10);
+                }
             }
+
         }
         if (ret.isZero()) {
             ret = "00";
         } else {
-            ret = ret.toString();
+            ret = ret.toString(10);
         }
+        digits = ret.length;
         // rounding might have added a digit (e.g.: 0.999... <> 1.000...)
         // so calculate the decimal exponent accordingly
-        if (ret.length > decprec) {
+        if (digits > decprec) {
             decexpo = decprec - decexpo;
         } else {
             decexpo = decprec - decexpo - 1;
@@ -2158,13 +2179,10 @@ Bigfloat.prototype.exp = function() {
     }
     // TODO: check if size of input is too large
 
-
-
-    oldprec = getPrecision();
-    //var extra = Math.floor(oldprec / 100) * 5  + 3;
-
+    oldprec = epsilon();
+    var extra =  Math.floor(oldprec / 100) * 20  + 3;
     // TODO: compute number of guard digits more precisely
-    setPrecision(oldprec + 30 );
+    epsilon(oldprec + extra)
 
     if (this.sign == MP_NEG) {
         sign = MP_NEG;
@@ -2177,24 +2195,27 @@ Bigfloat.prototype.exp = function() {
     var eps = ret.EPS();
     to = new Bigfloat(1);
     tx = new Bigfloat(1);
+  
     n = 1;
 
     // NOTE: calculate a bit more precisely
-    i = Math.floor(this.precision / 3.32) + 10;
+    i = epsilon() + 10;
     // argument reduction by 1/2^m
     one = new Bigint(1);
     two = new Bigfloat(2);
     // TODO: calculate according to size of input
-    // High is good for large input size bit if the input
+    // High is good for large input size but if the input
     // is already small it is quite a waste
-    m = 32;
+    m = 64;
     one.lShiftInplace(m);
     one = one.toBigfloat();
     one = one.inv();
     nt = nt.mul(one);
+
     do {
         x0 = ret.copy();
         t = new Bigfloat(n++);
+
         t = t.inv();
         to = t.mul(to);
         tx = tx.mul(nt);
@@ -2207,7 +2228,7 @@ Bigfloat.prototype.exp = function() {
         if(diff.isZero()){
            break;
         }
-    } while (diff.cmp(eps) == MP_GT);
+    } while (diff.cmp(eps) != MP_LT);
     // we used the standard series to compute exp(z/2^m) + 1
     one = new Bigfloat(1);
     ret = ret.sub(one);
@@ -2223,7 +2244,7 @@ Bigfloat.prototype.exp = function() {
     if (sign == MP_NEG) {
         ret = ret.inv();
     }
-    setPrecision(oldprec);
+    epsilon(oldprec);
     ret.normalize();
     return ret;
 };
