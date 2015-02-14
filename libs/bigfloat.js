@@ -1404,10 +1404,13 @@ Bigfloat.prototype.toString = function(numbase) {
     var decexpo, digits;
     var ten = new Bigint(10);
     var one = new Bigint(1);
+    var oldeps = epsilon();
 
     if (this.isZero()) {
         return sign + "0.0E0";
     }
+
+    epsilon(oldeps + 10);
 
     // we could use the sign of the mantissa directly but that might
     // not be the correct one.
@@ -1450,7 +1453,7 @@ Bigfloat.prototype.toString = function(numbase) {
             ret = ret.mantissa.abs().lShift(ret.exponent);
             digits = decprec;
         } else {
-            // scale        
+            // scale
             ret = ret.mul(ten.pow(decexpo));
             // convert
             one.lShiftInplace(Math.abs(exponent));
@@ -1492,6 +1495,7 @@ Bigfloat.prototype.toString = function(numbase) {
     }
     ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "e" +
         signexpo + Math.abs(decexpo).toString();
+    epsilon(oldeps);
     return ret;
 };
 /**
@@ -2182,7 +2186,7 @@ Bigfloat.prototype.exp = function() {
     oldprec = epsilon();
     var extra =  Math.floor(oldprec / 100) * 20  + 3;
     // TODO: compute number of guard digits more precisely
-    epsilon(oldprec + extra)
+    epsilon(oldprec + extra);
 
     if (this.sign == MP_NEG) {
         sign = MP_NEG;
@@ -2195,7 +2199,7 @@ Bigfloat.prototype.exp = function() {
     var eps = ret.EPS();
     to = new Bigfloat(1);
     tx = new Bigfloat(1);
-  
+
     n = 1;
 
     // NOTE: calculate a bit more precisely
