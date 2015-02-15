@@ -1386,7 +1386,7 @@ String.prototype.toBigfloat = function(numbase) {
     var parsedString;
     var ret;
     // TODO: compute limit more precisely
-    if(this.length > 100){
+    if(this.length > 300  && this.length > epsilon() ){
         return this.toBigfloatFast();
     }
     parsedString = parseNumber(this);
@@ -1401,20 +1401,26 @@ String.prototype.toBigfloat = function(numbase) {
     ret.normalize();
     return ret;
 };
-
+/**
+  Converts a String to a Bigfloat. Rounding mode is restricted to half-to-even
+  for now. String must be clean: no whitespace around, no thousand-separator
+  inside, only ASCII characters.
+  @function external:String#toBigfloat
+  @param {number} base of the input string (only base 10 for now)
+  @return {Bigfloat}
+  @private
+*/
 String.prototype.toBigfloatFast = function(base) {
     var ten, a, b, len, k, e, c, str, digit, decimal, expo,
         asign, exposign, ret, fdigs, oldeps, table, limit, bigbase;
     oldeps = epsilon();
-    // TODO: may not be enough for very large exponents,
-    //       so: compute necessary precision more precisely
     epsilon(oldeps + 10);
     ten = new Bigfloat(10);
     a = new Bigfloat(0);
     b = new Bigfloat(1);
     len = this.length;
     decimal = -1;
-    // flag gets set if an exponent exists
+    // flag gets set if we have an exponent
     expo = undefined;
     // sign of significant
     asign = 0;
@@ -1422,9 +1428,9 @@ String.prototype.toBigfloatFast = function(base) {
     exposign = 0;
     // number of digits in fraction part
     fdigs = 0;
-    // limit for very long input
+    // limit for very long integer input
     limit = epsilon() + 3;
-    // map character to value
+
     table = [
        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
@@ -1438,7 +1444,7 @@ String.prototype.toBigfloatFast = function(base) {
         126,-1,-1,-1,-1,-1,-1, 10, 11, 12, //  126 = uppercase "p"
         13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
         23, 24, 126,-1,-1,-1,-1,-1,-1,-1, //  126 = lowercase "p"
-       -1,-1,-1,-1,-1,-1,-1, -1
+       -1,-1,-1,-1,-1,-1,-1, -1    
     ];
 
     str = this;
@@ -1451,43 +1457,84 @@ String.prototype.toBigfloatFast = function(base) {
 
     // max. base is 24 because of the character "p" used
     // for the exponent mark
+    if (base < 2 || base > 23) {
+        epsilon(oldeps);
+        throw new RangeError("Base out of range in String.toBigfloat");
+    }
 
     // base is restricted to ten for now
     base = 10;
     bigbase = base.toBigfloat();
-    // useful for higher bases
-    // str = str.toLowerCase();
+    k = 0;
+    if (str.charAt(k) == "+" || str.charAt(k) == "-") {
+        asign = (str.charAt(k) == "-") ? -1 : 1;
+        k++;
+    }
+
+    // TODO: check other other bases here
+
+    while (k < len && str.charAt(k) == "0") {
+        k++;
+    }
+
+    if (k == len) {
+        epsilon(oldeps);
+        return new Bigfloat();
+    }
+    // set pointer to new beginning
+    if (k != 0) {
+        str = str.substr(k, len);
+        len = str.length;
+    }
+    // check if we have an exponent
+    for (k = 0; k < len; k++) {
+        c = table[str.charCodeAt(k) & 0xff];
+        if (c == 14 || c == 126) {
+            expo = str.substr(k + 1, len);
+            expo = parseInt(expo, 10);
+            str = str.substr(0, k);
+            len = k;
+            break;
+        }
+    }
+    k = len;
+    // strip leading zeros if we have a decimal point
+    if (str.indexOf(".") >= 0) {
+        while (len > 0 && str.charAt(len - 1) == "0") {
+            len--;
+        }
+    }
+    if (len != k) {
+        str = str.substr(0, len);
+        len = str.length;
+    }
+    if (len == 0) {
+        epsilon(oldeps);
+        return new Bigfloat();
+    }
+    if (len == 1 && str.charAt(0) == ".") {
+        epsilon(oldeps);
+        return new Bigfloat();
+    }
+
     for (k = 0; k < len; k++) {
         if (k == limit) {
-            //break;
+            break;
         }
         // ignore unicode
         c = str.charCodeAt(k) & 0xff;
         c = table[c];
         if (c < 0) {
+            epsilon(oldeps);
             throw new RangeError("Unknown character in String.toBigfloat");
         }
         switch (c) {
             case 123: // plus sign ("+")
             case 124: // minus sign ("-")
-                if (typeof expo === "undefined") {
-                    if (asign != 0) {
-                        throw new RangeError(
-                            "Second decimal sign found in String.toBigfloat"
-                        );
-                    } else {
-                        asign = (c == 124) ? -1 : 1;
-                    }
-                } else {
-                    if (exposign != 0) {
-                        throw new RangeError(
-                            "Second exponent sign found in String.toBigfloat"
-                        );
-                    } else {
-                        exposign = (c == 124) ? -1 : 1;
-                    }
-                }
-                break;
+                epsilon(oldeps);
+                throw new RangeError(
+                    "Second sign found in String.toBigfloat");
+                //console.log("sign = " + String.fromCharCode(c + 48))
             case 0:
             case 1:
             case 2:
@@ -1498,45 +1545,43 @@ String.prototype.toBigfloatFast = function(base) {
             case 7:
             case 8:
             case 9:
-                if (typeof expo === "undefined") {
-                    // TODO: cache it?
-                    digit = new Bigfloat(c);
-                    a = a.mul(bigbase).add(digit);
-                    if (decimal != -1) {
-                        fdigs++;
-                    }
-                } else {
-                    // only exponents in base ten allowed
-                    expo = expo * 10 + c;
+                // TODO: cache it?
+                digit = new Bigfloat(c);
+                a = a.mul(bigbase).add(digit);
+                if (decimal != -1) {
+                    fdigs++;
                 }
                 break;
             case 125: // decimal mark ('.')
                 if (decimal != -1) {
+                    epsilon(oldeps);
                     throw new RangeError(
                         "Second decimal mark found in String.toBigfloat"
                     );
                 }
                 decimal = k;
+                // we want as much from the fraction as needed
+                // but not more
+                limit += k;
+                //console.log("decimal point at " + k)
                 break;
             case 14: // exponent mark ('e')
-                if (typeof expo !== "undefined") {
-                    throw new RangeError(
-                        "Second exponent mark found in String.toBigfloat"
-                    );
-                }
-                expo = 0;
-
-                break;
+                epsilon(oldeps);
+                throw new RangeError(
+                    "Second exponent mark found in String.toBigfloat");
             default:
+                epsilon(oldeps);
                 throw new RangeError(
                     "Unknown character in String.toBigfloat " + str.charAt(k));
         }
     }
     ret = a;
     if (ret.isZero()) {
+        epsilon(oldeps);
         return ret;
     }
-    if (limit < len) {
+    // limits needs extra massage for integers only
+    if (limit < len && decimal == -1) {
         b = bigbase.pow(len - limit);
         ret = ret.mul(b);
     }
@@ -1558,7 +1603,6 @@ String.prototype.toBigfloatFast = function(base) {
     ret.normalize();
     return ret;
 };
-
 /**
    Convert a Bigfloat to a String
    @param {number} base of output (only base 10 for now)
@@ -1572,8 +1616,8 @@ Bigfloat.prototype.toString = function(numbase) {
     var exponent = this.exponent;
     var signexpo = (this.exponent < 0) ? "-" : "";
     var decexpo, digits;
-    var ten = new Bigint(10);
-    var one = new Bigint(1);
+    var ten;
+    var one;
     var oldeps = epsilon();
 
     if (this.isZero()) {
@@ -1581,6 +1625,8 @@ Bigfloat.prototype.toString = function(numbase) {
     }
 
     epsilon(oldeps + 10);
+    ten = new Bigint(10);
+    one = new Bigint(1);
 
     // we could use the sign of the mantissa directly but that might
     // not be the correct one.
@@ -1628,8 +1674,8 @@ Bigfloat.prototype.toString = function(numbase) {
             // convert
             one.lShiftInplace(Math.abs(exponent));
             ret = ret.div(one);
-            // etxra rounding here, the Bigfloat version above does it
-            // internally
+            // guard digits make rounding obsolete
+            /*
             var mod100 = ret.divremInt(100)[1];
             var mod10 = mod100 % 10;
             if (mod10 > 5) {
@@ -1640,6 +1686,7 @@ Bigfloat.prototype.toString = function(numbase) {
                     ret = ret.addInt(10 - mod10);
                 }
             }
+            */
 
         }
         if (ret.isZero()) {
