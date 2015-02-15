@@ -1406,7 +1406,7 @@ String.prototype.toBigfloatFast = function(base) {
     var ten, a, b, len, k, e, c, str, digit, decimal, expo,
         asign, exposign, ret, fdigs, oldeps, table, limit, bigbase;
     oldeps = epsilon();
-    // TODO: may not beenough for very large exponents,
+    // TODO: may not be enough for very large exponents,
     //       so: compute necessary precision more precisely
     epsilon(oldeps + 10);
     ten = new Bigfloat(10);
@@ -1426,20 +1426,19 @@ String.prototype.toBigfloatFast = function(base) {
     limit = epsilon() + 3;
     // map character to value
     table = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 123, 0, 124, 125, 0, 0, 1, // 123 = "+", 124 = "-", 125 = "."
-        2, 3, 4, 5, 6, 7, 8, 9, 0, 0,
-        0, 0, 0, 0, 0, 10, 11, 12, 13, 14,
+       -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+       -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+       -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+       -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+       -1,-1,-1, 123,-1, 124, 125,-1, 0, 1, // 123 = "+", 124 = "-", 125 = "."
+        2, 3, 4, 5, 6, 7, 8, 9,-1,-1,
+       -1,-1,-1,-1,-1, 10, 11, 12, 13, 14,
         15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        126, 0, 0, 0, 0, 0, 0, 10, 11, 12, //  126 = uppercase "p"
+       -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+        126,-1,-1,-1,-1,-1,-1, 10, 11, 12, //  126 = uppercase "p"
         13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-        23, 24, 126, 0, 0, 0, 0, 0, 0, 0, //  126 = lowercase "p"
-        0, 0, 0, 0, 0, 0, 0, 0
-
+        23, 24, 126,-1,-1,-1,-1,-1,-1,-1, //  126 = lowercase "p"
+       -1,-1,-1,-1,-1,-1,-1, -1
     ];
 
     str = this;
@@ -1460,7 +1459,7 @@ String.prototype.toBigfloatFast = function(base) {
     // str = str.toLowerCase();
     for (k = 0; k < len; k++) {
         if (k == limit) {
-            break;
+            //break;
         }
         // ignore unicode
         c = str.charCodeAt(k) & 0xff;
@@ -2042,7 +2041,7 @@ Bigfloat.prototype.cmp = function(bf) {
    @return {Bigfloat}
 */
 Bigfloat.prototype.add = function(bf) {
-    var tmp, other;
+    var tmp, b, other;
     var diff;
     var ret;
 
@@ -2051,15 +2050,12 @@ Bigfloat.prototype.add = function(bf) {
     }
 
     if (this.isZero()) {
-        tmp = bf.copy();
-        tmp.normalize();
-        return tmp;
+        return bf.copy();
     }
     if (bf.isZero()) {
-        tmp = this.copy();
-        tmp.normalize();
-        return tmp;
+        return this.copy();
     }
+    
     if (this.exponent < bf.exponent) {
         /* tmp == a normalize to b's exp */
         tmp = this.copy();
@@ -2110,21 +2106,18 @@ Bigfloat.prototype.sub = function(bf) {
     }
 
     if (this.isZero()) {
-        tmp = bf.neg();
-        tmp.normalize();
-        return tmp;
+        return bf.neg();
     }
     if (bf.isZero()) {
-        tmp = this.copy();
-        tmp.normalize();
-        return tmp;
+        return this.copy();
     }
+
     if (this.exponent < bf.exponent) {
         /* tmp == a normalize to b's exp */
         tmp = this.copy();
         /* now make tmp.exp == b.exp by dividing tmp by 2^(b.exp - tmp.exp) */
         diff = bf.exponent - tmp.exponent;
-        tmp.exp = bf.exponent;
+        tmp.exponent = bf.exponent;
         tmp.mantissa.rShiftInplace(diff);
         ret.mantissa = tmp.mantissa.sub(bf.mantissa);
         ret.exponent = bf.exponent;
@@ -2132,7 +2125,7 @@ Bigfloat.prototype.sub = function(bf) {
         /* tmp == b normalize to a's radix */
         tmp = bf.copy();
         diff = this.exponent - tmp.exponent;
-        tmp.exp = this.exponent;
+        tmp.exponent = this.exponent;
         /* now make tmp.exp == a.exp by dividing tmp by 2^(a.exp - tmp.exp) */
         tmp.mantissa.rShiftInplace(diff);
         ret.mantissa = this.mantissa.sub(tmp.mantissa);
