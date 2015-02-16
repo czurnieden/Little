@@ -1674,7 +1674,14 @@ Bigfloat.prototype.toString = function(numbase) {
             // convert
             one.lShiftInplace(Math.abs(exponent));
             ret = ret.div(one);
-            // guard digits make rounding obsolete
+            // guard digits make rounding obsolete?
+            // This would round trailing nines up: 0.123999... -> 0.124
+            // Problem: does not reflect internal representation!
+            /*
+            if(ret.dp[0]&1 == 1){
+                ret.incr();
+            }
+             */
             /*
             var mod100 = ret.divremInt(100)[1];
             var mod10 = mod100 % 10;
@@ -1800,6 +1807,21 @@ Bigfloat.prototype.isEPSZero = function() {
     }
     return MP_NO;
 };
+
+/**
+   Argument of <code>this</code>
+   @return {Bigfloat} the argument
+*/
+Bigfloat.prototype.arg = function(){
+    if(this.isZero()){
+        throw  new RangeError("Argument is zero in Bigfloat.arg");
+    } else if(this.sign == MP_NEG){
+        return this.pi();
+    } else {
+        return new Bigfloat();
+    }
+};
+
 // calls normalize() at the end, usable to change prec. temporary
 /**
    Deep copy of a Bigfloat. Calls normalize() at the end, which is for example
@@ -3492,7 +3514,8 @@ Bigfloat.prototype.atanh = function() {
 
    Darko Veberic "Having Fun with Lambert W(x) Function", CoRR, 2010
    {@link http://arxiv.org/abs/1003.1628} with Halley's iteration instead
-   of Fritsch's (for now);
+   of Fritsch's (for now).<br>
+   This function is slow but usable.
 
    @param {number} branch the branch. must be either 0 or -1
    @return {Bigfloat}
