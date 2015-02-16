@@ -3487,5 +3487,226 @@ Bigfloat.prototype.atanh = function() {
     ret.normalize();
     return ret;
 };
+/**
+   The Lambert-W function (aka. ProductLog) for real results.
+   @param {number} branch the branch. must be either 0 or -1
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.lambertw = function(branch) {
+    var ONE;
+    var TWO;
+    var k = branch || 0;
+    var w, wn, i, z, ret, oldeps, eps, branchpoint, numx, negone, t1, t2;
 
+    var lambertw_series = function(x) {
+        var b = [
+            -1,
+            1,
+            -1 / 3,
+            11 / 72,
+            -43 / 540,
+            769 / 17280,
+            -221 / 8505,
+            680863 / 43545600,
+            -1963 / 204120,
+            226287557 / 37623398400,
+            -5776369 / 1515591000,
+            169709463197 / 69528040243200,
+            -1118511313 / 709296588000,
+            667874164916771 / 650782456676352000,
+            -500525573 / 744761417400,
+            103663334225097487 / 234281684403486720000,
+            -466901817532379 / 1595278956070800000,
+            21235294185086305043 / 109242202556140093440000,
+            -106040742894306601 / 818378104464320400000,
+            1150497127780071399782389 / 13277465363600276402995200000
+        ];
+        var y = Math.sqrt(2 * Math.exp(1) * x + 1) * x.sign();
+        var blen = b.length;
+        var ret = b[blen - 1];
+        for (var i = b.length - 2; i >= 0; i--) {
+            ret = ret * y + b[i];
+        }
+        return ret.toBigfloat();
+    };
+    var lambertw_asymp = function(x, br) {
+        var ret, a, b;
+        if (br == 0) {
+            a = Math.log(x);
+            b = Math.log(a);
+        } else {
+            a = Math.log(-x);
+            b = Math.log(-a);
+        }
+        ret = a - b 
+              + b / a 
+              + (b * (-2 + b)) / (2*a*a) 
+              + (b * (6 - 9*b + 2*b*b)) / (6*a*a*a)
+              + (b * (-12 + 36*b - 22*b*b + 3*b*b*b)) / (12*a*a*a*a) 
+              + (b * (60 - 300*b + 350*b*b - 125*b*b*b + 12*b*b*b*b))
+                                                              / (60*a*a*a*a*a);
 
+        return ret.toBigfloat();
+    };
+    var lambertw_Q01 = function(x) {
+        var ret, a, b, num, den;
+        a = [
+            5.931375839364438,
+            11.39220550532913,
+            7.33888339911111,
+            0.653449016991959
+        ];
+        b = [
+            6.931373689597704,
+            16.82349461388016,
+            16.43072324143226,
+            5.115235195211697
+        ];
+        num = 1 + a[0]*x + a[1]*x*x + a[2]*x*x*x + a[3]*x*x*x*x;
+        den = 1 + b[0]*x + b[1]*x*x + b[2]*x*x*x + b[3]*x*x*x*x;
+        ret = x * num / den;
+        return ret.toBigfloat();
+    };
+    var lambertw_Q02 = function(x) {
+        var ret, a, b, num, den;
+        a = [
+            2.445053070726557,
+            1.343664225958226,
+            0.148440055397592,
+            0.0008047501729130
+        ];
+        b = [
+            3.444708986486002,
+            3.292489857371952,
+            0.916460018803122,
+            0.0530686404483322
+        ];
+        num = 1 + a[0]*x + a[1]*x*x + a[2]*x*x*x + a[3]*x*x*x*x;
+        den = 1 + b[0]*x + b[1]*x*x + b[2]*x*x*x + b[3]*x*x*x*x;
+        ret = x * num / den;
+        return ret.toBigfloat();
+    };
+    var lambertw_Qm1 = function(x) {
+        var ret, a, b, num, den;
+        a = [-7.81417672390744,
+            253.88810188892484,
+            657.9493176902304
+        ];
+        b = [-60.43958713690808,
+            99.9856708310761,
+            682.6073999909428,
+            962.1784396969866,
+            1477.9341280760887
+        ];
+        num = a[0] + a[1]*x + a[2]*x*x;
+        den = 1 + b[0]*x + b[1]*x*x + b[2]*x*x*x + b[3]*x*x*x*x
+                + b[4]*x*x*x*x*x;
+        ret = num / den;
+        return ret.toBigfloat();
+    };
+
+    var lambertw_R = function(x, n) {
+        var ret;
+        if (n == 0) {
+            return Math.log(-x) - Math.log(-(Math.log(-x)));
+        } else {
+            n--;
+            ret = Math.log(-x) - Math.log(-lambertw_R(x, n));
+            return ret.toBigfloat();
+        }
+    };
+    // to simplify things. Otherwise we would meed to compute the initial
+    // values with Bigfloats, too. With minimum precision only, but even
+    // that would get way too slow.
+    if (!this.isDouble()) {
+        throw new RangeError("Argument to Bigfloat.lambertw out of range")
+    }
+    oldeps = epsilon();
+    epsilon(oldeps + 20);
+
+    ONE = new Bigfloat(1);
+    TWO = new Bigfloat(2);
+
+    z = this.copy();
+    eps = this.EPS();
+
+    if (branch == 0) {
+        var E = ONE.exp();
+        var log2half = ONE.constlog2().rShift(1).neg();
+        var pihalf = ONE.pi().rShift(1).neg();
+        if (z.abs().cmp(eps) != MP_GT) {
+            epsilon(oldeps);
+            return new Bigfloat();
+        }
+        if (z.abs().sub(E).cmp(eps) != MP_GT) {
+            epsilon(oldeps);
+            return ONE;
+        }
+        if (z.abs().sub(log2half).cmp(eps) != MP_GT) {
+            epsilon(oldeps);
+            return ONE.constlog2();
+        }
+        if (z.abs().sub(pihalf).cmp(eps) != MP_GT) {
+            epsilon(oldeps);
+            // actually pi()/2 * I;
+            throw new RangeError("Argument for Bigfloat.lambertw < -pi/2");
+        }
+    }
+    // compute initial value
+    //branchpoint = ONE.neg().exp().neg();
+    numx = z.toNumber();
+    if (k == 0) {
+        if (numx < -0.32358170806015724) {
+            ret = lambertw_series(numx);
+        } else if (numx < 0.14546954290661823) {
+            ret = lambertw_Q01(numx);
+        } else if (numx < 8.706658967856612) {
+            ret = lambertw_Q02(numx);
+        } else {
+            ret = lambertw_asymp(numx, 0);
+        }
+    } else if (k == -1) {
+        if (numx < -0.30298541769) {
+            ret = lambertw_series(numx);
+        } else if (numx < -0.051012917658221676) {
+            ret = lambertw_Qm1(numx);
+        } else {
+            ret = lambertw_R(numx, 10);
+        }
+    } else {
+        // only branches with at least some real results supported
+        epsilon(oldeps);
+        throw new Unsupported(
+            "Only branches 0 and -1 are supported in Bigfloat.lambertw"
+        );
+    }
+
+    // Halley's iteration looses much accuracy near the singularities
+    // at -1/e and 0
+    w = ret;
+    // slightly enhanced to press an additional round
+    eps = eps.rShift(10);
+    negone = ONE.neg();
+    for (i = 0; i < this.precision; i++) {
+        wn = w.exp();
+        t1 = w.mul(wn).sub(z);
+        if (w.cmp(negone) != MP_EQ) {
+            t2 = w.add(TWO).rShift(1).neg().mul(t1).div(w.add(ONE));
+            t2 = wn.mul(w.add(ONE)).sub(t2);
+            t1 = t1.div(t2);
+            w = w.sub(t1);
+            if (t1.abs().cmp(eps) != MP_GT) {
+                break;
+            }
+        }
+    }
+    if (i == this.precision) {
+        epsilon(oldeps);
+        throw new Inexact('max. rounds in lambertw reached for z = ' + z +
+            ', result after ' + i + ' iterations = ' + w);
+    }
+    //console.log("halley iterations = " + i);
+    epsilon(oldeps);
+    w.normalize();
+    return w;
+};
