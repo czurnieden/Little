@@ -1809,7 +1809,7 @@ Bigfloat.prototype.isEPSZero = function() {
 };
 
 /**
-   Argument of <code>this</code>
+   Argument of <code>this</code>, such that -pi &lt; this.arg() &lt;= pi.
    @return {Bigfloat} the argument
 */
 Bigfloat.prototype.arg = function(){
@@ -1820,6 +1820,23 @@ Bigfloat.prototype.arg = function(){
     } else {
         return new Bigfloat();
     }
+};
+
+/**
+   Decimal digits of <code>this</code><br>
+   Resembles the function of GP/PARI's <code>sizedigit()</code>
+   @return {number} the number of decimal digits<br>
+                    positive results are for the integer part only<br>
+                    negative results if no integer part is present<br>
+                    returns zero for a zero!
+*/
+Bigfloat.prototype.digits = function(){
+    var log102 = parseFloat("3.321928094887362347870319429489390175864831393");
+    var ret = Math.ceil( (this.exponent + this.precision)/log102 );
+    if(ret < 0){
+        ret++;
+    }
+    return ret;
 };
 
 // calls normalize() at the end, usable to change prec. temporary
