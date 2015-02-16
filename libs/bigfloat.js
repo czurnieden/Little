@@ -3488,7 +3488,12 @@ Bigfloat.prototype.atanh = function() {
     return ret;
 };
 /**
-   The Lambert-W function (aka. ProductLog) for real results.
+   The Lambert-W function (aka. ProductLog) for real results.<br>
+
+   Darko Veberic "Having Fun with Lambert W(x) Function", CoRR, 2010
+   {@link http://arxiv.org/abs/1003.1628} with Halley's iteration instead
+   of Fritsch's (for now);
+
    @param {number} branch the branch. must be either 0 or -1
    @return {Bigfloat}
 */
