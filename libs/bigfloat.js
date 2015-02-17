@@ -863,7 +863,7 @@ if (typeof Bigrational !== "undefined") {
             return this.num.toBigfloat();
         }
         // just divide
-        ret = this.num.div(this.den).toBigfloat();
+        ret = this.num.toBigfloat().div(this.den.toBigfloat());
         ret.sign = this.sign;
         return ret;
     };
@@ -3755,3 +3755,252 @@ Bigfloat.prototype.lambertw = function(branch) {
     w.normalize();
     return w;
 };
+
+
+/**
+   A namespace from a project this Bigfloat-library has been written for.
+   @private
+   @namespace
+*/
+if(typeof Little === "undefined"){
+    var Little = {};
+}
+
+/**
+   A cache for the Spouge algorithm.
+   @private
+*/
+Little.spougecache = [];
+/**
+   The decimal precision the Spouge-cache has been computed for.
+   @private
+   @const {number}
+   @default
+*/
+Little.spougecacheEPS = 0;
+/**
+   Upper Cutoff point for using <code>log(factorial(x))</code><br>
+   It gets taken directly and therefore must not exceed 2^53<br>
+   The value is not random but the number of precomputed factorials
+   in bigfactorial() in integer_function.js is 50.<br>
+   Switch it off by setting it to zero.
+   @const {number}
+   @default
+*/
+Little.lngammaUseFactorial = 50;
+/**
+    <code>log(gamma(x))</code> for real <code>x</code><br>
+    This function is slow. Really slow.
+    @return{Bigfloat}
+*/
+Bigfloat.prototype.lngamma = function(reflection) {
+    var oldeps, accuracy, a, factrl, sum, n, ret, term, e, ONE, t1, t2, t3,
+        z, pi, start;
+
+    if(this.isZero()){
+        throw new Singularity("Argument is zero in Bigfloat.lngamma");
+    }
+
+    if(this.isInt()){
+         if(this.sign == MP_NEG){
+            throw new Singularity("Negative integer in Bigfloat.lngamma");
+         } if (this.cmp(new Bigfloat(Little.lngammaUseFactorial)) == MP_LT) {
+            t1 = this.toNumber();
+            t1 = Math.round(t1) - 1;
+            if(t1 == 0 || t1 == 1){
+                return new Bigfloat();
+            }
+            // bigfactorial() is in integer_function.js
+            t1 = bigfactorial(t1);
+            t1 = t1.toBigfloat();
+            return t1.log();
+         }
+    }
+
+    oldeps = epsilon();
+    // The reflection adds 3 extra digits precision
+    // not much of a problem but we can simply append 
+    // the cache as long as "a" is the same.
+    if (reflection) {
+        accuracy = oldeps;
+    } else {
+        accuracy = oldeps + 3
+    }
+
+    a = Math.ceil(1.252850440912568095810522965 * accuracy);
+
+    t1 = this.digits();
+    // at least one shortcut is possible
+    if (t1 <= -epsilon()) {
+        return this.log();
+    }
+    // console.log("a = " + a)
+    epsilon(oldeps + 20);
+    z = this.copy();
+    ONE = new Bigfloat(1);
+
+    if (Little.spougecache.length < a || Little.spougecacheEPS < epsilon()) {
+        factrl = ONE.copy();
+        e = ONE.exp();
+        if (Little.spougecache.length != 0) {
+            start = Little.spougecache.length;
+        } else {
+            start = 1;
+            Little.spougecache[0] = ONE.pi().lShift(1).sqrt();
+        }
+        for (n = start; n < a; n++) {
+            // to avoid the more expensive exp(log(a-n)*(n-0.5))
+            // About seven times faster for the default precision 
+            t1 = (a - n).toBigfloat();
+            t2 = t1.pow(n - 1);
+            t2 = t2.mul(t1.sqrt());
+            t3 = e.pow(a - n);
+            Little.spougecache[n] = t2.mul(t3).div(factrl);
+            factrl = factrl.mul((-n).toBigfloat());
+        }
+        Little.spougecacheEPS = epsilon();
+    }
+
+    if (this.sign == MP_NEG) {
+        epsilon(oldeps + 3);
+        z = this.copy();
+        pi = z.pi();
+        ONE = new Bigfloat(1);
+        t1 = ONE.sub(z);
+        ret = (pi.div(pi.mul(z).sin())).abs().log().sub(t1.lngamma(true));
+        epsilon(oldeps);
+        ret.normalize();
+        return ret;
+    }
+
+    sum = Little.spougecache[0];
+    for (n = 1; n < a; n++) {
+        t1 = n.toBigfloat();
+        t1 = z.add(t1);
+        sum = sum.add(Little.spougecache[n].div(t1));
+    }
+    t1 = z.add(a.toBigfloat());
+    // 1/2
+    ONE.rShiftInplace(1);
+
+    //ret = log(sum) + (-(t1)) + log(t1) * (z + 1/2);
+    ret = sum.log().add(t1.neg()).add(t1.log().mul(z.add(ONE)))
+    ret = ret.sub(z.log());
+
+    epsilon(oldeps);
+    ret.normalize()
+    return ret;
+};
+/**
+    <code>gamma(x)</code> for real <code>x</code><br>
+    This function is slow. Really slow.<br>
+    But faster than exp(lngamma()) (with warm cache).
+    @return{Bigfloat}
+*/
+Bigfloat.prototype.gamma = function(reflection) {
+    var oldeps, accuracy, a, factrl, sum, n, ret, term, e, ONE, t1, t2, t3,
+        z, pi, start;
+
+    if(this.isZero()){
+        throw new Singularity("Argument is zero in Bigfloat.lngamma");
+    }
+
+    if(this.isInt()){
+         if(this.sign == MP_NEG){
+            throw new Singularity("Negative integer in Bigfloat.lngamma");
+         } if (this.cmp(new Bigfloat(Little.lngammaUseFactorial)) == MP_LT) {
+            t1 = this.toNumber();
+            t1 = Math.round(t1) - 1;
+            if(t1 == 0 || t1 == 1){
+                return new Bigfloat(1);
+            }
+            // bigfactorial() is in integer_function.js
+            t1 = bigfactorial(t1);
+            t1 = t1.toBigfloat();
+            return t1;
+         }
+    }
+
+    oldeps = epsilon();
+    // The reflection adds 3 extra digits precision
+    // not much of a problem but we can simply append 
+    // the cache as long as "a" is the same.
+    if (reflection) {
+        accuracy = oldeps;
+    } else {
+        accuracy = oldeps + 3
+    }
+
+    a = Math.ceil(1.252850440912568095810522965 * accuracy);
+
+    t1 = this.digits();
+    // at least one shortcut is possible
+    if (t1 <= -epsilon()) {
+        return this.inv();
+    }
+    // console.log("a = " + a)
+    epsilon(oldeps + 20);
+    z = this.copy();
+    ONE = new Bigfloat(1);
+
+    if (Little.spougecache.length < a || Little.spougecacheEPS < epsilon()) {
+        factrl = ONE.copy();
+        e = ONE.exp();
+        if (Little.spougecache.length != 0) {
+            start = Little.spougecache.length;
+        } else {
+            start = 1;
+            Little.spougecache[0] = ONE.pi().lShift(1).sqrt();
+        }
+        for (n = start; n < a; n++) {
+            // to avoid the more expensive exp(log(a-n)*(n-0.5))
+            // About seven times faster for the default precision 
+            t1 = (a - n).toBigfloat();
+            t2 = t1.pow(n - 1);
+            t2 = t2.mul(t1.sqrt());
+            t3 = e.pow(a - n);
+            Little.spougecache[n] = t2.mul(t3).div(factrl);
+            factrl = factrl.mul((-n).toBigfloat());
+        }
+        Little.spougecacheEPS = epsilon();
+    }
+
+    if (this.sign == MP_NEG) {
+        epsilon(oldeps + 3);
+        z = this.copy();
+        pi = z.pi();
+        ONE = new Bigfloat(1);
+        t1 = ONE.sub(z);
+        // pi/(sin(pi * z) * gamma(1 - z)
+        ret = pi.div( pi.mul(z).sin().mul(t1.gamma(true))  );
+        epsilon(oldeps);
+        ret.normalize();
+        return ret;
+    }
+
+    sum = Little.spougecache[0];
+    for (n = 1; n < a; n++) {
+        t1 = n.toBigfloat();
+        t1 = z.add(t1);
+        sum = sum.add(Little.spougecache[n].div(t1));
+    }
+    t1 = z.add(a.toBigfloat());
+    // 1/2
+    ONE.rShiftInplace(1);
+
+    // ret = sum * exp(-t1) * t1^(z + 1/2)
+    ret = sum.mul(t1.neg().exp()).mul(t1.pow(z.add(ONE)));
+    // Spouge computes gamma(x + 1)
+    ret = ret.div(z);
+    epsilon(oldeps);
+    ret.normalize();
+    return ret;
+};
+
+
+
+
+
+
+
+
