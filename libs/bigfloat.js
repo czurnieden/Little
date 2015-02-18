@@ -140,6 +140,13 @@ var MPFE_TOWARDZERO = 8;
 */
 var MPFLT_ROUNDS = 1;
 
+/**
+   Cutoff-point in decimal digits precision for log-series to
+   log-AGM
+   @const {number}
+   @default
+*/
+var BIGFLOAT_LOG_AGM_CUTOFF = 40;
 
 /**
   Constructor for the Bigfloat object.
@@ -2505,7 +2512,15 @@ Bigfloat.prototype.exp = function() {
 
 /**
    Logarithm base e (log(x)) of this Bigfloat<br>
-   Algorithm based on Taylor series for <code>log(1 + x)</code>
+   Algorithm based on Taylor series for <code>log(1 + x)</code> if
+   <code>x</code> is a fraction and the precision is small and
+   with the AGM otherwise if the magnitude of the number is lower
+   than the precision by 20 decimal digits.<br>
+   For example:<br>
+   With the default precision of 31 decimal digits we can compute
+   1e10, get a wrong result for 1e20 and an error (inv() does not converge)
+   for 1e30. These 20 decimal digits are about two limbs.
+   @see BIGFLOAT_LOG_AGM_CUTOFF
    @return {Bigfloat}
 */
 Bigfloat.prototype.log = function() {
@@ -2525,8 +2540,17 @@ Bigfloat.prototype.log = function() {
         // TODO: send to Complex
         throw new RangeError("argument to Bigfloat.log is negativ");
     }
+    // Awkward construction.
+    // Will get cleaned up at sometime in the future. Probably.
+    if (this.isFraction()){
+        if (oldeps >= BIGFLOAT_LOG_AGM_CUTOFF) {
+            return this.logagm();
+        }
+    } else if(this.digits() + 20 < oldeps) {
+        return this.logagm();
+    }
 
-    epsilon(oldeps + 3);
+    epsilon(oldeps + 10);
     // seems small but more will need more guard bits, too
     var ar = 4096;
     // argument reduction
@@ -2571,6 +2595,82 @@ Bigfloat.prototype.log = function() {
     ret.normalize();
     return ret;
 };
+/**
+   Logarithm base e (log(x)) of this Bigfloat<br>
+   Algorithm based on (pi/2)/AGM(1,4/x)
+   @private
+   @return {Bigfloat}
+*/
+Bigfloat.prototype.logagm = function() {
+    // arithmetic mean am = (a + b)/2
+    var alpha = function(x, y) {
+        var ret;
+        ret = x.add(y);
+        ret.rShiftInplace(1);
+        return ret;
+    };
+    // geometric mean gm = sqrt(a * b)
+    var beta = function(x, y) {
+        var ret;
+        ret = x.mul(y);
+        //console.log("ret = " + ret)
+        return ret.sqrt();
+    };
+    var aa, bb, A, B, pi, k, m, p, oldeps, x, fourx, one, minv, r;
+    var fract = false, ilog2, sublog2 = false;
+    oldeps = epsilon();
+    epsilon(oldeps + 3);
+    x = this.copy();
+    // if x < 1 compute log(1/x) = -log(x)
+    if (x.isFraction()) {
+        x = x.inv();
+        fract = true;
+    }
+    // it said: x^m > 2^(precision/2) but it
+    // is not that simple
+    p = x.precision >>> 1;
+    ilog2 = x.ilog2();
+    if (ilog2 == 0) {
+        sublog2 = true;
+        x = x.lShift(1);
+        ilog2 = x.ilog2();
+    }
+    m = Math.floor(p / ilog2);
+    if (m < 10) {
+        m = 10;
+    }
+
+    minv = m.toBigfloat().inv();
+
+    x = x.pow(m);
+
+    one = new Bigfloat(1);
+    fourx = (new Bigfloat(4)).div(x);
+    A = alpha(one, fourx);
+    B = beta(one, fourx);
+    var i = 0;
+    do {
+        aa = A.copy();
+        bb = B.copy();
+        A = alpha(aa, bb);
+        B = beta(aa, bb);
+    } while (!A.sub(B).isEPSZero());
+    // (pi/2)/(AGM(1,4/x))
+    pi = A.pi();
+    pi.rShiftInplace(1);
+    r = pi.div(A).mul(minv);
+    if (sublog2 == true) {
+        r = r.sub(r.constlog2());
+    }
+    epsilon(oldeps);
+    r.normalize();
+    if (fract == true) {
+        r.sign = MP_NEG;
+        r.mantissa.sign = MP_NEG;
+    }
+    return r;
+};
+
 /**
    Logarithm base e (log(x)) of this Bigfloat<br>
    Algorithm based on x(n+1) = xn - 1 + A/exp(xn)
