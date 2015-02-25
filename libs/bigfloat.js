@@ -13,15 +13,6 @@
          strtof and ftostr handle base 10 numbers only for now, but should
          be able to handle base 16 and base 2, too at least.
 
-         The way strtof and ftostr work the numbers shouldn't be too small or
-         too large, but something between 1e-1,000 and 1e+1,000 should work
-         fast enough.
-
-         The way the finding of the initial values for the Newton based
-         functions works, the size of the actual numbers must be those
-         of the 64-bit double: between 1e-308 and 1e308, better between
-         1e-300 and 1e300
-
          Rounding is fixed to half-to-nearest for now.
 
          Exception handling is exceptionally poor--without exceptions.
@@ -961,453 +952,6 @@ if (typeof Bigrational !== "undefined") {
         return new Bigrational(p[i - 1], q[i - 1]);
     };
 }
-
-/**
-  Converts a String to a Bigfloat. Rounding mode is restricted to half-to-even
-  for now. String must be clean: no whitespace around, no thousand-separator
-  inside, only ASCII characters.
-  @function external:String#toBigfloat
-  @param {number} base of the input string (only base 10 for now)
-  @return {Bigfloat}
-*/
-String.prototype.toBigfloat = function(numbase) {
-    var parseNumber = function(s) {
-        var slen = s.length;
-        var c;
-        var exponent_part = "";
-        var decimal_point = -1;
-        var is_expo_part = false;
-        var str_number = "";
-        var sign = "+";
-        var expo_sign = "+";
-        var base = 10;
-        var i;
-        var k = 0;
-
-        // NOTE: strip leading (and trailing) whitespace?
-
-        // unitary minus/plus comes before base marks (e.g.: "0x")
-        if (s.charAt(k) == "-" || s.charAt(k) == "+") {
-            sign = s.charAt(0);
-            k += 1;
-        }
-
-        // Case should not matter but kept short for legibility
-        if (s.charAt(k) == "I" && s.charAt(k + 1) == "n" && s.charAt(k +
-                1) ==
-            "f") {
-            return sign + "Infinity";
-        }
-
-        if (s.charAt(k) == "N" && s.charAt(k + 1) == "a" && s.charAt(k +
-                1) ==
-            "N") {
-            return sign + "NaN";
-        }
-
-
-        if (s.charAt(k) == "0") {
-            if (s.charAt(k + 1) == "x") {
-                base = 16;
-                k += 2;
-            } else if (s.charAt(k + 1) == "b") {
-                base = 2;
-                k += 2;
-            }
-            // no leading zeros allowed for octal numbers, except the first
-            // to make things simpler
-            else if (s.charAt(k + 1) && s.charAt(k + 1) != "0" && s.charAt(
-                    k + 1) !=
-                ".") {
-                base = 8;
-                k += 1;
-            }
-            if (s.length == 1) {
-                // return a signed zero (zero is the special number "0e1"")
-                return [base, sign, "0", decimal_point, 1];
-            }
-        }
-        // strip leading zeros
-        while (s.charAt(k) == "0") {
-            k++;
-        }
-        // all zeros
-        if (k == slen) {
-            // return a signed zero (zero is the special number "0e1"")
-            return [base, sign, "0", decimal_point, 1];
-        }
-
-        // some code here to handle "0.0" or ".0"?
-
-        for (i = 0; i < slen - k; i++) {
-            c = s.charAt(i + k);
-            switch (c) {
-                case "0":
-                case "1":
-                    if (is_expo_part == true) {
-                        exponent_part += c;
-                    } else {
-                        str_number += c;
-                    }
-                    break;
-                case "2":
-                case "3":
-                case "4":
-                case "5":
-                case "6":
-                case "7":
-                    if (base == 2) {
-                        return "Parse error: digit > base 2";
-                    }
-                    if (is_expo_part == true) {
-                        exponent_part += c;
-                    } else {
-                        str_number += c;
-                    }
-                    break;
-                case "8":
-                case "9":
-                    if (base <= 8) {
-                        return "Parse error: digit > base 8";
-                    }
-                    if (is_expo_part == true) {
-                        exponent_part += c;
-                    } else {
-                        str_number += c;
-                    }
-                    break;
-                case "a":
-                case "A":
-                case "b":
-                case "B":
-                case "c":
-                case "C":
-                case "d":
-                case "D":
-                    if (is_expo_part == true) {
-                        return "Parse error: base in exponent > 10";
-                    } else if (base <= 10) {
-                        return "Parse error: digit > base 10";
-                    } else {
-                        str_number += c;
-                    }
-                    break;
-                case "e":
-                case "E":
-                    if (base != 16 && is_expo_part == true) {
-                        return "Parse error: additional exponent part found";
-                    }
-                    if (base == 16) {
-                        str_number += c;
-                    } else {
-                        is_expo_part = true;
-                    }
-                    break;
-                case "f":
-                case "F":
-                    if (base <= 10) {
-                        return "Parse error: digit > base 10";
-                    } else {
-                        str_number += c;
-                    }
-                    break;
-                case "p":
-                case "P":
-                    if (base == 16) {
-                        is_expo_part = true;
-                    } else {
-                        return "Parse error: wrong character: \"" + c +
-                            "\"";
-                    }
-                    break;
-                case ".":
-                    if (decimal_point >= 0) {
-                        return "Parse error: additional decimal point found";
-                    }
-                    decimal_point = i;
-                    break;
-                case '+':
-                case "-":
-                    if (is_expo_part == true) {
-                        expo_sign = c;
-                    } else {
-                        return "Parse error: sign at wrong position";
-                    }
-                    break;
-                    // either this or ignore. Add "_" (underbars) like in Perl?
-                default:
-                    return "Parse error: unknown character = \"" + c +
-                        "\"";
-
-            }
-        }
-        if (str_number.length == 0) {
-            // No error, just return zero instead, for simplicity
-            // Maybe raise a warning, for debugging purposes
-            // console.log("Parse error: number has no digits?");
-            return [base, sign, "0", decimal_point, 1];
-        }
-        if (is_expo_part == true) {
-            exponent_part = parseInt(expo_sign + exponent_part);
-        } else {
-            exponent_part = 0;
-        }
-        // Strip leading and trailing zeros of fractions
-        if (decimal_point >= 0) {
-            var parts0 = str_number.substring(0, decimal_point);
-            var parts1 = str_number.substring(decimal_point);
-            k = 0;
-            i = parts1.length - 1;
-            // count leading zeros, integer part
-            while (parts0.charAt(k) == "0") {
-                k++;
-            }
-            // count trailing zeros, fractional part
-            while (parts1.charAt(i) == "0") {
-                i--;
-            }
-            // strip the zeros
-            parts0 = parts0.substring(k);
-            parts1 = parts1.substring(0, i + 1);
-            k = 0;
-            // count leading zeros, fractional part
-            while (parts1.charAt(k) == "0") {
-                k++;
-                if (k == parts1.length) {
-                    break;
-                }
-            }
-            // move number of trailing zeros to exponent,
-            // that is: 0.0001 = 1e-4
-            // but only if there is no integer part
-            if (k > 0 && parts0.length == 0) {
-                parts1 = parts1.substring(k);
-                exponent_part -= k;
-            }
-            // catch a zero here
-            if (parts0.length == 0 && parts1.length - k == 0) {
-                parts0 = "0";
-                exponent_part = 1;
-            }
-            return [base, sign, parts0, parts1, decimal_point,
-                exponent_part
-            ];
-        } else {
-            k = 0;
-            // strip leading zeros
-            while (str_number.charAt(k) == "0") {
-                k++;
-            }
-            str_number = str_number.substring(k);
-            return [base, sign, str_number, "", decimal_point,
-                exponent_part
-            ];
-        }
-    };
-    var stringToBigfloat = function(arrayFromParseNumber) {
-        var exceptions;
-        if (typeof arrayFromParseNumber === 'string') {
-            // check if it is +-Infinity or +-NaN
-            if (arrayFromParseNumber.search(/[+-]{0,1}Infinity/) >= 0) {
-                exceptions = (new Bigfloat()).setInf();
-                exceptions.sign = arrayFromParseNumber.match(/{+-}/)[0];
-                exceptions.sign = (exceptions.sign == "-") ? MP_NEG : MP_ZPOS;
-                exceptions.mantissa.sign = exceptions.sign;
-                return exceptions.sign;
-            } else if (arrayFromParseNumber.search(/[+-]{0,1}NaN/) >= 0) {
-                exceptions = (new Bigfloat()).setNaN();
-                exceptions.sign = arrayFromParseNumber.match(/[+-]/)[0];
-                exceptions.sign = (exceptions.sign == "-") ? MP_NEG : MP_ZPOS;
-                exceptions.mantissa.sign = exceptions.sign;
-                return exceptions.sign;
-            } else {
-                // raise some error and...
-                return (new Bigfloat()).setNaN();
-            }
-        }
-        var base = arrayFromParseNumber[0];
-        var sign = arrayFromParseNumber[1];
-        var int_part = arrayFromParseNumber[2];
-        var fract_part = arrayFromParseNumber[3];
-        var decimal_point = arrayFromParseNumber[4];
-        var exponent = arrayFromParseNumber[5];
-        var ten = new Bigint(10);
-        var k = 0;
-        var slen = int_part.length + fract_part.length;
-        var numerator, denominator;
-        var num_len, den_len;
-        var s;
-        var fraction;
-        var the_number = new Bigfloat();
-        var log210 = parseFloat(
-            "3.321928094887362347870319429489390175865");
-
-        var roundFraction = function(num, den, S) {
-            var frac, Q, R, dhalf, cmp;
-            // We might need to do the next lines multiple times
-            // so either loop or use a goto. JavaScript has no goto
-            // so a loop it is.
-            // LOOP:
-            do {
-                // Divide, keep quotient and remainder
-                // numerator = Q * denominator + R
-                frac = num.divrem(den);
-                Q = frac[0];
-                R = frac[1];
-                // we need one half of the denominator to compare
-                // the remainder against, so dhalf = denominator/2
-                // works only if denominator is even. There
-                // are some rare cases where that is not the case
-                // It's a cheap test, so...
-                if (den.isEven()) {
-                    dhalf = den.rShift(1);
-                } else {
-                    dhalf = den.sub(R);
-                }
-                // Rounding. Fixed mode: "half to even"
-                // if(R > dhalf) Q' = Q +1
-                // if(R == dhalf && Q.isOdd()) Q' = Q +1
-                cmp = R.cmp(dhalf);
-                if (cmp == MP_GT) {
-                    Q.incr();
-                }
-                if (cmp == MP_EQ) {
-                    if (Q.isOdd()) {
-                        Q.incr();
-                    }
-                }
-                /*
-                    Other rounding modes may need information about the
-                    sign, too.
-                 */
-                // Q' might got too large and is > work-precision now
-                // if that is the case set numerator = numerator/2
-                // and s = s + 1, then goto LOOP
-                if ((Q.highBit() + 1) > the_number.precision) {
-                    num.rShiftInplace(1);
-                    S++;
-                    continue;
-                }
-                // else break out of the loop if one was used instead of
-                // a goto
-                break;
-            } while (true);
-            return [Q, S];
-        };
-        // handle integers separatly to increase legibility
-        var handleInteger = function(expo) {
-            var exp;
-            if (arguments.length > 0) {
-                exp = expo;
-            } else {
-                exp = exponent;
-            }
-            numerator = (int_part + fract_part).toBigint();
-            numerator = numerator.mul(ten.pow(expo));
-            // the denominator is one and needs to be scaled instead
-            // of the numerator
-            denominator = new Bigint(1);
-            // the scale factor s is just the bitlength of the numerator
-            s = numerator.highBit();
-            // any integers smaller than the work-precsion can be
-            // taken as is, all others need rounding
-            if (s <= the_number.precision) {
-                // console.log("si = " + s);
-                numerator.lShiftInplace(the_number.precision - s);
-                exponent = -(the_number.precision - s);
-                the_number.mantissa = numerator;
-                the_number.mantissa.sign = (sign == "-") ? MP_NEG :
-                    MP_ZPOS;
-                the_number.sign = the_number.mantissa.sign;
-                the_number.exponent = exponent;
-                return the_number;
-            } else {
-                denominator.lShiftInplace(s - the_number.precision);
-                fraction = roundFraction(numerator, denominator, s);
-                // console.log("frac1 = " + fraction[1])
-                exponent = -(the_number.precision - fraction[1]);
-                the_number.mantissa = fraction[0];
-                the_number.mantissa.sign = (sign == "-") ? MP_NEG :
-                    MP_ZPOS;
-                the_number.sign = the_number.mantissa.sign;
-                the_number.exponent = exponent;
-                return the_number;
-            }
-        };
-
-
-        if (int_part == "0" && fract_part == "" && exponent == 1) {
-            // special number zero
-            the_number.mantissa.sign = (sign == "-") ? MP_NEG : MP_ZPOS;
-            the_number.sign = the_number.mantissa.sign;
-            return the_number;
-        }
-
-        if (decimal_point < 0  && exponent >= 0) {
-            return handleInteger(exponent);
-        }
-
-
-        if (base == 10) {
-            // handles base 10, who would have thought.
-            // scale exponent
-            // 12.34e4 = 1234e2     -> integer
-            // 12.34e2 = 1234e0     -> integer
-            // 12.34e1 = 1234e-1    -> fraction
-            // 12.34e-10 = 1234e-12 -> fraction
-            exponent -= fract_part.length;
-            if (exponent >= 0) {
-                return handleInteger(exponent);
-            }
-            // convert number string to integer (Bigint), that
-            // will be the numerator
-            numerator = (int_part + fract_part).toBigint();
-            // Build denominator as 10 to the power of the decimal
-            // places of the number.
-            denominator = ten.pow(Math.abs(exponent));
-            // Scale it. Both values are already in binary, we can
-            // just take the difference of the bit length.
-            num_len = numerator.highBit();
-            den_len = denominator.highBit();
-            // Compute the scale factor s = #(N_r) - #(D_r)
-            s = (num_len - den_len);
-            // Multiply the numerator by 2^(precision - s) where
-            // "precision"" is the working precision of the Bigfloat
-            numerator.lShiftInplace(the_number.precision - s);
-            // Built the Bigfloat's fraction part and round it;
-            // rounding mode is "half to nearest"
-            fraction = roundFraction(numerator, denominator, s);
-            exponent = -(the_number.precision - fraction[1]);
-            // build the Bigfloat and return it.
-            the_number.mantissa = fraction[0];
-            the_number.mantissa.sign = (sign == "-") ? MP_NEG : MP_ZPOS;
-            the_number.sign = the_number.mantissa.sign;
-            the_number.exponent = exponent;
-
-            return the_number;
-        } else {
-            // handle bases 2, 8 and 16
-            // most of the base-10 code can be reused here
-        }
-    };
-    var parsedString;
-    var ret;
-    // TODO: compute limit more precisely
-    if(this.length > 300  && this.length > epsilon() ){
-        return this.toBigfloatFast();
-    }
-    parsedString = parseNumber(this);
-    // TODO: compute limit more precisely
-    //       and use the parsing result
-    //       in String.toBigfloatFast()
-    if(Math.abs(parsedString[5]) > 100){
-        return this.toBigfloatFast();
-    }
-    ret = stringToBigfloat(parsedString);
-    // checks and balances
-    ret.normalize();
-    return ret;
-};
 /**
   Converts a String to a Bigfloat. Rounding mode is restricted to half-to-even
   for now. String must be clean: no whitespace around, no thousand-separator
@@ -1417,7 +961,7 @@ String.prototype.toBigfloat = function(numbase) {
   @return {Bigfloat}
   @private
 */
-String.prototype.toBigfloatFast = function(base) {
+String.prototype.toBigfloat = function(base) {
     var ten, a, b, len, k, e, c, str, digit, decimal, expo,
         asign, exposign, ret, fdigs, oldeps, table, limit, bigbase;
     oldeps = epsilon();
@@ -1451,7 +995,7 @@ String.prototype.toBigfloatFast = function(base) {
         126,-1,-1,-1,-1,-1,-1, 10, 11, 12, //  126 = uppercase "p"
         13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
         23, 24, 126,-1,-1,-1,-1,-1,-1,-1, //  126 = lowercase "p"
-       -1,-1,-1,-1,-1,-1,-1, -1    
+       -1,-1,-1,-1,-1,-1,-1, -1
     ];
 
     str = this;
@@ -1596,15 +1140,15 @@ String.prototype.toBigfloatFast = function(base) {
         b = bigbase.pow(fdigs);
         ret = ret.div(b);
     }
-    if (asign == -1) {
-        ret = ret.neg();
-    }
     if (typeof expo !== "undefined") {
         if (exposign == -1) {
             expo = -expo;
         }
         b = bigbase.pow(expo);
         ret = ret.mul(b);
+    }
+    if (asign == -1) {
+        ret = ret.neg();
     }
     epsilon(oldeps);
     ret.normalize();
@@ -1643,17 +1187,13 @@ Bigfloat.prototype.toString = function(numbase) {
         // lShiftInplace() does nothing if exponent is zero, no check needed.
         ret.lShiftInplace(exponent);
         digits = ret.digits();
-        // use Bigfloat directly at about 1,000 decimal digits and up
-        if (Math.abs(exponent) > 3330) {
-            ret = ret.toBigfloat();
-            ten = new Bigfloat(10);
-            ten = ten.pow(digits - decprec);
-            ten = ret.div(ten);
-            ret = ten.mantissa.abs().lShift(ten.exponent);
-        } else {
-            // The Bigint.toString is so slow, even a large division helps
-            ret = ret.div(ten.pow(digits - decprec));
-        }
+        ret = ret.toBigfloat();
+        ten = new Bigfloat(10);
+        ten = ten.pow(digits - decprec);
+        ten = ret.div(ten);
+        epsilon(oldeps);
+        ret.normalize();
+        ret = ten.mantissa.abs().lShift(ten.exponent);
         if (ret.isZero()) {
             ret = "00";
         } else {
@@ -1669,40 +1209,12 @@ Bigfloat.prototype.toString = function(numbase) {
         // What can be done is checking the remainder in the division below--
         // if it is zero it is an integer for all intent and purposes
         decexpo = Math.floor(Math.abs(this.exponent) / log210);
-        // as above: use Bigfloat directly at about 1,000 decimal digits and up
-        if (Math.abs(exponent) > 3330) {
-            ten = new Bigfloat(10);
-            ret = this.mul(ten.pow(decexpo));
-            ret = ret.mantissa.abs().lShift(ret.exponent);
-            digits = decprec;
-        } else {
-            // scale
-            ret = ret.mul(ten.pow(decexpo));
-            // convert
-            one.lShiftInplace(Math.abs(exponent));
-            ret = ret.div(one);
-            // guard digits make rounding obsolete?
-            // This would round trailing nines up: 0.123999... -> 0.124
-            // Problem: does not reflect internal representation!
-            /*
-            if(ret.dp[0]&1 == 1){
-                ret.incr();
-            }
-             */
-            /*
-            var mod100 = ret.divremInt(100)[1];
-            var mod10 = mod100 % 10;
-            if (mod10 > 5) {
-                ret = ret.addInt(10 - mod10);
-            } else if (mod10 == 5) {
-                mod100 = Math.floor(mod100 / 10) % 10;
-                if (mod100 & 1 == 1) {
-                    ret = ret.addInt(10 - mod10);
-                }
-            }
-            */
-
-        }
+        ten = new Bigfloat(10);
+        ret = this.mul(ten.pow(decexpo));
+        epsilon(oldeps);
+        ret.normalize();
+        ret = ret.mantissa.abs().lShift(ret.exponent);
+        digits = decprec;
         if (ret.isZero()) {
             ret = "00";
         } else {
@@ -1724,7 +1236,7 @@ Bigfloat.prototype.toString = function(numbase) {
     if (decexpo == 0) {
         signexpo = "";
     }
-    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec) + "e" +
+    ret = sign + ret.slice(0, 1) + "." + ret.slice(1, decprec - 1) + "e" +
         signexpo + Math.abs(decexpo).toString();
     epsilon(oldeps);
     return ret;
@@ -2148,7 +1660,7 @@ Bigfloat.prototype.add = function(bf) {
     if (bf.isZero()) {
         return this.copy();
     }
-    
+
     if (this.exponent < bf.exponent) {
         /* tmp == a normalize to b's exp */
         tmp = this.copy();
@@ -3683,11 +3195,11 @@ Bigfloat.prototype.lambertw = function(branch) {
             a = Math.log(-x);
             b = Math.log(-a);
         }
-        ret = a - b 
-              + b / a 
-              + (b * (-2 + b)) / (2*a*a) 
+        ret = a - b
+              + b / a
+              + (b * (-2 + b)) / (2*a*a)
               + (b * (6 - 9*b + 2*b*b)) / (6*a*a*a)
-              + (b * (-12 + 36*b - 22*b*b + 3*b*b*b)) / (12*a*a*a*a) 
+              + (b * (-12 + 36*b - 22*b*b + 3*b*b*b)) / (12*a*a*a*a)
               + (b * (60 - 300*b + 350*b*b - 125*b*b*b + 12*b*b*b*b))
                                                               / (60*a*a*a*a*a);
 
@@ -3919,12 +3431,12 @@ Bigfloat.prototype.lngamma = function(reflection) {
 
     oldeps = epsilon();
     // The reflection adds 3 extra digits precision
-    // not much of a problem but we can simply append 
+    // not much of a problem but we can simply append
     // the cache as long as "a" is the same.
     if (reflection) {
         accuracy = oldeps;
     } else {
-        accuracy = oldeps + 3
+        accuracy = oldeps + 3;
     }
 
     a = Math.ceil(1.252850440912568095810522965 * accuracy);
@@ -3950,7 +3462,7 @@ Bigfloat.prototype.lngamma = function(reflection) {
         }
         for (n = start; n < a; n++) {
             // to avoid the more expensive exp(log(a-n)*(n-0.5))
-            // About seven times faster for the default precision 
+            // About seven times faster for the default precision
             t1 = (a - n).toBigfloat();
             t2 = t1.pow(n - 1);
             t2 = t2.mul(t1.sqrt());
@@ -3984,11 +3496,11 @@ Bigfloat.prototype.lngamma = function(reflection) {
     ONE.rShiftInplace(1);
 
     //ret = log(sum) + (-(t1)) + log(t1) * (z + 1/2);
-    ret = sum.log().add(t1.neg()).add(t1.log().mul(z.add(ONE)))
+    ret = sum.log().add(t1.neg()).add(t1.log().mul(z.add(ONE)));
     ret = ret.sub(z.log());
 
     epsilon(oldeps);
-    ret.normalize()
+    ret.normalize();
     return ret;
 };
 /**
@@ -4023,12 +3535,12 @@ Bigfloat.prototype.gamma = function(reflection) {
 
     oldeps = epsilon();
     // The reflection adds 3 extra digits precision
-    // not much of a problem but we can simply append 
+    // not much of a problem but we can simply append
     // the cache as long as "a" is the same.
     if (reflection) {
         accuracy = oldeps;
     } else {
-        accuracy = oldeps + 3
+        accuracy = oldeps + 3;
     }
 
     a = Math.ceil(1.252850440912568095810522965 * accuracy);
@@ -4054,7 +3566,7 @@ Bigfloat.prototype.gamma = function(reflection) {
         }
         for (n = start; n < a; n++) {
             // to avoid the more expensive exp(log(a-n)*(n-0.5))
-            // About seven times faster for the default precision 
+            // About seven times faster for the default precision
             t1 = (a - n).toBigfloat();
             t2 = t1.pow(n - 1);
             t2 = t2.mul(t1.sqrt());
