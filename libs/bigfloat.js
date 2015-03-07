@@ -3177,8 +3177,8 @@ Bigfloat.prototype.lambertw = function(branch) {
             21235294185086305043 / 109242202556140093440000,
             -106040742894306601 / 818378104464320400000,
             1150497127780071399782389 / 13277465363600276402995200000
-        ];
-        var y = Math.sqrt(2 * Math.exp(1) * x + 1) * x.sign();
+        ];sqrt(2*(1+ exp(1)*x));
+        var y = Math.sqrt(2 * (1+Math.exp(1) * x));
         var blen = b.length;
         var ret = b[blen - 1];
         for (var i = b.length - 2; i >= 0; i--) {
@@ -3272,7 +3272,7 @@ Bigfloat.prototype.lambertw = function(branch) {
             return ret.toBigfloat();
         }
     };
-    // to simplify things. Otherwise we would meed to compute the initial
+    // to simplify things. Otherwise we would need to compute the initial
     // values with Bigfloats, too. With minimum precision only, but even
     // that would get way too slow.
     if (!this.isDouble()) {
