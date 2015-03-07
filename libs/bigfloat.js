@@ -3351,11 +3351,11 @@ Bigfloat.prototype.lambertw = function(branch) {
             t2 = w.add(TWO).rShift(1).neg().mul(t1).div(w.add(ONE));
             t2 = wn.mul(w.add(ONE)).sub(t2);
             t1 = t1.div(t2);
-            w = w.sub(t1);
             if (t1.abs().cmp(eps) != MP_GT) {
                 break;
             }
         }
+        w = w.sub(t1);
     }
     if (i == this.precision) {
         epsilon(oldeps);
