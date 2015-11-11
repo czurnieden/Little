@@ -640,15 +640,11 @@ function xtypeof(obj) {
     }
 }
 
-    /**
-      A primesieve, full implementation.
-      @see {@link https://github.com/czurnieden/primesieve/} for a full
-      description.
-      @namespace primesieve
-    */
 /**
-   A primesieve, full implementation.
-   @namespace primesieve
+ A primesieve, full implementation.
+ @see {@link https://github.com/czurnieden/primesieve/} for a full
+ description.
+ @namespace primesieve
 */
 var primesieve = (function() {
     /**
@@ -3908,6 +3904,19 @@ Bigint.prototype.mul = function(bi, flag) {
 
         return ret;
     };
+    if(!(bi instanceof Bigint)){
+        if(bi instanceof Bigfloat){
+            return this.toBigfloat().mul(bi);
+        } else if (bi instanceof Bigrational){
+            return this.toBigrational().mul(bi);
+        } else if (bi instanceof Complex){
+            return this.toComplex().mul(bi);
+        } else if (bi.isInt()) {
+            return this.mulInt(bi);
+        } else {
+            throw new RangeError("Unsupported type in Bigint.mul");
+        }
+    }
     // larger one first
     if (this.used <= bi.used) {
         a = bi;
@@ -4149,6 +4158,21 @@ Bigint.prototype.cmp = function(bi) {
      */
     var a = this;
     var b = bi;
+
+    if(!(bi instanceof Bigint)){
+        if(bi instanceof Bigfloat){
+            return this.toBigfloat().cmp(bi);
+        } else if (bi instanceof Bigrational){
+            return this.toBigrational().cmp(bi);
+        } else if (bi instanceof Complex){
+            return this.toComplex().cmp(bi);
+        } else if (bi.isInt()) {
+            return this.cmp(bi.toBigint());
+        } else {
+            throw new RangeError("Unsupported type in Bigint.cmp");
+        }
+    }
+
     var asign = a.sign;
     var bsign = b.sign;
     if (a.isZero()) {
@@ -4234,6 +4258,21 @@ Bigint.prototype.kadd = function(bi) {
   @return {Bigint}
 */
 Bigint.prototype.add = function(bi) {
+
+    if(!(bi instanceof Bigint)){
+        if(bi instanceof Bigfloat){
+            return this.toBigfloat().add(bi);
+        } else if (bi instanceof Bigrational){
+            return this.toBigrational().add(bi);
+        } else if (bi instanceof Complex){
+            return this.toComplex().add(bi);
+        } else if (bi.isInt()) {
+            return this.addInt(bi);
+        } else {
+            throw new RangeError("Unsupported type in Bigint.add");
+        }
+    }
+
     var sa = this.sign;
     var sb = bi.sign;
 
@@ -4318,7 +4357,19 @@ Bigint.prototype.ksub = function(bi) {
 */
 Bigint.prototype.sub = function(bi) {
     var sa, sb, ret;
-
+    if(!(bi instanceof Bigint)){
+        if(bi instanceof Bigfloat){
+            return this.toBigfloat().sub(bi);
+        } else if (bi instanceof Bigrational){
+            return this.toBigrational().sub(bi);
+        } else if (bi instanceof Complex){
+            return this.toComplex().sub(bi);
+        } else if (bi.isInt()) {
+            return this.subInt(bi);
+        } else {
+            throw new RangeError("Unsupported type in Bigint.sub");
+        }
+    }
     ret = new Bigint();
 
     sa = this.sign;
@@ -4806,6 +4857,20 @@ Bigint.prototype.divisionNewton = function(bint) {
   @return {array} Quotient and remainder in that order
 */
 Bigint.prototype.divrem = function(bint) {
+    if(!(bint instanceof Bigint)){
+        if(bint instanceof Bigfloat){
+            return this.toBigfloat().div(bint);
+        } else if (bint instanceof Bigrational){
+            return this.toBigrational().div(bint);
+        } else if (bint instanceof Complex){
+            return this.toComplex().div(bint);
+        } else if (bint.isInt()) {
+            return this.divInt(bint);
+        } else {
+            throw new RangeError("Unsupported type in Bigint.mul");
+        }
+    }
+
     var a = this.abs();
     var b = bint.abs();
     var q, r, ret;
@@ -5826,7 +5891,17 @@ Bigint.prototype.bpow = function(bi) {
 Bigint.prototype.pow = function(ui) {
     var sign = this.sign;
     var t;
-
+    if(!(ui instanceof Bigint)){
+        if(ui instanceof Bigfloat){
+            return this.toBigfloat().pow(ui);
+        } else if (ui instanceof Bigrational){
+            return this.toBigfloat().pow(ui.toBigfloat());
+        } else if (ui instanceof Complex){
+            return this.toComplex().pow(ui);
+        }   else if (!ui.isInt()){
+            throw new RangeError("Unsupported type in Bigint.pow");
+        }
+    }
     if (xtypeof(ui) == "bigint") {
         return this.powBigint(ui);
     }
@@ -6016,7 +6091,7 @@ Bigint.prototype.ilogb = function(base) {
     // this works works for positive and integer bases only
     // if(base < 0) return this.toBigfloat().cilogb(b).abs().floor();
     if (base < 1 || !base.isInt()) {
-        // throw new RangeError("base in ilogb out of range of not an integer")
+        // throw new RangeError("base in ilogb out of range or not an integer")
         return this.copy().setNaN();
     }
 
@@ -6299,6 +6374,9 @@ Bigint.prototype.nthrootold = function(n) {
 Bigint.prototype.gcd = function(bint) {
     var g = new Bigint(1);
     // checks and balances
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("GCD of types other than bigints not supported");
+    }
     if (this.isZero()) {
         return bint.abs();
     }
@@ -6341,6 +6419,9 @@ Bigint.prototype.gcd = function(bint) {
 */
 Bigint.prototype.egcd = function(bint) {
     var g = new Bigint(1);
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("GCD of types other than bigints not supported");
+    }
     // checks and balances
     var x = this.copy();
     var y = bint.copy();
@@ -6421,6 +6502,9 @@ Bigint.prototype.lcm = function(bint) {
   @return {Bigint}
 */
 Bigint.prototype.or = function(bint) {
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("OR of types other than bigints not supported");
+    }
     var ret = new Bigint(0);
     var a, b, i;
     if (this.used > bint.used) {
@@ -6449,6 +6533,9 @@ Bigint.prototype.or = function(bint) {
   @return {Bigint}
 */
 Bigint.prototype.and = function(bint) {
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("AND of types other than bigints not supported");
+    }
     var ret = new Bigint(0);
     var a, b, i;
     if (this.used < bint.used) {
@@ -6474,6 +6561,9 @@ Bigint.prototype.and = function(bint) {
   @return {Bigint}
 */
 Bigint.prototype.xor = function(bint) {
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("XOR of types other than bigints not supported");
+    }
     var ret = new Bigint(0);
     var a, b, i;
     if (this.used < bint.used) {
@@ -6618,6 +6708,9 @@ Bigint.prototype.mask = function(n) {
 */
 Bigint.prototype.jacobi = function(p) {
     var f, b, ret;
+    if(!(p instanceof Bigint)){
+        throw new RangeError("jacobi of types other than bigints not supported");
+    }
     // Mathematica (wolframalpha.com actually) returns zero for p=0
     // but 0 is even!?
     if (p.sign == MP_NEG || p.isZero()) {
@@ -6706,6 +6799,9 @@ Bigint.prototype.kjacobi = function(p) {
 */
 Bigint.prototype.modInv = function(b) {
     var x, y, u, v, A, B, C, D;
+    if(!(b instanceof Bigint)){
+        throw new RangeError("modInv of types other than bigints not supported");
+    }
     if (b.sign == MP_NEG) {
         // throw new RangeError("negative b in modInv()");
         return MP_VAL;
@@ -6772,6 +6868,9 @@ Bigint.prototype.modInv = function(b) {
 */
 Bigint.prototype.fastModInv = function(b) {
     var x, y, u, v, A, B, C, D;
+    if(!(b instanceof Bigint)){
+        throw new RangeError("fastModInv of types other than bigints not supported");
+    }
     if (b.sign == MP_NEG) {
         return MP_VAL;
     }
@@ -6837,6 +6936,9 @@ Bigint.prototype.barrettreduce = function(bint) {
     };
     var blen;
     var ret, q, mu;
+    if(!(bint instanceof Bigint)){
+        throw new RangeError("barrettreduce of types other than bigints not supported");
+    }
     // checks and balances
     blen = bint.used;
     q = this.copy();

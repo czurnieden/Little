@@ -439,6 +439,22 @@ Bigrational.prototype.isLowerOne = function() {
    @return {Bigrational} the sum
 */
 Bigrational.prototype.add = function(brat) {
+    
+    if(!(brat instanceof Bigrational)){
+        if(brat instanceof Bigfloat){
+            return this.toBigfloat().add(brat);
+        } else if (brat instanceof Bigint){
+            return this.add(brat.toBigrational());
+        } else if (brat instanceof Complex){
+            return this.toComplex().add(brat);
+        } else if (brat.isInt()) {
+            return this.add(brat.toBigrational());
+        } else {
+            throw new RangeError("Unsupported type in Bigrational.add");
+        }
+    }
+
+
     var a = this.num;
     var b = this.den;
     var c = brat.num;
@@ -488,6 +504,19 @@ Bigrational.prototype.add = function(brat) {
    @return {Bigrational} the difference
 */
 Bigrational.prototype.sub = function(brat) {
+    if(!(brat instanceof Bigrational)){
+        if(brat instanceof Bigfloat){
+            return this.toBigfloat().sub(brat);
+        } else if (brat instanceof Bigint){
+            return this.sub(brat.toBigrational());
+        } else if (brat instanceof Complex){
+            return this.toComplex().sub(brat);
+        } else if (brat.isInt()) {
+            return this.sub(brat.toBigrational());
+        } else {
+            throw new RangeError("Unsupported type in Bigrational.sub");
+        }
+    }
     var a = this.num;
     var b = this.den;
     var c = brat.num;
@@ -539,6 +568,19 @@ Bigrational.prototype.sub = function(brat) {
    @return {Bigrational} the product
 */
 Bigrational.prototype.mul = function(brat) {
+    if(!(brat instanceof Bigrational)){
+        if(brat instanceof Bigfloat){
+            return this.toBigfloat().mul(brat);
+        } else if (brat instanceof Bigint){
+            return this.mul(brat.toBigrational());
+        } else if (brat instanceof Complex){
+            return this.toComplex().mul(brat);
+        } else if (brat.isInt()) {
+            return this.mul(brat.toBigrational());
+        } else {
+            throw new RangeError("Unsupported type in Bigrational.mul");
+        }
+    }
     var a = this.num;
     var b = this.den;
     var c = brat.num;
@@ -599,6 +641,19 @@ Bigrational.prototype.inverse = function() {
    @return {Bigrational} quotient
 */
 Bigrational.prototype.div = function(brat) {
+    if(!(brat instanceof Bigrational)){
+        if(brat instanceof Bigfloat){
+            return this.toBigfloat().div(brat);
+        } else if (brat instanceof Bigint){
+            return this.div(brat.toBigrational());
+        } else if (brat instanceof Complex){
+            return this.toComplex().div(brat);
+        } else if (brat.isInt()) {
+            return this.div(brat.toBigrational());
+        } else {
+            throw new RangeError("Unsupported type in Bigrational.div");
+        }
+    }
     var a = this;
     if (brat.num.isZero()) {
         return (new Bigrational()).setNaN();
@@ -654,6 +709,19 @@ Bigrational.prototype.sqr = function() {
   @return {number}
 */
 Bigrational.prototype.cmp = function(brat) {
+    if(!(brat instanceof Bigrational)){
+        if(brat instanceof Bigfloat){
+            return this.toBigfloat().cmp(brat);
+        } else if (brat instanceof Bigint){
+            return this.cmp(brat.toBigrational());
+        } else if (brat instanceof Complex){
+            return this.toComplex().cmp(brat);
+        } else if (brat.isInt()) {
+            return this.cmp(brat.toBigrational());
+        } else {
+            throw new RangeError("Unsupported type in Bigrational.cmp");
+        }
+    }
     var a, b;
     var p1, p2;
     var e, wnuma, wdena, wnumb, wdenb, s1, s2;
